@@ -6,7 +6,6 @@ export async function getAuth() {
 
   const { getCloudflareContext } = await import("@opennextjs/cloudflare");
   const { betterAuth } = await import("better-auth");
-  const { D1Dialect } = await import("kysely-d1");
 
   const { env } = await getCloudflareContext({ async: true });
   const cfEnv = env as unknown as Cloudflare.Env & {
@@ -19,10 +18,9 @@ export async function getAuth() {
   authInstance = betterAuth({
     secret: cfEnv.BETTER_AUTH_SECRET,
     baseURL: cfEnv.BETTER_AUTH_URL,
-    database: {
-      dialect: new D1Dialect({ database: cfEnv.DB }),
-      type: "sqlite",
-    },
+    // Pass the raw D1 database — Better Auth auto-detects D1 and uses its own
+    // dialect with proper transaction fallback (kysely-d1 throws on beginTransaction)
+    database: cfEnv.DB,
     socialProviders: {
       github: {
         clientId: cfEnv.GITHUB_CLIENT_ID,

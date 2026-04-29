@@ -1,0 +1,6 @@
+# Local dev secrets — copy to .dev.vars and fill in values
+# Use a SEPARATE GitHub OAuth App for dev (callback: http://localhost:8787/api/auth/callback/github)
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+BETTER_AUTH_SECRET=any-random-string-at-least-32-chars!!
+BETTER_AUTH_URL=http://localhost:8787

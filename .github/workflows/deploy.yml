@@ -32,10 +32,17 @@ jobs:
       - name: Build for Cloudflare
         run: npm run build:cf
 
-      - name: Deploy to Cloudflare Workers
+      - name: Run D1 migrations (production)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+          command: d1 migrations apply personal-finance-auth --remote --env production
+
+      - name: Deploy to Cloudflare Workers (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --env production
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

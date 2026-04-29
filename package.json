@@ -9,7 +9,7 @@
     "lint": "eslint",
     "build:cf": "opennextjs-cloudflare build",
     "dev:cf": "opennextjs-cloudflare build && opennextjs-cloudflare preview -- --port 8787",
-    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --env production"
   },
   "dependencies": {
     "@better-auth/cli": "^1.4.21",

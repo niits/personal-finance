@@ -68,7 +68,9 @@ export default function Home() {
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
             <button
               className="btn-primary"
-              onClick={() => signIn.social({ provider: "github", callbackURL: "/" })}
+              onClick={async () => {
+                await signIn.social({ provider: "github", callbackURL: "/" });
+              }}
             >
               <GitHubIcon />
               Đăng nhập với GitHub
@@ -174,7 +176,9 @@ export default function Home() {
         {!isPending && !session && (
           <button
             className="btn-primary"
-            onClick={() => signIn.social({ provider: "github", callbackURL: "/" })}
+            onClick={async () => {
+              await signIn.social({ provider: "github", callbackURL: "/" });
+            }}
           >
             <GitHubIcon />
             Đăng nhập miễn phí với GitHub
