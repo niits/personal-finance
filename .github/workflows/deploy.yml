@@ -31,6 +31,8 @@ jobs:
 
       - name: Build for Cloudflare
         run: npm run build:cf
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
 
       - name: Run D1 migrations (production)
         uses: cloudflare/wrangler-action@v3
