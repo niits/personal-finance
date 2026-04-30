@@ -1,13 +1,15 @@
 # API Caching Strategy
 
-## Tổng quan
+## Overview
 
-App dùng hai tầng cache kết hợp:
+The app uses two complementary cache layers:
 
-1. **HTTP `Cache-Control` headers** — browser tự cache response, không cần gọi lại server
-2. **SWR (stale-while-revalidate)** — in-memory cache phía client, deduplicate request và invalidate khi có mutation
+1. **HTTP `Cache-Control` headers** — the browser caches responses automatically, avoiding repeat server calls
+2. **SWR (stale-while-revalidate)** — in-memory client cache that deduplicates requests and invalidates on mutation
 
-## HTTP Cache-Control
+---
+
+## HTTP Cache-Control Headers
 
 ### Categories
 
@@ -15,35 +17,37 @@ App dùng hai tầng cache kết hợp:
 Cache-Control: private, max-age=3600, stale-while-revalidate=300
 ```
 
-- `private` — chỉ browser local cache, Cloudflare CDN không cache (vì data theo từng user)
-- `max-age=3600` — dùng cache tối đa 1 giờ
-- `stale-while-revalidate=300` — sau 1 giờ, phục vụ data cũ ngay lập tức và fetch mới ở background trong vòng 5 phút tiếp theo
+- `private` — browser-local cache only; Cloudflare CDN does not cache (data is per-user)
+- `max-age=3600` — serve from cache for up to 1 hour
+- `stale-while-revalidate=300` — after 1 hour, serve stale data immediately while fetching fresh data in the background (within 5 minutes)
 
 ### Transactions
 
-Phân biệt tháng hiện tại và tháng cũ:
+Past and current months are treated differently:
 
-| Trường hợp | Cache-Control |
-|---|---|
-| Tháng hiện tại | `private, max-age=30, stale-while-revalidate=120` |
-| Tháng cũ (bất biến) | `private, max-age=86400` |
+| Case | Cache-Control |
+|------|---------------|
+| Current month | `private, max-age=30, stale-while-revalidate=120` |
+| Past month (immutable) | `private, max-age=86400` |
 
-Tháng cũ được coi là **immutable** — transaction không thể bị sửa, nên cache 24 giờ an toàn.
+Past months are treated as **immutable** — transactions cannot be modified retroactively, so a 24-hour cache is safe.
 
 ### Dashboard
 
-Tương tự transactions:
+Same strategy as transactions:
 
-| Trường hợp | Cache-Control |
-|---|---|
-| Tháng hiện tại | `private, max-age=60, stale-while-revalidate=300` |
-| Tháng cũ | `private, max-age=86400` |
+| Case | Cache-Control |
+|------|---------------|
+| Current month | `private, max-age=60, stale-while-revalidate=300` |
+| Past month | `private, max-age=86400` |
 
-## SWR (Client-side cache)
+---
 
-Dùng cho `/api/categories` vì đây là data được fetch ở nhiều nơi nhất:
-- `CategoriesPage` — hiển thị và quản lý danh mục
-- `TransactionForm` — chọn danh mục khi thêm giao dịch
+## SWR Client-Side Cache
+
+Used for `/api/categories` because it is fetched in multiple places:
+- `CategoriesPage` — displays and manages the category tree
+- `TransactionForm` — category picker when logging a transaction
 
 ### Cache key
 
@@ -51,29 +55,31 @@ Dùng cho `/api/categories` vì đây là data được fetch ở nhiều nơi n
 const CATS_KEY = "/api/categories"
 ```
 
-Cả hai component dùng cùng key → share một cache entry → chỉ một network request.
+Both components share the same key → share one cache entry → only one network request.
 
 ### Invalidation
 
-Sau mọi mutation (thêm danh mục, seed), gọi:
+After any mutation (add category, seed), call:
 
 ```ts
 mutate("/api/categories")
 ```
 
-SWR broadcast đến tất cả component đang subscribe key đó — cả hai nơi dùng categories đều nhận data mới mà không cần coordination.
+SWR broadcasts to all components subscribed to that key — both consumers receive fresh data without any explicit coordination between them.
 
-### Conditional fetching trong TransactionForm
+### Conditional fetching in TransactionForm
 
 ```ts
 useSWR(open ? "/api/categories" : null, fetcher)
 ```
 
-Truyền `null` làm key khi form chưa mở → SWR không fetch. Khi form mở lần đầu, nếu cache còn fresh từ `CategoriesPage` thì trả về ngay, không tốn network.
+Passing `null` as the key when the form is closed suspends fetching. When the form opens, if the cache is still fresh from a prior `CategoriesPage` visit, data is returned immediately with no network request.
 
-## Seed categories
+---
 
-API `POST /api/categories/seed` gọi `seedNewUser()` cho user hiện tại.  
-Hàm dùng `INSERT OR IGNORE` nên idempotent — gọi nhiều lần không sinh data trùng.
+## Seed Categories
 
-Nút "Tạo danh mục mẫu" chỉ hiện khi `cats.length === 0`. Sau khi seed, `mutate(CATS_KEY)` invalidate cache để hiển thị danh mục mới ngay lập tức.
+`POST /api/categories/seed` calls `seedNewUser()` for the current user.
+The function uses `INSERT OR IGNORE`, making it idempotent — safe to call multiple times.
+
+The "Create sample categories" button is shown only when `cats.length === 0`. After seeding, `mutate(CATS_KEY)` invalidates the cache so the new categories appear immediately.
