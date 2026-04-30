@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal Finance Tracker
 
-## Getting Started
+Ứng dụng theo dõi thu chi cá nhân — ghi nhanh giao dịch, theo dõi ngân sách tháng qua pace line chart.
 
-First, run the development server:
+**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind CSS · Cloudflare Workers · D1 (SQLite) · better-auth
+
+---
+
+## Tính năng
+
+- Ghi thu/chi với danh mục phân cấp (tối đa 3 cấp)
+- Ngân sách tháng + pace line chart (chi tiêu thực tế vs kế hoạch)
+- Custom budget cho các mục tiêu riêng (trip, dự án...)
+- Đăng nhập GitHub OAuth
+- UI mobile-first, tối ưu cho iPhone
+
+---
+
+## Phát triển cục bộ
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # Next.js dev server → http://localhost:3000
+npm run dev:cf       # Cloudflare Workers local preview → http://localhost:8787
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tạo file `.dev.vars` với các biến môi trường:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+BETTER_AUTH_SECRET=...
+BETTER_AUTH_URL=http://localhost:8787
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Build & Deploy
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run build:cf     # Build cho Cloudflare Workers (opennextjs)
+npm run deploy:cf    # Build + deploy lên production
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Deploy production tự động qua GitHub Actions khi push vào nhánh `main`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Database
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Chạy migrations cục bộ (D1 local)
+wrangler d1 migrations apply personal-finance-auth
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Chạy migrations trên production
+wrangler d1 migrations apply personal-finance-auth --remote --env production
+```
+
+---
+
+## Tests
+
+```bash
+npm test               # Unit + integration
+npm run test:unit      # Unit tests (Vitest / Node)
+npm run test:integration  # Integration tests (Vitest / Cloudflare Workers runtime)
+```
+
+---
+
+## Tài liệu
+
+| File | Nội dung |
+|------|----------|
+| [docs/BRD.md](docs/BRD.md) | Business Requirements — yêu cầu, data model, business rules |
+| [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) | Thiết kế kỹ thuật — schema, API, edge cases |
+| [docs/FLOWS.md](docs/FLOWS.md) | Sequence diagrams cho các flow chính |
+| [docs/TESTING.md](docs/TESTING.md) | Chiến lược test — unit và integration |
+| [docs/API_CACHE.md](docs/API_CACHE.md) | Caching strategy — HTTP headers và SWR |
+| [DESIGN.md](DESIGN.md) | Design system — color tokens, typography, spacing |
+
+---
+
+## Cấu trúc thư mục
+
+```
+src/
+├── app/
+│   ├── api/          # API routes (categories, transactions, dashboard...)
+│   └── dashboard/    # UI pages (home, transactions, budget, categories)
+├── components/       # Shared components (TransactionForm, Navbar)
+└── lib/              # Business logic (validators, pace-line, auth, db, seed)
+migrations/           # D1 schema migrations
+docs/                 # Tài liệu dự án
+```

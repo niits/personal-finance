@@ -5,8 +5,10 @@
 | File | Purpose |
 |------|---------|
 | [BRD.md](./BRD.md) | Business Requirements Document — source of truth for all requirements, data model, business rules, and UI specs |
+| [TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md) | Technical design — DB schema, API contracts, edge cases, computed values |
 | [FLOWS.md](./FLOWS.md) | Sequence diagrams for all user-facing and system flows |
 | [TESTING.md](./TESTING.md) | Testing strategy — unit and integration test setup, patterns, and coverage targets |
+| [API_CACHE.md](./API_CACHE.md) | API caching strategy — HTTP Cache-Control headers and SWR client cache |
 | [dev_logs/](./dev_logs/) | Chronological development logs — debugging sessions, decisions, and implementation notes |
 
 ## Quick Reference
