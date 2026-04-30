@@ -27,19 +27,13 @@ function fmtPeriodDate(s: string) {
   return `${parseInt(d)}/${parseInt(m)}`;
 }
 
-function currentMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
-  const month = currentMonth();
 
   function load() {
-    fetch(`/api/dashboard?month=${month}`)
+    fetch("/api/dashboard")
       .then((r) => r.json())
       .then((d) => { setData(d as DashboardData); setLoading(false); })
       .catch(() => setLoading(false));
@@ -51,8 +45,9 @@ export default function DashboardPage() {
     ? Math.min((data.total_expense / data.monthly_budget.amount) * 100, 100)
     : 0;
 
-  const [y, m] = month.split("-");
-  const monthLabel = `Tháng ${parseInt(m)}/${y}`;
+  const monthLabel = data
+    ? (() => { const [y, m] = data.month.split("-"); return `Tháng ${parseInt(m)}/${y}`; })()
+    : "";
 
   return (
     <div>

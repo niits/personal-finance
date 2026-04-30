@@ -10,6 +10,7 @@ type MonthlyBudget = {
   adjustments: Adjustment[];
 };
 type BudgetPageData = {
+  month: string;
   monthly_budget: MonthlyBudget | null;
   start: string;
   end: string;
@@ -25,10 +26,6 @@ type CustomBudget = {
 function fmt(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n);
 }
-function currentMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
 function parseVND(s: string): number | null {
   const n = parseInt(s.replace(/[^\d]/g, ""), 10);
   return isNaN(n) || n <= 0 ? null : n;
@@ -40,14 +37,15 @@ function fmtPeriodDate(s: string) {
 }
 
 export default function BudgetPage() {
-  const month = currentMonth();
-  const [y, m] = month.split("-");
-  const monthLabel = `Tháng ${parseInt(m)}/${y}`;
-
+  const [month, setMonth] = useState<string | null>(null);
   const [budget, setBudget] = useState<MonthlyBudget | null>(null);
   const [period, setPeriod] = useState<{ start: string; end: string } | null>(null);
   const [customBudgets, setCustomBudgets] = useState<CustomBudget[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const monthLabel = month
+    ? (() => { const [y, m] = month.split("-"); return `Tháng ${parseInt(m)}/${y}`; })()
+    : "";
 
   // Monthly budget create
   const [createStr, setCreateStr] = useState("");
@@ -71,23 +69,24 @@ export default function BudgetPage() {
 
   const load = useCallback(async () => {
     const [mRes, cRes] = await Promise.all([
-      fetch(`/api/monthly-budgets?month=${month}`),
+      fetch("/api/monthly-budgets"),
       fetch("/api/custom-budgets"),
     ]);
     const mData = await mRes.json() as BudgetPageData;
     const cData = await cRes.json() as { custom_budgets?: CustomBudget[] };
+    setMonth(mData.month);
     setBudget(mData.monthly_budget ?? null);
     setPeriod(mData.start && mData.end ? { start: mData.start, end: mData.end } : null);
     setCustomBudgets(cData.custom_budgets ?? []);
     setLoading(false);
-  }, [month]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
   // ── Create monthly budget ──
   async function createBudget() {
     const amount = parseVND(createStr);
-    if (!amount) { setCreateErr("Số tiền không hợp lệ"); return; }
+    if (!amount || !month) { setCreateErr("Số tiền không hợp lệ"); return; }
     setCreateSaving(true); setCreateErr("");
     const r = await fetch("/api/monthly-budgets", {
       method: "POST",

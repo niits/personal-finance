@@ -35,10 +35,10 @@ export async function GET(request: NextRequest) {
     .first<{ id: number }>();
 
   const period = getBudgetPeriod(month);
-  if (!row) return Response.json({ monthly_budget: null, ...period });
+  if (!row) return Response.json({ month, monthly_budget: null, ...period });
 
   const budget = await getBudgetWithAdjustments(db, row.id);
-  return Response.json({ monthly_budget: budget, ...period });
+  return Response.json({ month, monthly_budget: budget, ...period });
 }
 
 export async function POST(request: NextRequest) {
