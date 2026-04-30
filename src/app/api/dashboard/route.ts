@@ -54,6 +54,10 @@ export async function GET(request: NextRequest) {
     paceStatus = totalExpense > ideal ? "over" : "under";
   }
 
+  const cacheHeader = isCurrentMonth
+    ? "private, max-age=60, stale-while-revalidate=300"
+    : "private, max-age=86400";
+
   return Response.json({
     month,
     total_expense: totalExpense,
@@ -64,5 +68,5 @@ export async function GET(request: NextRequest) {
     days_elapsed: daysElapsed,
     days_remaining: daysRemaining,
     pace_status: paceStatus,
-  });
+  }, { headers: { "Cache-Control": cacheHeader } });
 }

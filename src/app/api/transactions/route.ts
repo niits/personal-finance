@@ -121,6 +121,11 @@ export async function GET(request: NextRequest) {
     .bind(userId, `${month}-%`)
     .first<{ total_expense: number; total_income: number }>();
 
+  const isPastMonth = month !== currentMonth();
+  const cacheHeader = isPastMonth
+    ? "private, max-age=86400"
+    : "private, max-age=30, stale-while-revalidate=120";
+
   return Response.json({
     transactions: results.map((r) => formatTransaction(r, cbMap)),
     summary: {
@@ -128,7 +133,7 @@ export async function GET(request: NextRequest) {
       total_income: summary?.total_income ?? 0,
       savings: (summary?.total_income ?? 0) - (summary?.total_expense ?? 0),
     },
-  });
+  }, { headers: { "Cache-Control": cacheHeader } });
 }
 
 export async function POST(request: NextRequest) {
