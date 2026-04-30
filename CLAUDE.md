@@ -26,7 +26,7 @@ Use `/frontend-design` skill when building any UI component or page.
 ## Tech Stack
 
 - **Framework**: Next.js (App Router) + TypeScript + Tailwind CSS
-- **Deployment**: Cloudflare Pages via Wrangler
+- **Deployment**: Cloudflare Workers via `@opennextjs/cloudflare`
 - **Target**: Mobile-first (iPhone primary), responsive to laptop
 
 Use `/wrangler` skill before running any `wrangler` commands. Use `/cloudflare` skill for platform decisions (storage, routing, etc.).
@@ -35,11 +35,40 @@ Use `/wrangler` skill before running any `wrangler` commands. Use `/cloudflare` 
 
 ```bash
 # Dev
-npm run dev        # http://localhost:3000
+npm run dev          # Next.js dev server → http://localhost:3000
+npm run dev:cf       # Cloudflare Workers local preview → http://localhost:8787
 
-# Build
-npm run build
-
-# Deploy to Cloudflare Pages
-npx wrangler pages deploy .next
+# Build & deploy
+npm run build:cf     # Build for Cloudflare Workers
+npm run deploy:cf    # Build + deploy to production
 ```
+
+## Documentation
+
+All documentation must be written in English. UI strings in the app remain in Vietnamese.
+
+## Database Migrations
+
+Migrations run automatically before code deploy in CI (`deploy.yml`). The order is intentional: **migrations first, deploy second** — if a migration fails, the old code keeps running safely.
+
+**Never write a migration that breaks backward compatibility.** D1/SQLite only supports `ADD COLUMN` — use that constraint as a guide:
+
+```sql
+-- ✅ Safe: add nullable column
+ALTER TABLE "transaction" ADD COLUMN tags TEXT;
+
+-- ✅ Safe: add column with DEFAULT
+ALTER TABLE category ADD COLUMN icon TEXT NOT NULL DEFAULT '';
+
+-- ✅ Safe: add new table
+CREATE TABLE IF NOT EXISTS new_table (...);
+
+-- ❌ Never: rename or drop a column in a single deploy
+--    Use expand/contract across two deploys instead
+```
+
+**Expand/contract pattern** for renaming or removing a column:
+1. **Deploy 1 — Expand**: add the new column; code reads both old and new
+2. **Deploy 2 — Contract**: drop the old column; code only uses the new one
+
+This ensures any rollback to an older code version still works against the current schema.
