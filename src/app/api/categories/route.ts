@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
     .bind(session.user.id)
     .all<CategoryRow>();
 
-  return Response.json({ categories: buildTree(results) });
+  return Response.json({ categories: buildTree(results) }, {
+    headers: { "Cache-Control": "private, max-age=3600, stale-while-revalidate=300" },
+  });
 }
 
 export async function POST(request: NextRequest) {

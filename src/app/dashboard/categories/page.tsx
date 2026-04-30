@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
+import { fetcher } from "@/lib/fetcher";
 
 type Category = {
   id: number;
@@ -10,23 +12,16 @@ type Category = {
   children: Category[];
 };
 
+const CATS_KEY = "/api/categories";
+
 export default function CategoriesPage() {
-  const [cats, setCats] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useSWR<{ categories: Category[] }>(CATS_KEY, fetcher);
+  const cats = data?.categories ?? [];
   const [newName, setNewName] = useState("");
   const [parentId, setParentId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-
-  async function load() {
-    const r = await fetch("/api/categories");
-    const d = await r.json() as { categories?: Category[] };
-    setCats(d.categories ?? []);
-    setLoading(false);
-  }
-
-  useEffect(() => { load(); }, []);
 
   async function save() {
     if (!newName.trim()) return;
@@ -43,7 +38,14 @@ export default function CategoriesPage() {
     setParentId(null);
     setShowForm(false);
     setSaving(false);
-    load();
+    mutate(CATS_KEY);
+  }
+
+  async function seedCategories() {
+    setSaving(true);
+    await fetch("/api/categories/seed", { method: "POST" });
+    setSaving(false);
+    mutate(CATS_KEY);
   }
 
   // Flatten for parent selector (only show level 1 and 2 as potential parents)
@@ -242,21 +244,36 @@ export default function CategoriesPage() {
 
       {/* Category list */}
       <div style={{ marginTop: 1 }}>
-        {loading ? (
+        {isLoading ? (
           <div style={{ padding: "40px 22px", textAlign: "center", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14 }}>
             Đang tải…
           </div>
         ) : cats.length === 0 ? (
-          <div style={{
-            padding: "40px 22px",
-            textAlign: "center",
-          }}>
+          <div style={{ padding: "40px 22px", textAlign: "center" }}>
             <p style={{ fontFamily: "var(--font-display)", fontSize: 21, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>
               Chưa có danh mục
             </p>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
-              Tạo danh mục để phân loại chi tiêu
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 24 }}>
+              Tạo thủ công hoặc dùng bộ danh mục mẫu
             </p>
+            <button
+              onClick={seedCategories}
+              disabled={saving}
+              style={{
+                background: "var(--primary)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 999,
+                padding: "12px 24px",
+                fontFamily: "var(--font-body)",
+                fontSize: 15,
+                fontWeight: 400,
+                cursor: saving ? "not-allowed" : "pointer",
+                opacity: saving ? 0.6 : 1,
+              }}
+            >
+              {saving ? "Đang tạo…" : "Tạo danh mục mẫu"}
+            </button>
           </div>
         ) : (
           cats.map((c) => renderCategory(c))

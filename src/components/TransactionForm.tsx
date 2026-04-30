@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 
 type Category = {
   id: number;
@@ -339,26 +341,24 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [date, setDate] = useState(todayStr());
   const [note, setNote] = useState("");
-  const [cats, setCats] = useState<Category[]>([]);
-  const [customBudgets, setCustomBudgets] = useState<CustomBudget[]>([]);
   const [selectedCbIds, setSelectedCbIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const loadData = useCallback(async () => {
-    const [catRes, cbRes] = await Promise.all([
-      fetch("/api/categories"),
-      fetch("/api/custom-budgets?active_only=true"),
-    ]);
-    const catData = await catRes.json() as { categories?: Category[] };
-    const cbData = await cbRes.json() as { custom_budgets?: CustomBudget[] };
-    setCats(catData.categories ?? []);
-    setCustomBudgets(cbData.custom_budgets ?? []);
-  }, []);
+  const { data: catData } = useSWR<{ categories: Category[] }>(
+    open ? "/api/categories" : null,
+    fetcher,
+  );
+  const { data: cbData } = useSWR<{ custom_budgets: CustomBudget[] }>(
+    open ? "/api/custom-budgets?active_only=true" : null,
+    fetcher,
+  );
+  const cats = catData?.categories ?? [];
+  const customBudgets = cbData?.custom_budgets ?? [];
 
   useEffect(() => {
-    if (open) loadData();
-  }, [open, loadData]);
+    if (!open) return;
+  }, [open]);
 
   function reset() {
     setType("expense");
