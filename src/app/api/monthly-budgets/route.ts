@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { parseAmount, parseMonth, currentMonth } from "@/lib/validators";
+import { parseAmount, parseMonth, currentBudgetMonth, getBudgetPeriod } from "@/lib/validators";
 
 async function getBudgetWithAdjustments(db: D1Database, budgetId: number) {
   const budget = await db
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
 
-  const month = parseMonth(request.nextUrl.searchParams.get("month")) ?? currentMonth();
+  const month = parseMonth(request.nextUrl.searchParams.get("month")) ?? currentBudgetMonth();
   const db = await getDB();
 
   const row = await db
@@ -34,10 +34,11 @@ export async function GET(request: NextRequest) {
     .bind(session.user.id, month)
     .first<{ id: number }>();
 
-  if (!row) return Response.json({ monthly_budget: null });
+  const period = getBudgetPeriod(month);
+  if (!row) return Response.json({ monthly_budget: null, ...period });
 
   const budget = await getBudgetWithAdjustments(db, row.id);
-  return Response.json({ monthly_budget: budget });
+  return Response.json({ monthly_budget: budget, ...period });
 }
 
 export async function POST(request: NextRequest) {
@@ -73,5 +74,6 @@ export async function POST(request: NextRequest) {
     .first<{ id: number }>();
 
   const budget = await getBudgetWithAdjustments(db, result!.id);
-  return Response.json({ monthly_budget: budget }, { status: 201 });
+  const period = getBudgetPeriod(month);
+  return Response.json({ monthly_budget: budget, ...period }, { status: 201 });
 }

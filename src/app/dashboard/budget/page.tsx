@@ -9,6 +9,11 @@ type MonthlyBudget = {
   amount: number;
   adjustments: Adjustment[];
 };
+type BudgetPageData = {
+  monthly_budget: MonthlyBudget | null;
+  start: string;
+  end: string;
+};
 type CustomBudget = {
   id: number;
   name: string;
@@ -29,12 +34,18 @@ function parseVND(s: string): number | null {
   return isNaN(n) || n <= 0 ? null : n;
 }
 
+function fmtPeriodDate(s: string) {
+  const [, m, d] = s.split("-");
+  return `${parseInt(d)}/${parseInt(m)}`;
+}
+
 export default function BudgetPage() {
   const month = currentMonth();
   const [y, m] = month.split("-");
   const monthLabel = `Tháng ${parseInt(m)}/${y}`;
 
   const [budget, setBudget] = useState<MonthlyBudget | null>(null);
+  const [period, setPeriod] = useState<{ start: string; end: string } | null>(null);
   const [customBudgets, setCustomBudgets] = useState<CustomBudget[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -63,9 +74,10 @@ export default function BudgetPage() {
       fetch(`/api/monthly-budgets?month=${month}`),
       fetch("/api/custom-budgets"),
     ]);
-    const mData = await mRes.json() as { monthly_budget?: MonthlyBudget };
+    const mData = await mRes.json() as BudgetPageData;
     const cData = await cRes.json() as { custom_budgets?: CustomBudget[] };
     setBudget(mData.monthly_budget ?? null);
+    setPeriod(mData.start && mData.end ? { start: mData.start, end: mData.end } : null);
     setCustomBudgets(cData.custom_budgets ?? []);
     setLoading(false);
   }, [month]);
@@ -82,9 +94,10 @@ export default function BudgetPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ month, amount }),
     });
-    const d = await r.json() as { monthly_budget?: MonthlyBudget; error?: string };
-    if (!r.ok) { setCreateErr(d.error ?? "Lỗi"); setCreateSaving(false); return; }
+    const d = await r.json() as BudgetPageData & { error?: string };
+    if (!r.ok) { setCreateErr((d as { error?: string }).error ?? "Lỗi"); setCreateSaving(false); return; }
     setBudget(d.monthly_budget ?? null);
+    if (d.start && d.end) setPeriod({ start: d.start, end: d.end });
     setCreateStr("");
     setCreateSaving(false);
   }
@@ -150,9 +163,14 @@ export default function BudgetPage() {
     <div>
       {/* Header */}
       <div style={{ background: "var(--surface-black)", padding: "28px 22px 24px" }}>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 4 }}>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 2 }}>
           {monthLabel}
         </p>
+        {period && (
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-body)", marginBottom: 6 }}>
+            {fmtPeriodDate(period.start)} – {fmtPeriodDate(period.end)}
+          </p>
+        )}
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 600, color: "var(--on-dark)", letterSpacing: -0.28 }}>
           Ngân sách
         </h1>
@@ -163,9 +181,16 @@ export default function BudgetPage() {
         {/* ── Monthly budget card ── */}
         <div style={{ background: "var(--canvas)", borderRadius: "var(--radius-lg)", border: "1px solid var(--hairline)", overflow: "hidden" }}>
           <div style={{ padding: "20px", borderBottom: "1px solid var(--hairline)" }}>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginBottom: 6 }}>
-              Ngân sách tháng
-            </p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
+                Ngân sách tháng
+              </p>
+              {period && (
+                <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)" }}>
+                  {fmtPeriodDate(period.start)} – {fmtPeriodDate(period.end)}
+                </p>
+              )}
+            </div>
 
             {budget ? (
               <>

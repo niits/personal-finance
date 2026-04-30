@@ -6,11 +6,13 @@ import TransactionForm from "@/components/TransactionForm";
 
 type DashboardData = {
   month: string;
+  period_start: string;
+  period_end: string;
   total_expense: number;
   total_income: number;
   savings: number;
   monthly_budget: { id: number; amount: number; remaining: number } | null;
-  days_in_month: number;
+  days_in_period: number;
   days_elapsed: number;
   days_remaining: number;
   pace_status: "under" | "over" | "no_budget";
@@ -18,6 +20,11 @@ type DashboardData = {
 
 function fmt(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n);
+}
+
+function fmtPeriodDate(s: string) {
+  const [, m, d] = s.split("-");
+  return `${parseInt(d)}/${parseInt(m)}`;
 }
 
 function currentMonth() {
@@ -60,10 +67,21 @@ export default function DashboardPage() {
           fontSize: 12,
           color: "rgba(255,255,255,0.5)",
           letterSpacing: -0.12,
-          marginBottom: 6,
+          marginBottom: 2,
         }}>
           {monthLabel}
         </p>
+        {data && (
+          <p style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 11,
+            color: "rgba(255,255,255,0.3)",
+            letterSpacing: -0.1,
+            marginBottom: 6,
+          }}>
+            {fmtPeriodDate(data.period_start)} – {fmtPeriodDate(data.period_end)}
+          </p>
+        )}
         <p style={{
           fontFamily: "var(--font-display)",
           fontSize: 40,

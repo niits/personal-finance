@@ -1,3 +1,5 @@
+import { isHoliday } from "@/lib/holidays";
+
 export function parseAmount(val: unknown): number | null {
   const n = Number(val);
   if (!Number.isInteger(n) || n <= 0) return null;
@@ -30,10 +32,10 @@ export function currentDate(): string {
   return new Date().toISOString().substring(0, 10);
 }
 
-// Returns the last Mon-Fri of the given calendar month as YYYY-MM-DD.
+// Returns the last working day (Mon-Fri, non-holiday per VN public calendar) of the given month.
 export function lastWorkingDay(year: number, month: number): string {
   const d = new Date(Date.UTC(year, month, 0)); // last calendar day of month
-  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6 || isHoliday(d.toISOString().substring(0, 10))) {
     d.setUTCDate(d.getUTCDate() - 1);
   }
   return d.toISOString().substring(0, 10);
