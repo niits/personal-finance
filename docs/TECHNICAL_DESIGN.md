@@ -793,8 +793,7 @@ Upsert (INSERT OR REPLACE).
 | Case | Expected Behavior |
 |------|-------------------|
 | DELETE custom_budget that has linked transactions | Allowed; only `transaction_custom_budget` rows are deleted (cascade), transactions remain |
-| PATCH `amount` to 0 | `400 { error: "Số tiền mục tiêu phải lớn hơn 0" }` |
-| Toggle inactive → active | Allowed; budget reappears in transaction form |
+| PATCH `amount` to 0 | `400 { error: "Số tiền mục tiêu phải lớn hơn 0" }` || Toggle inactive → active | Allowed; budget reappears in transaction form |
 | GET spending of deleted custom_budget | N/A (budget is deleted, no history view needed) |
 | Two custom budgets with same name for same user | Allowed (no uniqueness constraint) |
 

@@ -1,6 +1,6 @@
-# 2026-04-29 — Auth Debug: GitHub OAuth login không hoạt động trong local dev
+# 2026-04-29 — Auth Debug: GitHub OAuth login not working in local dev
 
-## Môi trường
+## Environment
 
 - Next.js 16 (App Router) + TypeScript
 - Cloudflare Workers via `@opennextjs/cloudflare`
@@ -9,70 +9,70 @@
 
 ---
 
-## Vấn đề 1: `export const runtime = "edge"` làm crash route module
+## Issue 1: `export const runtime = "edge"` crashes the route module
 
-**Triệu chứng:** `POST /api/auth/sign-in/social` → 500. Wrangler log không có chi tiết lỗi. Next.js bundle log: `TypeError: Cannot read properties of undefined (reading 'default')` tại `interopDefault` → `loadComponentsImpl`.
+**Symptom:** `POST /api/auth/sign-in/social` → 500. Wrangler log shows no error details. Next.js bundle log: `TypeError: Cannot read properties of undefined (reading 'default')` at `interopDefault` → `loadComponentsImpl`.
 
-**Nguyên nhân:** `export const runtime = "edge"` trong `src/app/api/auth/[...all]/route.ts` khiến Next.js load module qua một code path khác (edge runtime). Trong bundle của OpenNext/Cloudflare, code path đó fail và module trả về `undefined`. `interopDefault(undefined)` → throw.
+**Root cause:** `export const runtime = "edge"` in `src/app/api/auth/[...all]/route.ts` causes Next.js to load the module through a different code path (edge runtime). In the OpenNext/Cloudflare bundle, that code path fails and the module returns `undefined`. `interopDefault(undefined)` → throws.
 
-**Fix:** Xóa `export const runtime = "edge"`. Trong Workers environment mọi route đều chạy Workers runtime mặc định, không cần khai báo thêm.
+**Fix:** Remove `export const runtime = "edge"`. In the Workers environment all routes run on the Workers runtime by default — no explicit declaration is needed.
 
 ---
 
-## Vấn đề 2: `kysely-d1` không hỗ trợ transactions → account không được tạo
+## Issue 2: `kysely-d1` does not support transactions → account never created
 
-**Triệu chứng:** Sau khi GitHub callback thành công, DB có bản ghi `user` nhưng bảng `account` trống. Lần đăng nhập tiếp theo trả về `error=unable_to_link_account`.
+**Symptom:** After a successful GitHub callback, the DB has a `user` row but the `account` table is empty. The next login attempt returns `error=unable_to_link_account`.
 
-**Nguyên nhân:**
-- Better Auth bọc `createOAuthUser` (tạo user + account) trong `runWithTransaction()`
-- `runWithTransaction` gọi `adapter.transaction()` → Kysely gọi `driver.beginTransaction()` → `kysely-d1` throw `'Transactions are not supported yet.'`
-- Vì không có real transaction, user đã được INSERT trước khi lỗi xảy ra → orphaned user
-- `account` không được tạo
+**Root cause:**
+- Better Auth wraps `createOAuthUser` (creates user + account) inside `runWithTransaction()`
+- `runWithTransaction` calls `adapter.transaction()` → Kysely calls `driver.beginTransaction()` → `kysely-d1` throws `'Transactions are not supported yet.'`
+- Because there is no real transaction, the user was already INSERTed before the error occurred → orphaned user
+- `account` is never created
 
-**Fix:** Bỏ `kysely-d1`, truyền raw D1 object thẳng vào `database`:
+**Fix:** Drop `kysely-d1` and pass the raw D1 object directly to `database`:
 ```ts
-// TRƯỚC (lỗi):
+// BEFORE (broken):
 database: { dialect: new D1Dialect({ database: cfEnv.DB }), type: "sqlite" }
 
-// SAU (đúng):
+// AFTER (correct):
 database: cfEnv.DB
 ```
-Better Auth tự detect D1 (`"batch" in db && "exec" in db && "prepare" in db`) và dùng `D1SqliteDialect` nội bộ với `transaction: void 0` → adapter-base patch `transaction = async (cb) => cb(adapter)` (no-op fallback, an toàn).
+Better Auth auto-detects D1 (`"batch" in db && "exec" in db && "prepare" in db`) and uses its internal `D1SqliteDialect` with `transaction: void 0` → adapter-base patches `transaction = async (cb) => cb(adapter)` (no-op fallback, safe).
 
 ---
 
-## Vấn đề 3: Schema migration thiếu cột → INSERT account bị lỗi SQLite
+## Issue 3: Schema migration missing columns → SQLite error on account INSERT
 
-**Triệu chứng:** Ngay cả sau fix #2, account vẫn không được tạo. DB vẫn orphaned.
+**Symptom:** Even after fix #2, account still not created. DB still orphaned.
 
-**Nguyên nhân:** Migration `0001_auth_schema.sql` được tạo từ phiên bản cũ của Better Auth. Better Auth 1.6.9 thêm 3 cột mới vào bảng `account` khi insert OAuth tokens:
+**Root cause:** Migration `0001_auth_schema.sql` was generated from an older version of Better Auth. Better Auth 1.6.9 inserts 3 new columns into the `account` table when storing OAuth tokens:
 - `accessTokenExpiresAt`
-- `refreshTokenExpiresAt`  
+- `refreshTokenExpiresAt`
 - `scope`
 
-Schema cũ không có 3 cột này → SQLite throw "table account has no column named accessTokenExpiresAt" → INSERT fail → account không được tạo.
+The old schema did not have these 3 columns → SQLite throws "table account has no column named accessTokenExpiresAt" → INSERT fails → account never created.
 
-**Fix:** Tạo migration `0002_account_tokens.sql`:
+**Fix:** Create migration `0002_account_tokens.sql`:
 ```sql
 ALTER TABLE `account` ADD COLUMN `accessTokenExpiresAt` integer;
 ALTER TABLE `account` ADD COLUMN `refreshTokenExpiresAt` integer;
 ALTER TABLE `account` ADD COLUMN `scope` text;
 ```
-Apply cả local (`--local`) lẫn remote (`--remote`).
+Apply to both local (`--local`) and remote (`--remote`).
 
 ---
 
-## Tóm tắt thứ tự fix
+## Fix Order Summary
 
-1. Xóa `export const runtime = "edge"` khỏi auth route
-2. Dùng raw `cfEnv.DB` thay vì `kysely-d1` D1Dialect
-3. Chạy migration `0002_account_tokens.sql` trên local và remote DB
-4. Xóa orphaned data: `DELETE FROM user; DELETE FROM session; DELETE FROM account;`
+1. Remove `export const runtime = "edge"` from the auth route
+2. Use raw `cfEnv.DB` instead of the `kysely-d1` D1Dialect
+3. Run migration `0002_account_tokens.sql` on both local and remote DB
+4. Clean up orphaned data: `DELETE FROM user; DELETE FROM session; DELETE FROM account;`
 
 ---
 
-## Bài học
+## Lessons Learned
 
-- Không dùng `export const runtime = "edge"` trong Cloudflare Workers + OpenNext — Workers runtime là default.
-- `kysely-d1` không tương thích với Better Auth vì không support transactions. Dùng raw D1 object để Better Auth tự quản lý.
-- Khi upgrade Better Auth, luôn kiểm tra schema migration có đủ cột không — chạy `npx @better-auth/cli generate` để so sánh.
+- Do not use `export const runtime = "edge"` with Cloudflare Workers + OpenNext — Workers runtime is the default.
+- `kysely-d1` is incompatible with Better Auth because it does not support transactions. Use the raw D1 object so Better Auth manages it internally.
+- When upgrading Better Auth, always verify the schema migration includes all required columns — run `npx @better-auth/cli generate` to compare.

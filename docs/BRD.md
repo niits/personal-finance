@@ -33,7 +33,7 @@
 
 ## 1. Executive Summary
 
-Hệ thống theo dõi tài chính cá nhân cho phép người dùng ghi nhận thu nhập và chi tiêu hàng ngày, quản lý ngân sách theo tháng, và theo dõi tiến độ chi tiêu thực tế so với kế hoạch thông qua biểu đồ pace line. Mục tiêu cuối cùng là giúp người dùng nhận biết được mình đang tiêu nhiều hay ít so với kế hoạch tại bất kỳ thời điểm nào trong tháng.
+The Personal Finance Tracker enables users to record daily income and expenses, manage monthly budgets, and monitor actual spending progress versus plan via a pace line chart. The primary goal is to let users instantly know whether they are spending ahead of or below plan at any point during the month.
 
 ---
 
@@ -41,40 +41,36 @@ Hệ thống theo dõi tài chính cá nhân cho phép người dùng ghi nhận
 
 ### 2.1 Problem Statement
 
-Việc theo dõi chi tiêu cá nhân hiện nay đòi hỏi dùng spreadsheet thủ công hoặc các ứng dụng phức tạp không phù hợp với thói quen dùng điện thoại. Người dùng thiếu một công cụ đơn giản, nhanh để ghi nhận chi tiêu tức thời và có cái nhìn trực quan về tiến độ ngân sách trong tháng.
+Many people currently track personal expenses with manual spreadsheets or complex apps that are not optimized for quick mobile use. There is a need for a simple, fast tool to record expenses immediately and provide a clear, visual view of monthly budget progress.
 
 ### 2.2 Proposed Solution
 
-Ứng dụng web mobile-first chạy trên Cloudflare Pages, giao diện tối giản theo phong cách Apple. Màn hình chính là form nhập giao dịch — mở app là nhập được ngay — kèm theo trạng thái ngân sách tháng hiện tại.
+Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a minimal, Apple-inspired UI. The primary screen is a transaction entry form — open the app and you can record a transaction immediately — accompanied by the current monthly budget status.
 
 ### 2.3 Current State vs Future State
 
 | Aspect | Current State | Future State |
 |--------|--------------|--------------|
-| Ghi chép chi tiêu | Thủ công (spreadsheet / ghi nhớ) | Nhập trực tiếp trên app trong vài giây |
-| Theo dõi ngân sách | Không có hoặc kiểm tra cuối tháng | Pace line real-time, biết ngay hôm nay đang vượt hay tiết kiệm |
-| Phân loại | Không nhất quán | Danh mục phân cấp, nhất quán, có thể tùy chỉnh |
-| Báo cáo | Tính tay | Tổng hợp tự động theo tháng, danh mục, và ngân sách |
-
----
-
-## 3. Business Objectives
+| Expense recording | Manual (spreadsheet / memory) | Entered directly in-app within seconds |
+| Budget tracking | None or end-of-month check only | Real-time pace line — know instantly if today is over or under pace |
+| Categorization | Inconsistent | Hierarchical, consistent, customizable categories |
+| Reporting | Calculated manually | Automatic aggregation by month, category, and budget |
 
 ### 3.1 Primary Objectives
 
 | ID | Objective | Success Criteria |
 |----|-----------|-----------------|
-| OBJ-01 | Ghi nhận giao dịch nhanh chóng | Thời gian nhập 1 giao dịch < 10 giây |
-| OBJ-02 | Theo dõi tiến độ ngân sách tháng | Người dùng biết ngay hôm nay đang vượt hay dưới pace |
-| OBJ-03 | Phân tích chi tiêu theo danh mục | Xem được breakdown chi tiêu theo tháng và danh mục |
-| OBJ-04 | Tính toán tiết kiệm hàng tháng | Hiển thị chính xác: Thu nhập − Chi tiêu = Tiết kiệm |
+| OBJ-01 | Fast transaction capture | Time to record a transaction < 10s |
+| OBJ-02 | Track monthly budget progress | User can tell immediately if they are over or under pace |
+| OBJ-03 | Expense analysis by category | Provide monthly breakdown by category |
+| OBJ-04 | Calculate monthly savings | Accurately display: Income − Expense = Savings |
 
 ### 3.2 Secondary Objectives
 
 | ID | Objective |
 |----|-----------|
-| OBJ-05 | Quản lý ngân sách linh hoạt (tăng/giảm mid-month) với audit trail |
-| OBJ-06 | Hỗ trợ ngân sách dự án riêng (custom budgets) ngoài ngân sách tháng |
+| OBJ-05 | Flexible budget management (increase/decrease mid-month) with audit trail |
+| OBJ-06 | Support project-specific budgets (custom budgets) independent of the monthly budget |
 
 ---
 
@@ -82,26 +78,26 @@ Việc theo dõi chi tiêu cá nhân hiện nay đòi hỏi dùng spreadsheet th
 
 ### 4.1 In Scope
 
-- Xác thực người dùng qua GitHub OAuth
-- Quản lý danh mục chi tiêu phân cấp (tối đa 3 cấp)
-- Ghi nhận giao dịch chi tiêu và thu nhập (thủ công)
-- Ngân sách tháng: tạo, điều chỉnh, lịch sử thay đổi
-- Custom budgets: tạo, quản lý, gán giao dịch
-- Pace line chart: biểu đồ tích lũy chi tiêu vs ngân sách lý tưởng
-- Lịch sử giao dịch: xem, sửa, xóa, lọc
-- Thống kê tháng: tổng chi, tổng thu, tiết kiệm
-- Cấu hình giá trị ngân sách mặc định tháng tới
-- Giao diện tiếng Việt, đơn vị VND
+- User authentication via GitHub OAuth
+- Hierarchical expense category management (up to 3 levels)
+- Manual recording of expense and income transactions
+- Monthly budgets: create, adjust, and view change history
+- Custom budgets: create, manage, and associate with transactions
+- Pace line chart: cumulative spending vs ideal budget line
+- Transaction history: view, edit, delete, filter
+- Monthly summaries: total expenses, total income, savings
+- Default monthly budget value configuration for the next month
+- Vietnamese-language UI and VND currency (initial target)
 
 ### 4.2 Out of Scope
 
-- Import dữ liệu từ file ngân hàng (CSV, PDF)
-- Đa tiền tệ
-- Recurring transactions (giao dịch lặp lại tự động)
-- Chia sẻ dữ liệu giữa nhiều người dùng
-- Export báo cáo
-- Push notification / reminder
-- Tích hợp ngân hàng trực tiếp (Open Banking)
+- Importing data from bank files (CSV, PDF)
+- Multi-currency support
+- Recurring transactions (automated repeat transactions)
+- Data sharing between multiple users
+- Report export
+- Push notifications / reminders
+- Direct bank integration (Open Banking)
 
 ---
 
@@ -109,9 +105,9 @@ Việc theo dõi chi tiêu cá nhân hiện nay đòi hỏi dùng spreadsheet th
 
 | Role | Name | Responsibilities |
 |------|------|-----------------|
-| Product Owner | niits | Định nghĩa yêu cầu, phê duyệt |
-| Developer | niits | Thiết kế, xây dựng, triển khai |
-| End User | niits | Sử dụng ứng dụng hàng ngày |
+| Product Owner | niits | Define requirements, approve |
+| Developer | niits | Design, build, deploy |
+| End User | niits | Use the application daily |
 
 ---
 
@@ -121,10 +117,10 @@ Việc theo dõi chi tiêu cá nhân hiện nay đòi hỏi dùng spreadsheet th
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| AUTH-01 | Hệ thống phải hỗ trợ đăng nhập bằng GitHub OAuth | Must Have |
-| AUTH-02 | Mỗi tài khoản GitHub tương ứng với 1 profile người dùng độc lập | Must Have |
-| AUTH-03 | Session phải được duy trì qua cookie bảo mật (httpOnly) | Must Have |
-| AUTH-04 | Người dùng chưa đăng nhập không được truy cập bất kỳ dữ liệu nào | Must Have |
+| AUTH-01 | The system must support login via GitHub OAuth | Must Have |
+| AUTH-02 | Each GitHub account corresponds to one independent user profile | Must Have |
+| AUTH-03 | Sessions must be maintained via a secure httpOnly cookie | Must Have |
+| AUTH-04 | Unauthenticated users must not be able to access any data | Must Have |
 
 ---
 
@@ -132,17 +128,17 @@ Việc theo dõi chi tiêu cá nhân hiện nay đòi hỏi dùng spreadsheet th
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| TXN-01 | Người dùng phải có thể tạo giao dịch chi tiêu với các field: số tiền, danh mục, ghi chú (optional), ngày | Must Have |
-| TXN-02 | Người dùng phải có thể tạo giao dịch thu nhập với các field: số tiền, danh mục, ghi chú (optional), ngày | Must Have |
-| TXN-03 | Mỗi giao dịch chi tiêu phải được tự động liên kết với Monthly Budget của tháng tương ứng | Must Have |
-| TXN-04 | Người dùng có thể gán giao dịch chi tiêu vào một hoặc nhiều Custom Budget | Must Have |
-| TXN-05 | Giao dịch thu nhập không liên kết với bất kỳ Budget nào | Must Have |
-| TXN-06 | Người dùng phải có thể xem danh sách giao dịch nhóm theo ngày, mặc định hiển thị tháng hiện tại | Must Have |
-| TXN-07 | Người dùng phải có thể sửa bất kỳ field nào của giao dịch | Must Have |
-| TXN-08 | Người dùng phải có thể xóa giao dịch | Must Have |
-| TXN-09 | Người dùng phải có thể lọc danh sách giao dịch theo: tháng, danh mục, loại (chi/thu), custom budget | Should Have |
-| TXN-10 | Số tiền phải là số nguyên dương, đơn vị VND | Must Have |
-| TXN-11 | Ngày giao dịch mặc định là ngày hiện tại, người dùng có thể chọn ngày khác | Must Have |
+| TXN-01 | Users must be able to create an expense transaction with: amount, category, note (optional), date | Must Have |
+| TXN-02 | Users must be able to create an income transaction with: amount, category, note (optional), date | Must Have |
+| TXN-03 | Each expense transaction must be automatically linked to the Monthly Budget for its month | Must Have |
+| TXN-04 | Users may assign an expense transaction to one or more Custom Budgets | Must Have |
+| TXN-05 | Income transactions are not linked to any budget | Must Have |
+| TXN-06 | Users must be able to view transactions grouped by date, defaulting to the current month | Must Have |
+| TXN-07 | Users must be able to edit any field of a transaction | Must Have |
+| TXN-08 | Users must be able to delete a transaction | Must Have |
+| TXN-09 | Users must be able to filter the transaction list by: month, category, type (expense/income), custom budget | Should Have |
+| TXN-10 | Amount must be a positive integer in VND | Must Have |
+| TXN-11 | Transaction date defaults to today; users may select a different date | Must Have |
 
 ---
 
@@ -150,14 +146,14 @@ Việc theo dõi chi tiêu cá nhân hiện nay đòi hỏi dùng spreadsheet th
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| MBGT-01 | Mỗi user chỉ có tối đa 1 Monthly Budget cho mỗi tháng | Must Have |
-| MBGT-02 | Người dùng phải có thể tạo Monthly Budget thủ công cho bất kỳ tháng nào chưa có budget | Must Have |
-| MBGT-03 | Khi tạo Monthly Budget, giá trị mặc định được lấy từ Budget Config | Should Have |
-| MBGT-04 | Người dùng phải có thể điều chỉnh số tiền Monthly Budget (tăng hoặc giảm) kèm ghi chú lý do | Must Have |
-| MBGT-05 | Mỗi lần điều chỉnh phải tạo ra 1 record Budget Adjustment để lưu lịch sử | Must Have |
-| MBGT-06 | Hệ thống phải hiển thị lịch sử điều chỉnh của Monthly Budget (ngày, delta, ghi chú) | Must Have |
-| MBGT-07 | Khi tạo giao dịch chi tiêu cho tháng T mà chưa có budget tháng T, hệ thống phải báo lỗi và yêu cầu tạo budget trước | Must Have |
-| MBGT-08 | Hệ thống phải hiển thị Pace Line Chart cho Monthly Budget (xem FR-CHART) | Must Have |
+| MBGT-01 | Each user may have at most 1 Monthly Budget per month | Must Have |
+| MBGT-02 | Users must be able to manually create a Monthly Budget for any month that does not yet have one | Must Have |
+| MBGT-03 | When creating a Monthly Budget, the default amount is taken from Budget Config | Should Have |
+| MBGT-04 | Users must be able to adjust the Monthly Budget amount (up or down) along with a reason note | Must Have |
+| MBGT-05 | Each adjustment must create a Budget Adjustment record to maintain history | Must Have |
+| MBGT-06 | The system must display the adjustment history of a Monthly Budget (date, delta, note) | Must Have |
+| MBGT-07 | If creating an expense transaction for month T and no budget for month T exists, the system must return an error and prompt the user to create a budget first | Must Have |
+| MBGT-08 | The system must display a Pace Line Chart for the Monthly Budget (see FR-CHART) | Must Have |
 
 ---
 
@@ -165,14 +161,14 @@ Việc theo dõi chi tiêu cá nhân hiện nay đòi hỏi dùng spreadsheet th
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| CBGT-01 | Người dùng phải có thể tạo Custom Budget với: tên và số tiền mục tiêu | Must Have |
-| CBGT-02 | Custom Budget có trạng thái active hoặc inactive, người dùng có thể toggle bất kỳ lúc nào | Must Have |
-| CBGT-03 | Chỉ Custom Budget đang active mới hiển thị trong form nhập giao dịch | Must Have |
-| CBGT-04 | Một giao dịch chi tiêu có thể được gán vào nhiều Custom Budget cùng lúc | Must Have |
-| CBGT-05 | Người dùng phải có thể xem danh sách giao dịch thuộc từng Custom Budget | Must Have |
-| CBGT-06 | Hệ thống phải hiển thị progress của Custom Budget: tổng đã chi / mục tiêu | Must Have |
-| CBGT-07 | Người dùng phải có thể sửa tên và số tiền mục tiêu của Custom Budget | Should Have |
-| CBGT-08 | Người dùng phải có thể xóa Custom Budget (không xóa các giao dịch liên quan) | Should Have |
+| CBGT-01 | Users must be able to create a Custom Budget with: name and target amount | Must Have |
+| CBGT-02 | Custom Budgets have an active or inactive status that users can toggle at any time | Must Have |
+| CBGT-03 | Only active Custom Budgets are shown in the transaction entry form | Must Have |
+| CBGT-04 | A single expense transaction can be assigned to multiple Custom Budgets simultaneously | Must Have |
+| CBGT-05 | Users must be able to view the list of transactions linked to each Custom Budget | Must Have |
+| CBGT-06 | The system must display progress for each Custom Budget: total spent / target | Must Have |
+| CBGT-07 | Users must be able to edit the name and target amount of a Custom Budget | Should Have |
+| CBGT-08 | Users must be able to delete a Custom Budget (associated transactions are not deleted) | Should Have |
 
 ---
 
@@ -180,10 +176,10 @@ Việc theo dõi chi tiêu cá nhân hiện nay đòi hỏi dùng spreadsheet th
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| BCFG-01 | Mỗi user có đúng 1 Budget Config record | Must Have |
-| BCFG-02 | Budget Config lưu trữ giá trị ngân sách mặc định dùng để seed Monthly Budget tháng tới | Must Have |
-| BCFG-03 | Thay đổi Budget Config không ảnh hưởng đến Monthly Budget đang tồn tại | Must Have |
-| BCFG-04 | Giao diện phải hiển thị rõ ràng rằng giá trị này chỉ dùng cho tháng tiếp theo | Must Have |
+| BCFG-01 | Each user has exactly one Budget Config record | Must Have |
+| BCFG-02 | Budget Config stores the default budget value used to seed next month's Monthly Budget | Must Have |
+| BCFG-03 | Changing Budget Config does not affect existing Monthly Budgets | Must Have |
+| BCFG-04 | The UI must clearly indicate that this value applies only to the next month | Must Have |
 
 ---
 
@@ -191,51 +187,51 @@ Việc theo dõi chi tiêu cá nhân hiện nay đòi hỏi dùng spreadsheet th
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| CAT-01 | Danh mục có cấu trúc phân cấp tối đa 3 cấp | Must Have |
-| CAT-02 | Hệ thống phải cung cấp bộ danh mục mặc định (seed data) khi user đăng ký lần đầu | Must Have |
-| CAT-03 | Người dùng phải có thể thêm danh mục ở bất kỳ cấp nào (1, 2, hoặc 3) | Must Have |
-| CAT-04 | Người dùng phải có thể đổi tên danh mục | Must Have |
-| CAT-05 | Người dùng phải có thể xóa danh mục không có giao dịch và không có danh mục con | Must Have |
-| CAT-06 | Khi xóa danh mục đang được dùng bởi giao dịch, hệ thống phải từ chối và hiển thị số lượng giao dịch bị ảnh hưởng | Must Have |
-| CAT-07 | Chỉ được chọn leaf node (danh mục không có con) khi gán cho giao dịch | Must Have |
-| CAT-08 | Danh mục cấp 3 không thể có danh mục con | Must Have |
+| CAT-01 | Categories have a hierarchical structure up to 3 levels deep | Must Have |
+| CAT-02 | The system must provide a default set of categories (seed data) when a user registers for the first time | Must Have |
+| CAT-03 | Users must be able to add a category at any level (1, 2, or 3) | Must Have |
+| CAT-04 | Users must be able to rename any category | Must Have |
+| CAT-05 | Users must be able to delete categories that have no transactions and no child categories | Must Have |
+| CAT-06 | When deleting a category that is used by transactions, the system must reject the deletion and display the number of affected transactions | Must Have |
+| CAT-07 | Only leaf nodes (categories with no children) may be assigned to transactions | Must Have |
+| CAT-08 | Level-3 categories cannot have child categories | Must Have |
 
 **Seed categories mặc định:**
 
 ```
-Ăn uống
-  └─ Ăn ngoài
-  └─ Đi chợ / siêu thị
-  └─ Đồ uống
+Food & Drink
+  └─ Dining out
+  └─ Groceries / supermarket
+  └─ Beverages
 
-Đi lại
-  └─ Xăng
-  └─ Gửi xe
+Transportation
+  └─ Fuel
+  └─ Parking
   └─ Taxi / Grab
 
-Mua sắm
-  └─ Quần áo
-  └─ Điện tử
-  └─ Gia dụng
+Shopping
+  └─ Clothing
+  └─ Electronics
+  └─ Household items
 
-Sức khoẻ
-  └─ Thuốc
-  └─ Khám bệnh
+Healthcare
+  └─ Medicine
+  └─ Doctor / clinic visits
 
-Giải trí
-  └─ Phim / sự kiện
-  └─ Game
-  └─ Du lịch
+Entertainment
+  └─ Movies / events
+  └─ Gaming
+  └─ Travel
 
-Hoá đơn & dịch vụ
-  └─ Điện nước
-  └─ Internet / điện thoại
-  └─ Thuê nhà
+Bills & Services
+  └─ Utilities
+  └─ Internet / phone
+  └─ Rent
 
-Thu nhập
-  └─ Lương
-  └─ Thưởng
-  └─ Thu nhập khác
+Income
+  └─ Salary
+  └─ Bonus
+  └─ Other income
 ```
 
 ---
@@ -244,13 +240,13 @@ Thu nhập
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| CHART-01 | Biểu đồ phải hiển thị 2 đường: Budget lý tưởng (dashed) và Chi thực tế (solid) | Must Have |
-| CHART-02 | Trục X: ngày trong tháng (1 đến N), trục Y: số tiền VND | Must Have |
-| CHART-03 | Đường budget lý tưởng: tuyến tính từ 0 đến `budget_amount`, điểm tại ngày D = `(budget_amount / days_in_month) × D` | Must Have |
-| CHART-04 | Đường chi thực tế: cumulative sum các expense transactions từ đầu tháng đến hôm nay | Must Have |
-| CHART-05 | Vùng fill giữa 2 đường: xanh khi thực tế ≤ lý tưởng, đỏ khi thực tế > lý tưởng | Must Have |
-| CHART-06 | Đường thực tế chỉ vẽ đến ngày hiện tại (không vẽ tương lai) | Must Have |
-| CHART-07 | Khi budget bị điều chỉnh, đường lý tưởng phải phản ánh giá trị budget hiện tại | Must Have |
+| CHART-01 | The chart must display 2 lines: the ideal budget line (dashed) and the actual spending line (solid) | Must Have |
+| CHART-02 | X-axis: days of the month (1 to N); Y-axis: amount in VND | Must Have |
+| CHART-03 | Ideal budget line: linear from 0 to `budget_amount`; value at day D = `(budget_amount / days_in_month) × D` | Must Have |
+| CHART-04 | Actual spending line: cumulative sum of expense transactions from the start of the month to today | Must Have |
+| CHART-05 | Fill area between the two lines: green when actual ≤ ideal, red when actual > ideal | Must Have |
+| CHART-06 | The actual line is drawn only up to the current day (no future projection) | Must Have |
+| CHART-07 | When the budget is adjusted, the ideal line must reflect the current budget amount | Must Have |
 
 ---
 
@@ -258,10 +254,10 @@ Thu nhập
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| RPT-01 | Màn hình Home phải hiển thị: tổng đã chi tháng này, budget còn lại, và tiết kiệm tháng này | Must Have |
-| RPT-02 | Tiết kiệm tháng = Tổng thu nhập − Tổng chi tiêu trong tháng | Must Have |
-| RPT-03 | Màn hình Transactions phải hiển thị summary: tổng chi, tổng thu, tiết kiệm cho tháng đang xem | Must Have |
-| RPT-04 | Người dùng phải có thể điều hướng xem dữ liệu của các tháng trước | Must Have |
+| RPT-01 | The Home screen must display: total spent this month, remaining budget, and this month's savings | Must Have |
+| RPT-02 | Monthly savings = total income − total expenses for the month | Must Have |
+| RPT-03 | The Transactions screen must display a summary: total expenses, total income, and savings for the viewed month | Must Have |
+| RPT-04 | Users must be able to navigate to view data from previous months | Must Have |
 
 ---
 
@@ -269,20 +265,20 @@ Thu nhập
 
 | ID | Rule |
 |----|------|
-| BR-01 | Mỗi user có đúng 1 Monthly Budget per tháng (unique constraint: user_id + month) |
-| BR-02 | Monthly Budget của tháng T phải tồn tại trước khi tạo expense transaction có date thuộc tháng T |
-| BR-03 | Income transaction không được liên kết với Monthly Budget hoặc Custom Budget |
-| BR-04 | Custom Budget không có time constraint — tồn tại cho đến khi người dùng xóa hoặc deactivate |
-| BR-05 | Budget Adjustment lưu delta (positive = tăng, negative = giảm); `MonthlyBudget.amount` luôn phản ánh tổng hiện tại |
-| BR-06 | Không được xóa danh mục đang được dùng bởi ít nhất 1 giao dịch |
-| BR-07 | Không được xóa danh mục khi còn danh mục con |
-| BR-08 | Chỉ leaf node (danh mục không có con) mới được gán cho giao dịch |
-| BR-09 | Danh mục tối đa 3 cấp; danh mục cấp 3 không thể có con |
-| BR-10 | Số tiền giao dịch phải là số nguyên dương (> 0), không có giá trị âm hoặc thập phân |
-| BR-11 | Budget Config change không ảnh hưởng retroactively đến Monthly Budget đã tồn tại |
-| BR-12 | Một expense transaction có thể thuộc 0, 1, hoặc nhiều Custom Budget đồng thời |
-| BR-13 | Mỗi user có đúng 1 Budget Config record (tạo tự động khi user đăng ký lần đầu) |
-| BR-14 | Seed categories được tạo tự động cho user mới, có thể sửa/xóa/thêm tùy ý sau đó |
+| BR-01 | Each user has exactly 1 Monthly Budget per month (unique constraint: user_id + month) |
+| BR-02 | A Monthly Budget for month T must exist before creating an expense transaction with a date in month T |
+| BR-03 | Income transactions must not be linked to any Monthly Budget or Custom Budget |
+| BR-04 | Custom Budgets have no time constraint — they persist until the user deletes or deactivates them |
+| BR-05 | Budget Adjustment stores the delta (positive = increase, negative = decrease); `MonthlyBudget.amount` always reflects the current total |
+| BR-06 | A category in use by at least one transaction cannot be deleted |
+| BR-07 | A category that still has child categories cannot be deleted |
+| BR-08 | Only leaf nodes (categories with no children) may be assigned to transactions |
+| BR-09 | Categories have a maximum of 3 levels; level-3 categories cannot have children |
+| BR-10 | Transaction amount must be a positive integer (> 0); negative values and decimals are not allowed |
+| BR-11 | Budget Config changes do not retroactively affect existing Monthly Budgets |
+| BR-12 | An expense transaction may belong to 0, 1, or many Custom Budgets simultaneously |
+| BR-13 | Each user has exactly 1 Budget Config record (auto-created on first login) |
+| BR-14 | Seed categories are auto-created for new users and can be freely edited, deleted, or extended afterwards |
 
 ---
 
@@ -292,41 +288,41 @@ Thu nhập
 
 | ID | Requirement |
 |----|-------------|
-| NFR-P01 | Thời gian phản hồi API cho các thao tác thông thường (CRUD) < 500ms |
-| NFR-P02 | Pace Line Chart phải render trong < 1 giây với tối đa 31 điểm dữ liệu |
-| NFR-P03 | Danh sách giao dịch tháng phải load trong < 1 giây |
+| NFR-P01 | API response time for standard operations (CRUD) < 500ms |
+| NFR-P02 | Pace Line Chart must render in < 1 second with up to 31 data points |
+| NFR-P03 | Monthly transaction list must load in < 1 second |
 
 ### 8.2 Security
 
 | ID | Requirement |
 |----|-------------|
-| NFR-S01 | Mọi API endpoint phải xác thực session trước khi xử lý |
-| NFR-S02 | User A không được đọc hoặc chỉnh sửa dữ liệu của User B |
-| NFR-S03 | SQL queries phải dùng parameterized statements, không concatenate string |
-| NFR-S04 | Session cookie phải có httpOnly và Secure flag |
+| NFR-S01 | Every API endpoint must authenticate the session before processing any request |
+| NFR-S02 | User A must not be able to read or modify User B's data |
+| NFR-S03 | SQL queries must use parameterized statements, never string concatenation |
+| NFR-S04 | Session cookies must have both httpOnly and Secure flags set |
 
 ### 8.3 Usability
 
 | ID | Requirement |
 |----|-------------|
-| NFR-U01 | Giao diện phải hoạt động tốt trên iPhone (375px – 430px viewport width) |
-| NFR-U02 | Giao diện phải responsive trên desktop (1280px+) |
-| NFR-U03 | Tất cả số tiền phải hiển thị định dạng có dấu phân cách hàng nghìn (VD: 1.500.000 ₫) |
-| NFR-U04 | Form nhập giao dịch phải tự focus vào field số tiền khi mở app |
+| NFR-U01 | The UI must work well on iPhone (375px – 430px viewport width) |
+| NFR-U02 | The UI must be responsive on desktop (1280px+) |
+| NFR-U03 | All amounts must display with thousands separators (e.g., 1.500.000 ₫) |
+| NFR-U04 | The transaction form must auto-focus the amount field when the app is opened |
 
 ### 8.4 Reliability
 
 | ID | Requirement |
 |----|-------------|
-| NFR-R01 | Ứng dụng chạy trên Cloudflare Pages (edge network), uptime theo SLA của Cloudflare |
-| NFR-R02 | Dữ liệu lưu trên Cloudflare D1 (SQLite), có backup tự động theo chính sách D1 |
+| NFR-R01 | The app runs on Cloudflare Pages (edge network); uptime is governed by Cloudflare's SLA |
+| NFR-R02 | Data is stored in Cloudflare D1 (SQLite) with automatic backups per D1's policy |
 
 ### 8.5 Maintainability
 
 | ID | Requirement |
 |----|-------------|
-| NFR-M01 | Schema migration phải dùng Wrangler migrations, không chỉnh sửa trực tiếp database |
-| NFR-M02 | Mọi thay đổi schema phải có migration file tương ứng |
+| NFR-M01 | Schema migrations must use Wrangler migrations; no direct database edits allowed |
+| NFR-M02 | Every schema change must have a corresponding migration file |
 
 ---
 
@@ -362,9 +358,9 @@ User ─────────┬──── BudgetConfig (1:1)
 | id | INTEGER | PK AUTOINCREMENT | |
 | user_id | TEXT | NOT NULL, FK → User.id | |
 | name | TEXT | NOT NULL | |
-| parent_id | INTEGER | FK → Category.id, nullable | Null nếu level 1 |
+| parent_id | INTEGER | FK → Category.id, nullable | Null if level 1 |
 | level | INTEGER | NOT NULL, CHECK (1-3) | |
-| sort_order | INTEGER | NOT NULL, DEFAULT 0 | Thứ tự hiển thị |
+| sort_order | INTEGER | NOT NULL, DEFAULT 0 | Display order |
 | created_at | DATETIME | NOT NULL | |
 
 #### Transaction
@@ -372,12 +368,12 @@ User ─────────┬──── BudgetConfig (1:1)
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
 | user_id | TEXT | NOT NULL, FK → User.id | |
-| amount | INTEGER | NOT NULL, CHECK (> 0) | VND, số nguyên dương |
+| amount | INTEGER | NOT NULL, CHECK (> 0) | VND, positive integer |
 | type | TEXT | NOT NULL, CHECK ('expense','income') | |
 | category_id | INTEGER | NOT NULL, FK → Category.id | |
 | note | TEXT | nullable | |
 | date | TEXT | NOT NULL | Format YYYY-MM-DD |
-| monthly_budget_id | INTEGER | FK → MonthlyBudget.id, nullable | Null cho income |
+| monthly_budget_id | INTEGER | FK → MonthlyBudget.id, nullable | Null for income |
 | created_at | DATETIME | NOT NULL | |
 
 #### TransactionCustomBudget
@@ -393,7 +389,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | id | INTEGER | PK AUTOINCREMENT | |
 | user_id | TEXT | NOT NULL, FK → User.id | |
 | month | TEXT | NOT NULL | Format YYYY-MM |
-| amount | INTEGER | NOT NULL, CHECK (> 0) | Giá trị hiện tại sau adjustments |
+| amount | INTEGER | NOT NULL, CHECK (> 0) | Current value after adjustments |
 | created_at | DATETIME | NOT NULL | |
 | UNIQUE | | (user_id, month) | |
 
@@ -402,8 +398,8 @@ User ─────────┬──── BudgetConfig (1:1)
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
 | monthly_budget_id | INTEGER | NOT NULL, FK → MonthlyBudget.id | |
-| delta | INTEGER | NOT NULL | Dương = tăng, âm = giảm |
-| note | TEXT | nullable | Lý do điều chỉnh |
+| delta | INTEGER | NOT NULL | Positive = increase, negative = decrease |
+| note | TEXT | nullable | Reason for adjustment |
 | created_at | DATETIME | NOT NULL | |
 
 #### CustomBudget
@@ -412,7 +408,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | id | INTEGER | PK AUTOINCREMENT | |
 | user_id | TEXT | NOT NULL, FK → User.id | |
 | name | TEXT | NOT NULL | |
-| amount | INTEGER | NOT NULL, CHECK (> 0) | Số tiền mục tiêu |
+| amount | INTEGER | NOT NULL, CHECK (> 0) | Target amount |
 | is_active | INTEGER | NOT NULL, DEFAULT 1 | 1 = active, 0 = inactive |
 | created_at | DATETIME | NOT NULL | |
 
@@ -421,7 +417,7 @@ User ─────────┬──── BudgetConfig (1:1)
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
 | user_id | TEXT | NOT NULL, UNIQUE, FK → User.id | 1 row per user |
-| default_monthly_amount | INTEGER | NOT NULL, CHECK (> 0) | Giá trị seed tháng tới |
+| default_monthly_amount | INTEGER | NOT NULL, CHECK (> 0) | Seed value for next month |
 | updated_at | DATETIME | NOT NULL | |
 
 ---
@@ -437,7 +433,7 @@ App (authenticated)
 │   └── Log Transaction Form
 ├── Tab 2: Transactions
 │   ├── Month Navigator
-│   ├── Summary Bar (chi / thu / tiết kiệm)
+│   ├── Summary Bar (expenses / income / savings)
 │   └── Transaction Feed (grouped by date)
 ├── Tab 3: Budgets
 │   ├── Monthly Budget Section
@@ -455,32 +451,32 @@ App (authenticated)
 
 ### 10.2 Home Screen — Log Transaction Form
 
-**Field order và behavior:**
+**Field order and behavior:**
 
 | # | Field | Type | Required | Notes |
 |---|-------|------|----------|-------|
-| 1 | Số tiền | Number input | Yes | Auto-focus khi vào tab; tự format dấu phân cách |
+| 1 | Số tiền | Number input | Yes | Auto-focus when tab opens; auto-formats thousands separator |
 | 2 | Loại | Segmented control | Yes | Chi tiêu / Thu nhập; default Chi tiêu |
-| 3 | Danh mục | Bottom sheet picker | Yes | Tree 3 level; chỉ chọn leaf node |
+| 3 | Danh mục | Bottom sheet picker | Yes | 3-level tree; leaf nodes only |
 | 4 | Ghi chú | Text input | No | Placeholder "Ghi chú..." |
-| 5 | Ngày | Date picker | Yes | Default hôm nay |
-| 6 | Custom budgets | Multi-select chips | No | Chỉ hiển thị khi loại = Chi tiêu; chỉ show active budgets |
+| 5 | Ngày | Date picker | Yes | Defaults to today |
+| 6 | Custom budgets | Multi-select chips | No | Shown only when Loại = Chi tiêu; active budgets only |
 | 7 | Nút Lưu | Button | — | Submit form |
 
-**Post-submit behavior:** Reset số tiền và custom budgets; giữ nguyên loại, danh mục, và ngày; hiển thị toast "Đã lưu ✓"; refresh status card.
+**Post-submit behavior:** Reset Số tiền and custom budgets; preserve Loại, Danh mục, and Ngày; show toast "Đã lưu ✓"; refresh status card.
 
 ### 10.3 Status Card (Home)
 
-Hiển thị theo thứ tự:
-1. Label tháng: "Tháng 5/2026 · còn N ngày"
+Displayed in order:
+1. Month label: "Tháng 5/2026 · còn N ngày"
 2. Progress: "Đã chi X.XXX.XXX ₫ / Y.YYY.YYY ₫"
-3. Mini pace bar: 2 lớp (budget lý tưởng đến hôm nay vs thực tế)
-4. Tiết kiệm: "Tiết kiệm: +Z.ZZZ.ZZZ ₫" (xanh nếu dương, đỏ nếu âm)
+3. Mini pace bar: 2 layers (ideal budget to today vs actual)
+4. Savings: "Tiết kiệm: +Z.ZZZ.ZZZ ₫" (green if positive, red if negative)
 
 ### 10.4 Design System
 
 Tuân thủ `DESIGN.md`:
-- Color tokens (không inline hex)
+- Color tokens (no inline hex values)
 - Typography: SF Pro Display/Text, body 17px
 - Spacing tokens
 - Mobile-first, breakpoint collapse strategy
@@ -489,20 +485,20 @@ Tuân thủ `DESIGN.md`:
 
 ## 11. Process Flows
 
-Sequence diagrams chi tiết được mô tả trong [`FLOWS.md`](./FLOWS.md).
+Detailed sequence diagrams are described in [`FLOWS.md`](./FLOWS.md).
 
 | Flow | Diagram |
 |------|---------|
-| Đăng nhập GitHub OAuth | FLOWS.md #1 |
-| Log giao dịch chi tiêu | FLOWS.md #2 |
-| Log thu nhập | FLOWS.md #3 |
-| Tạo Monthly Budget thủ công | FLOWS.md #4 |
-| Chỉnh sửa Monthly Budget | FLOWS.md #5 |
-| Tạo Custom Budget | FLOWS.md #6 |
+| GitHub OAuth login | FLOWS.md #1 |
+| Log expense transaction | FLOWS.md #2 |
+| Log income transaction | FLOWS.md #3 |
+| Manually create Monthly Budget | FLOWS.md #4 |
+| Adjust Monthly Budget | FLOWS.md #5 |
+| Create Custom Budget | FLOWS.md #6 |
 | Toggle Custom Budget active/inactive | FLOWS.md #7 |
-| Thêm danh mục | FLOWS.md #8 |
-| Xóa danh mục | FLOWS.md #9 |
-| Cập nhật Budget Config | FLOWS.md #10 |
+| Add category | FLOWS.md #8 |
+| Delete category | FLOWS.md #9 |
+| Update Budget Config | FLOWS.md #10 |
 
 ---
 
@@ -512,29 +508,29 @@ Sequence diagrams chi tiết được mô tả trong [`FLOWS.md`](./FLOWS.md).
 
 | ID | Assumption |
 |----|------------|
-| A-01 | Người dùng có tài khoản GitHub để đăng nhập |
-| A-02 | Tất cả giao dịch đều được nhập thủ công, không có tích hợp ngân hàng |
-| A-03 | Chỉ sử dụng VND, không cần đa tiền tệ |
-| A-04 | Người dùng tự chủ động tạo Monthly Budget trước khi nhập giao dịch của tháng mới |
-| A-05 | Số lượng giao dịch mỗi tháng ở mức cá nhân (< 500 giao dịch/tháng) |
+| A-01 | Users have a GitHub account to log in with |
+| A-02 | All transactions are entered manually; no bank integration |
+| A-03 | Only VND is used; multi-currency is not required |
+| A-04 | Users proactively create a Monthly Budget before entering transactions for a new month |
+| A-05 | Monthly transaction volume is at a personal scale (< 500 transactions/month) |
 
 ### 12.2 Constraints
 
 | ID | Constraint |
 |----|------------|
-| C-01 | Phải chạy trên Cloudflare Pages + D1, không dùng server riêng |
-| C-02 | Database là SQLite (D1), không phải PostgreSQL/MySQL |
-| C-03 | Framework là Next.js App Router + TypeScript, không thay đổi |
-| C-04 | Không có offline mode |
+| C-01 | Must run on Cloudflare Pages + D1; no dedicated server allowed |
+| C-02 | Database is SQLite (D1), not PostgreSQL/MySQL |
+| C-03 | Framework is Next.js App Router + TypeScript; no change allowed |
+| C-04 | No offline mode |
 
 ### 12.3 Dependencies
 
 | ID | Dependency | Impact if Unavailable |
 |----|------------|----------------------|
-| D-01 | GitHub OAuth | Không thể đăng nhập |
-| D-02 | Cloudflare D1 | Không thể lưu/đọc dữ liệu |
-| D-03 | Cloudflare Pages | App không thể deploy |
-| D-04 | better-auth | Toàn bộ auth flow bị ảnh hưởng |
+| D-01 | GitHub OAuth | Cannot log in |
+| D-02 | Cloudflare D1 | Cannot store or read data |
+| D-03 | Cloudflare Pages | App cannot be deployed |
+| D-04 | better-auth | Entire auth flow is affected |
 
 ---
 
@@ -542,13 +538,13 @@ Sequence diagrams chi tiết được mô tả trong [`FLOWS.md`](./FLOWS.md).
 
 | Term | Definition |
 |------|------------|
-| Monthly Budget | Ngân sách được tạo cho một tháng cụ thể. Mỗi user chỉ có 1 budget/tháng. |
-| Custom Budget | Ngân sách tùy chỉnh không giới hạn thời gian, dùng cho dự án hoặc mục đích cụ thể (VD: "Trip Đà Lạt"). |
-| Budget Adjustment | Một lần thay đổi giá trị Monthly Budget, lưu lại delta và ghi chú để tạo audit trail. |
-| Budget Config | Cài đặt lưu giá trị ngân sách mặc định, chỉ dùng để seed Monthly Budget tháng tới. |
-| Pace Line | Biểu đồ so sánh chi tiêu tích lũy thực tế với đường ngân sách lý tưởng (linear). |
-| Pace | Tốc độ chi tiêu. "Đúng pace" = đang tiêu đúng tỷ lệ so với ngân sách; "Vượt pace" = tiêu nhanh hơn kế hoạch. |
-| Leaf Node | Danh mục không có danh mục con. Chỉ leaf node mới được gán cho giao dịch. |
-| Seed Data | Dữ liệu mặc định được tạo tự động khi user đăng ký lần đầu (categories, budget config). |
-| Delta | Giá trị thay đổi trong Budget Adjustment. Dương (+) = tăng ngân sách, âm (−) = giảm ngân sách. |
-| Cumulative Sum | Tổng tích lũy chi tiêu từ ngày 1 đến ngày D trong tháng, dùng để vẽ đường thực tế trên Pace Line chart. |
+| Monthly Budget | Budget created for a specific calendar month. Each user has at most 1 budget per month. |
+| Custom Budget | An open-ended named budget with no time limit, used for specific projects or goals (e.g., "Da Lat Trip"). |
+| Budget Adjustment | A single change to a Monthly Budget's amount, recording the delta and a note to create an audit trail. |
+| Budget Config | Settings that store the default budget value, used only to seed next month's Monthly Budget. |
+| Pace Line | A chart comparing actual cumulative spending against the ideal (linear) budget line. |
+| Pace | Spending rate. "On pace" = spending at the expected rate relative to the budget; "Over pace" = spending faster than planned. |
+| Leaf Node | A category with no child categories. Only leaf nodes may be assigned to transactions. |
+| Seed Data | Default data auto-created when a user registers for the first time (categories, budget config). |
+| Delta | The change value in a Budget Adjustment. Positive (+) = budget increase, negative (−) = budget decrease. |
+| Cumulative Sum | The running total of spending from day 1 to day D in a month, used to plot the actual line on the Pace Line chart. |
