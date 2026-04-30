@@ -5,7 +5,7 @@ import { Errors } from "@/lib/errors";
 import {
   parseAmount,
   parseDate,
-  getMonthFromDate,
+  getBudgetMonthForDate,
   isLeafCategory,
 } from "@/lib/validators";
 import type { Kysely } from "kysely";
@@ -152,7 +152,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   if (newType === "income") {
     newMonthlyBudgetId = null;
   } else if (newType === "expense" && (b.date !== undefined || b.type !== undefined)) {
-    const month = getMonthFromDate(newDate);
+    const month = getBudgetMonthForDate(newDate);
     const budget = await db
       .selectFrom("monthly_budget")
       .select("id")

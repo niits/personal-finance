@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { parseMonth, currentBudgetMonth, getBudgetPeriod } from "@/lib/validators";
+import { parseMonth, currentBudgetMonth, getBudgetPeriod, getBudgetPeriodInclusive } from "@/lib/validators";
 import { idealBudgetAtDay } from "@/lib/pace-line";
 import { sql } from "kysely";
 
@@ -25,12 +25,14 @@ export async function GET(request: NextRequest) {
 
   // Use stored dates when available, fall back to computed period
   const computed = getBudgetPeriod(month);
+  const computedInclusive = getBudgetPeriodInclusive(month);
   const useStoredDates = budget && budget.start_date && budget.end_date;
   const periodStart = useStoredDates ? budget.start_date! : computed.start;
   const periodEndExclusive = useStoredDates
     ? (() => { const d = new Date(budget.end_date! + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().substring(0, 10); })()
     : computed.end;
-  const periodEnd = useStoredDates ? budget.end_date! : computed.end;
+  // Always inclusive end_date for the API response
+  const periodEnd = useStoredDates ? budget.end_date! : computedInclusive.end_date;
 
   const periodDays = Math.round(
     (new Date(periodEndExclusive + "T00:00:00Z").getTime() - new Date(periodStart + "T00:00:00Z").getTime()) / 86400000,

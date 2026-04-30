@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { parseAmount, parseMonth, currentBudgetMonth, getBudgetPeriod, getBudgetPeriodInclusive } from "@/lib/validators";
+import { parseAmount, parseMonth, currentBudgetMonth, getBudgetPeriodInclusive } from "@/lib/validators";
 import type { Kysely } from "kysely";
 import type { Database } from "@/lib/schema";
 
@@ -39,11 +39,11 @@ export async function GET(request: NextRequest) {
     .where("month", "=", month)
     .executeTakeFirst();
 
-  const period = getBudgetPeriod(month);
-  if (!row) return Response.json({ month, monthly_budget: null, ...period });
+  const { start_date, end_date } = getBudgetPeriodInclusive(month);
+  if (!row) return Response.json({ month, monthly_budget: null, start: start_date, end: end_date });
 
   const budget = await getBudgetWithAdjustments(db, row.id);
-  return Response.json({ month, monthly_budget: budget, ...period });
+  return Response.json({ month, monthly_budget: budget, start: start_date, end: end_date });
 }
 
 export async function POST(request: NextRequest) {
@@ -80,6 +80,5 @@ export async function POST(request: NextRequest) {
     .executeTakeFirst();
 
   const budget = await getBudgetWithAdjustments(db, result!.id);
-  const period = getBudgetPeriod(month);
-  return Response.json({ monthly_budget: budget, ...period }, { status: 201 });
+  return Response.json({ monthly_budget: budget, start: start_date, end: end_date }, { status: 201 });
 }
