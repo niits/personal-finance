@@ -189,50 +189,51 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | CAT-01 | Categories have a hierarchical structure up to 3 levels deep | Must Have |
-| CAT-02 | The system must provide a default set of categories (seed data) when a user registers for the first time | Must Have |
-| CAT-03 | Users must be able to add a category at any level (1, 2, or 3) | Must Have |
-| CAT-04 | Users must be able to rename any category | Must Have |
-| CAT-05 | Users must be able to delete categories that have no transactions and no child categories | Must Have |
-| CAT-06 | When deleting a category that is used by transactions, the system must reject the deletion and display the number of affected transactions | Must Have |
-| CAT-07 | Only leaf nodes (categories with no children) may be assigned to transactions | Must Have |
-| CAT-08 | Level-3 categories cannot have child categories | Must Have |
+| CAT-02 | The system must automatically create a default set of seed categories when a new user registers | Must Have |
+| CAT-03 | If a user has no categories, the system must provide a manual "seed categories" action to create the default set on demand | Must Have |
+| CAT-04 | Users must be able to add a category at any level (1, 2, or 3) | Must Have |
+| CAT-05 | Users must be able to rename any category | Must Have |
+| CAT-06 | Users must be able to delete categories that have no transactions and no child categories | Must Have |
+| CAT-07 | When deleting a category that is used by transactions, the system must reject the deletion and display the number of affected transactions | Must Have |
+| CAT-08 | Only leaf nodes (categories with no children) may be assigned to transactions | Must Have |
+| CAT-09 | Level-3 categories cannot have child categories | Must Have |
 
-**Seed categories mặc định:**
+**Default seed categories:**
 
 ```
-Food & Drink
-  └─ Dining out
-  └─ Groceries / supermarket
-  └─ Beverages
+Ăn uống
+  └─ Ăn ngoài
+  └─ Đi chợ / siêu thị
+  └─ Đồ uống
 
-Transportation
-  └─ Fuel
-  └─ Parking
+Đi lại
+  └─ Xăng
+  └─ Gửi xe
   └─ Taxi / Grab
 
-Shopping
-  └─ Clothing
-  └─ Electronics
-  └─ Household items
+Mua sắm
+  └─ Quần áo
+  └─ Điện tử
+  └─ Gia dụng
 
-Healthcare
-  └─ Medicine
-  └─ Doctor / clinic visits
+Sức khoẻ
+  └─ Thuốc
+  └─ Khám bệnh
 
-Entertainment
-  └─ Movies / events
-  └─ Gaming
-  └─ Travel
+Giải trí
+  └─ Phim / sự kiện
+  └─ Game
+  └─ Du lịch
 
-Bills & Services
-  └─ Utilities
-  └─ Internet / phone
-  └─ Rent
+Hoá đơn & dịch vụ
+  └─ Điện nước
+  └─ Internet / điện thoại
+  └─ Thuê nhà
 
-Income
-  └─ Salary
-  └─ Bonus
-  └─ Other income
+Thu nhập
+  └─ Lương
+  └─ Thưởng
+  └─ Thu nhập khác
 ```
 
 ---
@@ -279,7 +280,7 @@ Income
 | BR-11 | Budget Config changes do not retroactively affect existing Monthly Budgets |
 | BR-12 | An expense transaction may belong to 0, 1, or many Custom Budgets simultaneously |
 | BR-13 | Each user has exactly 1 Budget Config record (auto-created on first login) |
-| BR-14 | Seed categories are auto-created for new users and can be freely edited, deleted, or extended afterwards |
+| BR-14 | Seed categories are auto-created for new users on first login; users with no categories may also trigger seeding on demand via `POST /api/categories/seed` |
 
 ---
 
@@ -292,6 +293,8 @@ Income
 | NFR-P01 | API response time for standard operations (CRUD) < 500ms |
 | NFR-P02 | Pace Line Chart must render in < 1 second with up to 31 data points |
 | NFR-P03 | Monthly transaction list must load in < 1 second |
+| NFR-P04 | API responses for categories must include HTTP `Cache-Control` headers (`private, max-age=3600`) to allow browser caching |
+| NFR-P05 | Past-month transaction and dashboard data must be cached by the browser (`private, max-age=86400`) as it is immutable |
 
 ### 8.2 Security
 
@@ -315,7 +318,7 @@ Income
 
 | ID | Requirement |
 |----|-------------|
-| NFR-R01 | The app runs on Cloudflare Pages (edge network); uptime is governed by Cloudflare's SLA |
+| NFR-R01 | The app runs on Cloudflare Workers (edge network); uptime is governed by Cloudflare's SLA |
 | NFR-R02 | Data is stored in Cloudflare D1 (SQLite) with automatic backups per D1's policy |
 
 ### 8.5 Maintainability

@@ -32,13 +32,16 @@
 
 ```
 Browser (Next.js App Router)
-       │
+       │  SWR in-memory cache (categories)
+       │  HTTP browser cache (Cache-Control headers)
        ▼
 Next.js API Routes (/api/*)   ← All requests authenticated via better-auth session
        │
        ▼
 Cloudflare D1 (SQLite)        ← Single database, all tables below
 ```
+
+Deployed on **Cloudflare Workers** via `@opennextjs/cloudflare`.
 
 ### 1.2 Auth boundary
 
@@ -249,6 +252,16 @@ Returns the full category tree for the current user.
 ```
 
 > Build tree in application layer (single flat SELECT, then nest by parent_id).
+
+---
+
+#### `POST /api/categories/seed`
+
+Creates the default seed category set for the current user. Idempotent — uses `INSERT OR IGNORE`, safe to call multiple times. Returns `{ ok: true }`.
+
+Intended use: shown as a button in the UI when the user has no categories.
+
+**Response `200`:** `{ "ok": true }`
 
 ---
 
@@ -887,10 +900,16 @@ WHERE tcb.custom_budget_id = :id
 
 ### 7.1 On First Login
 
-Triggered in the better-auth `onAfterUserCreated` hook (or equivalent), before returning the session:
+Triggered via better-auth `databaseHooks.user.create.after`, before returning the session:
 
 1. **Create `budget_config`** with `default_monthly_amount = 10000000`
 2. **Create seed categories** (structure below)
+
+### 7.2 On-Demand Seed
+
+`POST /api/categories/seed` calls `seedNewUser()` for the current authenticated user. Displayed in the UI as a "Create sample categories" button when `GET /api/categories` returns an empty array.
+
+Both paths share the same `seedNewUser(db, userId)` function from `src/lib/seed.ts`.
 
 ```
 Ăn uống (L1)
@@ -928,9 +947,9 @@ Thu nhập (L1)
   └─ Thu nhập khác (L2)
 ```
 
-### 7.2 Idempotency
+### 7.3 Idempotency
 
-If seed is triggered multiple times (e.g., race condition), use `INSERT OR IGNORE` for both `budget_config` and seed categories to avoid duplicates.
+If seed is triggered multiple times (e.g., race condition or repeated on-demand calls), `INSERT OR IGNORE` on both `budget_config` and seed categories prevents duplicates.
 
 ---
 
@@ -1000,6 +1019,7 @@ For field-level errors, include `details`:
 |--------|------|-------------|
 | GET | `/api/categories` | List category tree |
 | POST | `/api/categories` | Create category |
+| POST | `/api/categories/seed` | Create default seed categories (idempotent) |
 | PATCH | `/api/categories/:id` | Rename / reorder |
 | DELETE | `/api/categories/:id` | Delete (with checks) |
 | GET | `/api/transactions` | List with filters + summary |

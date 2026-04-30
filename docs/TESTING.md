@@ -27,11 +27,11 @@ E2E (Playwright) is out of scope for now.
 | Business rule validators | Amount > 0; category level ≤ 3; leaf-node check; delta ≠ 0 |
 | Savings calculation | `income - expense`; negative result; zero income |
 
-**File location:** `src/__tests__/unit/`
+**File location:** `src/lib/*.test.ts` (co-located with the modules they test)
 
 **Example — pace line:**
 ```ts
-// src/__tests__/unit/pace-line.test.ts
+// src/lib/pace-line.test.ts
 import { describe, it, expect } from "vitest";
 import { idealBudgetAtDay, isOverPace } from "@/lib/pace-line";
 
@@ -76,13 +76,14 @@ Tests run inside the actual Workers runtime with an in-memory D1 instance. Migra
 | `PATCH /api/custom-budgets/:id` | Toggle active/inactive |
 | `DELETE /api/categories/:id` | No transactions → 200; has transactions → 409; has children → 409 |
 | `POST /api/categories` | Level 1, 2, 3 valid; level 4 → 400 |
+| `POST /api/categories/seed` | Creates 7 parent + 20 child categories; idempotent on repeat calls |
 
-**File location:** `src/__tests__/integration/`
+**File location:** `tests/` (integration tests directory)
 
 **Setup pattern:**
 
 ```ts
-// src/__tests__/integration/helpers.ts
+// tests/helpers.ts
 import { env } from "cloudflare:test";
 
 export async function applyMigrations() {
@@ -105,7 +106,7 @@ export async function seedMonthlyBudget(userId: string, month: string, amount: n
 ```
 
 ```ts
-// src/__tests__/integration/transactions.test.ts
+// tests/transactions.test.ts
 import { describe, it, expect, beforeAll } from "vitest";
 import { env } from "cloudflare:test";
 import { applyMigrations, seedUser, seedMonthlyBudget } from "./helpers";

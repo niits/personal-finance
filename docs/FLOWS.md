@@ -229,9 +229,9 @@ sequenceDiagram
     API-->>Settings: Category tree
     Settings-->>User: Render tree view
 
-    User->>Settings: Press "+" next to "Ăn uống" (level 1)
-    Settings-->>User: Inline input appears at level 2
-    User->>Settings: Type "Bún bò" → Enter
+    User->>Settings: Press "+ Thêm" button
+    Settings-->>User: Form panel appears (name input + parent selector dropdown)
+    User->>Settings: Type "Bún bò", select "Ăn uống" as parent → Press "Lưu"
 
     Settings->>API: POST /api/categories { name: "Bún bò", parent_id: <ăn_uống_id> }
     API->>API: Validate level ≤ 3
@@ -296,4 +296,28 @@ sequenceDiagram
     DB-->>API: updated
     API-->>Settings: 200 { budget_config }
     Settings-->>User: Toast "Đã lưu. Sẽ áp dụng khi tạo budget tháng tới."
+```
+
+---
+
+## 11. Seed categories on demand
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Settings as Categories Screen
+    participant API as API Route
+    participant DB as D1 Database
+
+    Note over Settings: Shown only when GET /api/categories returns empty array
+    User->>Settings: Press "Create sample categories"
+
+    Settings->>API: POST /api/categories/seed
+    API->>DB: INSERT OR IGNORE seed categories (7 parent + 20 children)
+    DB-->>API: done
+    API-->>Settings: 200 { ok: true }
+    Settings->>Settings: mutate("/api/categories") — invalidate SWR cache
+    Settings->>API: GET /api/categories
+    API-->>Settings: Full category tree
+    Settings-->>User: Category list renders
 ```
