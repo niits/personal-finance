@@ -1,16 +1,17 @@
 import type { NextRequest } from "next/server";
-import { getDB } from "@/lib/db";
+import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { parseMonth, currentBudgetMonth, getBudgetPeriod } from "@/lib/validators";
 import { idealBudgetAtDay } from "@/lib/pace-line";
+import { sql } from "kysely";
 
 export async function GET(request: NextRequest) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
 
   const month = parseMonth(request.nextUrl.searchParams.get("month")) ?? currentBudgetMonth();
-  const db = await getDB();
+  const db = await getKysely();
   const userId = session.user.id;
 
   const { start: periodStart, end: periodEnd } = getBudgetPeriod(month);
@@ -30,23 +31,25 @@ export async function GET(request: NextRequest) {
   const daysRemaining = periodDays - daysElapsed;
 
   const summary = await db
-    .prepare(
-      `SELECT
-        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as total_expense,
-        COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0) as total_income
-      FROM "transaction"
-      WHERE user_id = ? AND date >= ? AND date < ?`,
-    )
-    .bind(userId, periodStart, periodEnd)
-    .first<{ total_expense: number; total_income: number }>();
+    .selectFrom("transaction")
+    .select([
+      sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("total_expense"),
+      sql<number>`COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0)`.as("total_income"),
+    ])
+    .where("user_id", "=", userId)
+    .where("date", ">=", periodStart)
+    .where("date", "<", periodEnd)
+    .executeTakeFirst();
 
   const totalExpense = summary?.total_expense ?? 0;
   const totalIncome = summary?.total_income ?? 0;
 
   const budget = await db
-    .prepare("SELECT id, amount FROM monthly_budget WHERE user_id = ? AND month = ?")
-    .bind(userId, month)
-    .first<{ id: number; amount: number }>();
+    .selectFrom("monthly_budget")
+    .select(["id", "amount"])
+    .where("user_id", "=", userId)
+    .where("month", "=", month)
+    .executeTakeFirst();
 
   let paceStatus: "under" | "over" | "no_budget" = "no_budget";
   let monthlyBudget: { id: number; amount: number; remaining: number } | null = null;

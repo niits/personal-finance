@@ -1,3 +1,6 @@
+import { Kysely } from "kysely";
+import { D1Dialect } from "kysely-d1";
+import type { Database } from "@/lib/schema";
 import { seedNewUser } from "./seed";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,7 +34,8 @@ export async function getAuth() {
       user: {
         create: {
           after: async (user) => {
-            await seedNewUser(cfEnv.DB, user.id);
+            const ky = new Kysely<Database>({ dialect: new D1Dialect({ database: cfEnv.DB }) });
+            await seedNewUser(ky, user.id);
           },
         },
       },

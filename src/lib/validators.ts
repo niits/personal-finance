@@ -1,4 +1,6 @@
 import { isHoliday } from "@/lib/holidays";
+import type { Kysely } from "kysely";
+import type { Database } from "@/lib/schema";
 
 export function parseAmount(val: unknown): number | null {
   const n = Number(val);
@@ -61,18 +63,29 @@ export function getBudgetPeriod(budgetMonth: string): { start: string; end: stri
   return { start, end };
 }
 
+// Returns the inclusive [start_date, end_date] for storing in monthly_budget.
+// end_date is the calendar day before the next period's start (i.e. lastWorkingDay(month) - 1 day).
+export function getBudgetPeriodInclusive(budgetMonth: string): { start_date: string; end_date: string } {
+  const { start, end } = getBudgetPeriod(budgetMonth);
+  const endDay = new Date(end + "T00:00:00Z");
+  endDay.setUTCDate(endDay.getUTCDate() - 1);
+  return { start_date: start, end_date: endDay.toISOString().substring(0, 10) };
+}
+
 export function currentBudgetMonth(): string {
   return getBudgetMonthForDate(currentDate());
 }
 
 export async function isLeafCategory(
-  db: D1Database,
+  db: Kysely<Database>,
   categoryId: number,
   userId: string,
 ): Promise<boolean> {
   const row = await db
-    .prepare("SELECT COUNT(*) as cnt FROM category WHERE parent_id = ? AND user_id = ?")
-    .bind(categoryId, userId)
-    .first<{ cnt: number }>();
+    .selectFrom("category")
+    .select((eb) => eb.fn.countAll<number>().as("cnt"))
+    .where("parent_id", "=", categoryId)
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
   return (row?.cnt ?? 0) === 0;
 }

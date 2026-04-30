@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getDB } from "@/lib/db";
+import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import {
@@ -11,6 +11,7 @@ import {
   currentBudgetMonth,
   isLeafCategory,
 } from "@/lib/validators";
+import { sql } from "kysely";
 
 type TxnRow = {
   id: number;
@@ -64,50 +65,81 @@ export async function GET(request: NextRequest) {
   const categoryId = p.get("category_id") ? Number(p.get("category_id")) : null;
   const customBudgetId = p.get("custom_budget_id") ? Number(p.get("custom_budget_id")) : null;
 
-  const db = await getDB();
+  const db = await getKysely();
   const userId = session.user.id;
 
-  let sql = `
-    SELECT t.id, t.amount, t.type, t.note, t.date, t.monthly_budget_id, t.created_at,
-           c.id as cat_id, c.name as cat_name, c.level as cat_level, c.parent_id as cat_parent_id,
-           p1.name as cat_p1_name, p2.name as cat_p2_name
-    FROM "transaction" t
-    JOIN category c ON t.category_id = c.id
-    LEFT JOIN category p1 ON c.parent_id = p1.id
-    LEFT JOIN category p2 ON p1.parent_id = p2.id`;
+  const mb = await db
+    .selectFrom("monthly_budget")
+    .select(["id", "start_date", "end_date"])
+    .where("user_id", "=", userId)
+    .where("month", "=", month)
+    .executeTakeFirst();
+
+  // Fall back to computed period when budget row missing or dates not yet backfilled
+  const { start: txStart, end: txEndExclusive } = getBudgetPeriod(month);
+  const useStoredDates = mb && mb.start_date && mb.end_date;
+
+  let query = db
+    .selectFrom("transaction as t")
+    .innerJoin("category as c", "c.id", "t.category_id")
+    .leftJoin("category as p1", "p1.id", "c.parent_id")
+    .leftJoin("category as p2", "p2.id", "p1.parent_id")
+    .select([
+      "t.id",
+      "t.amount",
+      "t.type",
+      "t.note",
+      "t.date",
+      "t.monthly_budget_id",
+      "t.created_at",
+      "c.id as cat_id",
+      "c.name as cat_name",
+      "c.level as cat_level",
+      "c.parent_id as cat_parent_id",
+      "p1.name as cat_p1_name",
+      "p2.name as cat_p2_name",
+    ])
+    .where("t.user_id", "=", userId);
 
   if (customBudgetId) {
-    sql += ` JOIN transaction_custom_budget tcb ON tcb.transaction_id = t.id AND tcb.custom_budget_id = ${customBudgetId}`;
+    query = query.innerJoin("transaction_custom_budget as tcb", (join) =>
+      join
+        .onRef("tcb.transaction_id", "=", "t.id")
+        .on("tcb.custom_budget_id", "=", customBudgetId),
+    );
   }
 
-  const { start: txStart, end: txEnd } = getBudgetPeriod(month);
-  sql += ` WHERE t.user_id = ? AND t.date >= ? AND t.date < ?`;
-  const binds: unknown[] = [userId, txStart, txEnd];
+  if (useStoredDates) {
+    query = query
+      .where("t.date", ">=", mb.start_date!)
+      .where("t.date", "<=", mb.end_date!);
+  } else {
+    query = query
+      .where("t.date", ">=", txStart)
+      .where("t.date", "<", txEndExclusive);
+  }
 
   if (typeFilter === "expense" || typeFilter === "income") {
-    sql += ` AND t.type = ?`;
-    binds.push(typeFilter);
+    query = query.where("t.type", "=", typeFilter);
   }
   if (categoryId) {
-    sql += ` AND t.category_id = ?`;
-    binds.push(categoryId);
+    query = query.where("t.category_id", "=", categoryId);
   }
 
-  sql += ` ORDER BY t.date DESC, t.id DESC`;
+  query = query.orderBy("t.date", "desc").orderBy("t.id", "desc");
 
-  const { results } = await db.prepare(sql).bind(...binds).all<TxnRow>();
+  const results = (await query.execute()) as TxnRow[];
 
   // Fetch custom budgets for all transactions
-  let cbMap = new Map<number, { id: number; name: string }[]>();
+  const cbMap = new Map<number, { id: number; name: string }[]>();
   if (results.length > 0) {
     const ids = results.map((r) => r.id);
-    const placeholders = ids.map(() => "?").join(",");
-    const { results: cbRows } = await db
-      .prepare(
-        `SELECT tcb.transaction_id, cb.id, cb.name FROM transaction_custom_budget tcb JOIN custom_budget cb ON tcb.custom_budget_id = cb.id WHERE tcb.transaction_id IN (${placeholders})`,
-      )
-      .bind(...ids)
-      .all<CbRow>();
+    const cbRows = (await db
+      .selectFrom("transaction_custom_budget as tcb")
+      .innerJoin("custom_budget as cb", "cb.id", "tcb.custom_budget_id")
+      .select(["tcb.transaction_id", "cb.id", "cb.name"])
+      .where("tcb.transaction_id", "in", ids)
+      .execute()) as CbRow[];
     for (const row of cbRows) {
       const list = cbMap.get(row.transaction_id) ?? [];
       list.push({ id: row.id, name: row.name });
@@ -116,12 +148,25 @@ export async function GET(request: NextRequest) {
   }
 
   // Summary always for the full budget period regardless of filters
-  const summary = await db
-    .prepare(
-      `SELECT COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as total_expense, COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as total_income FROM "transaction" WHERE user_id=? AND date >= ? AND date < ?`,
-    )
-    .bind(userId, txStart, txEnd)
-    .first<{ total_expense: number; total_income: number }>();
+  let summaryQuery = db
+    .selectFrom("transaction")
+    .select([
+      sql<number>`COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0)`.as("total_expense"),
+      sql<number>`COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0)`.as("total_income"),
+    ])
+    .where("user_id", "=", userId);
+
+  if (useStoredDates) {
+    summaryQuery = summaryQuery
+      .where("date", ">=", mb.start_date!)
+      .where("date", "<=", mb.end_date!);
+  } else {
+    summaryQuery = summaryQuery
+      .where("date", ">=", txStart)
+      .where("date", "<", txEndExclusive);
+  }
+
+  const summary = await summaryQuery.executeTakeFirst();
 
   const isPastMonth = month !== currentBudgetMonth();
   const cacheHeader = isPastMonth
@@ -166,14 +211,16 @@ export async function POST(request: NextRequest) {
   if (b.type === "income" && Array.isArray(b.custom_budget_ids) && b.custom_budget_ids.length > 0)
     return Errors.validation("Giao dịch thu nhập không thể gán vào Custom Budget");
 
-  const db = await getDB();
+  const db = await getKysely();
   const userId = session.user.id;
 
   // Validate category belongs to user and is leaf
   const cat = await db
-    .prepare("SELECT id FROM category WHERE id = ? AND user_id = ?")
-    .bind(categoryId, userId)
-    .first<{ id: number }>();
+    .selectFrom("category")
+    .select("id")
+    .where("id", "=", categoryId)
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
   if (!cat) return Errors.notFound("Danh mục không tồn tại");
 
   const leaf = await isLeafCategory(db, categoryId, userId);
@@ -184,9 +231,11 @@ export async function POST(request: NextRequest) {
   if (b.type === "expense") {
     const month = getBudgetMonthForDate(date);
     const budget = await db
-      .prepare("SELECT id FROM monthly_budget WHERE user_id = ? AND month = ?")
-      .bind(userId, month)
-      .first<{ id: number }>();
+      .selectFrom("monthly_budget")
+      .select("id")
+      .where("user_id", "=", userId)
+      .where("month", "=", month)
+      .executeTakeFirst();
     if (!budget) {
       return Response.json(
         {
@@ -202,61 +251,72 @@ export async function POST(request: NextRequest) {
 
   // Validate custom budget ownership
   if (customBudgetIds.length > 0) {
-    const placeholders = customBudgetIds.map(() => "?").join(",");
-    const { results: validBudgets } = await db
-      .prepare(
-        `SELECT id FROM custom_budget WHERE id IN (${placeholders}) AND user_id = ?`,
-      )
-      .bind(...customBudgetIds, userId)
-      .all<{ id: number }>();
+    const validBudgets = await db
+      .selectFrom("custom_budget")
+      .select("id")
+      .where("id", "in", customBudgetIds)
+      .where("user_id", "=", userId)
+      .execute();
     if (validBudgets.length !== customBudgetIds.length) return Errors.forbidden();
   }
 
   const note = typeof b.note === "string" ? b.note : null;
 
   const result = await db
-    .prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-    )
-    .bind(userId, amount, b.type, categoryId, note, date, monthlyBudgetId)
-    .first<{ id: number }>();
+    .insertInto("transaction")
+    .values({
+      user_id: userId,
+      amount,
+      type: b.type as "expense" | "income",
+      category_id: categoryId,
+      note,
+      date,
+      monthly_budget_id: monthlyBudgetId,
+    })
+    .returning("id")
+    .executeTakeFirst();
 
   const txnId = result!.id;
 
   if (customBudgetIds.length > 0) {
-    await db.batch(
-      customBudgetIds.map((cbId) =>
-        db
-          .prepare("INSERT INTO transaction_custom_budget (transaction_id, custom_budget_id) VALUES (?, ?)")
-          .bind(txnId, cbId),
-      ),
-    );
+    await db
+      .insertInto("transaction_custom_budget")
+      .values(customBudgetIds.map((cbId) => ({ transaction_id: txnId, custom_budget_id: cbId })))
+      .execute();
   }
 
   // Fetch full transaction for response
-  const txn = await db
-    .prepare(
-      `SELECT t.id, t.amount, t.type, t.note, t.date, t.monthly_budget_id, t.created_at,
-              c.id as cat_id, c.name as cat_name, c.level as cat_level, c.parent_id as cat_parent_id,
-              p1.name as cat_p1_name, p2.name as cat_p2_name
-       FROM "transaction" t
-       JOIN category c ON t.category_id = c.id
-       LEFT JOIN category p1 ON c.parent_id = p1.id
-       LEFT JOIN category p2 ON p1.parent_id = p2.id
-       WHERE t.id = ?`,
-    )
-    .bind(txnId)
-    .first<TxnRow>();
+  const txn = (await db
+    .selectFrom("transaction as t")
+    .innerJoin("category as c", "c.id", "t.category_id")
+    .leftJoin("category as p1", "p1.id", "c.parent_id")
+    .leftJoin("category as p2", "p2.id", "p1.parent_id")
+    .select([
+      "t.id",
+      "t.amount",
+      "t.type",
+      "t.note",
+      "t.date",
+      "t.monthly_budget_id",
+      "t.created_at",
+      "c.id as cat_id",
+      "c.name as cat_name",
+      "c.level as cat_level",
+      "c.parent_id as cat_parent_id",
+      "p1.name as cat_p1_name",
+      "p2.name as cat_p2_name",
+    ])
+    .where("t.id", "=", txnId)
+    .executeTakeFirst()) as TxnRow;
 
   const cbMap = new Map<number, { id: number; name: string }[]>();
   if (customBudgetIds.length > 0) {
-    const placeholders = customBudgetIds.map(() => "?").join(",");
-    const { results: cbRows } = await db
-      .prepare(
-        `SELECT tcb.transaction_id, cb.id, cb.name FROM transaction_custom_budget tcb JOIN custom_budget cb ON tcb.custom_budget_id = cb.id WHERE tcb.transaction_id IN (${placeholders})`,
-      )
-      .bind(txnId)
-      .all<CbRow>();
+    const cbRows = (await db
+      .selectFrom("transaction_custom_budget as tcb")
+      .innerJoin("custom_budget as cb", "cb.id", "tcb.custom_budget_id")
+      .select(["tcb.transaction_id", "cb.id", "cb.name"])
+      .where("tcb.transaction_id", "=", txnId)
+      .execute()) as CbRow[];
     cbMap.set(txnId, cbRows.map((r) => ({ id: r.id, name: r.name })));
   }
 

@@ -10,15 +10,11 @@ type Transaction = {
   category: { id: number; name: string; path: string };
   note: string | null;
   date: string;
+  custom_budgets: { id: number; name: string }[];
 };
 
 function fmt(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n);
-}
-
-function currentMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -47,21 +43,33 @@ function groupByDate(txns: Transaction[]) {
 }
 
 export default function TransactionsPage() {
-  const month = currentMonth();
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState({ total_expense: 0, total_income: 0, savings: 0 });
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [editTxn, setEditTxn] = useState<Transaction | undefined>(undefined);
+  const [actionTxn, setActionTxn] = useState<Transaction | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
-    const r = await fetch(`/api/transactions?month=${month}`);
+    const r = await fetch(`/api/transactions`);
     const d = await r.json() as { transactions?: Transaction[]; summary?: typeof summary };
     setTxns(d.transactions ?? []);
     setSummary(d.summary ?? { total_expense: 0, total_income: 0, savings: 0 });
     setLoading(false);
-  }, [month]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleDelete(txn: Transaction) {
+    setDeleting(true);
+    const r = await fetch(`/api/transactions/${txn.id}`, { method: "DELETE" });
+    setDeleting(false);
+    if (r.ok) {
+      setActionTxn(null);
+      load();
+    }
+  }
 
   const groups = groupByDate(txns);
   const dates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
@@ -88,7 +96,7 @@ export default function TransactionsPage() {
           </h1>
         </div>
         <button
-          onClick={() => setFormOpen(true)}
+          onClick={() => { setEditTxn(undefined); setFormOpen(true); }}
           style={{
             background: "var(--primary)",
             color: "#fff",
@@ -143,7 +151,7 @@ export default function TransactionsPage() {
               Nhấn "+ Thêm" để nhập giao dịch đầu tiên
             </p>
             <button
-              onClick={() => setFormOpen(true)}
+              onClick={() => { setEditTxn(undefined); setFormOpen(true); }}
               className="btn-primary"
               style={{ margin: "0 auto" }}
             >
@@ -181,12 +189,17 @@ export default function TransactionsPage() {
 
               <div style={{ background: "var(--canvas)" }}>
                 {groups[d].map((txn, i) => (
-                  <div key={txn.id} style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "13px 20px",
-                    borderTop: i > 0 ? "1px solid var(--hairline)" : "none",
-                  }}>
+                  <div
+                    key={txn.id}
+                    onClick={() => setActionTxn(txn)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "13px 20px",
+                      borderTop: i > 0 ? "1px solid var(--hairline)" : "none",
+                      cursor: "pointer",
+                    }}
+                  >
                     <div style={{
                       width: 38,
                       height: 38,
@@ -248,7 +261,97 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      <TransactionForm open={formOpen} onClose={() => setFormOpen(false)} onSaved={load} />
+      {/* Action sheet */}
+      {actionTxn && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div
+            onClick={() => setActionTxn(null)}
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+          />
+          <div style={{
+            position: "relative",
+            background: "var(--canvas)",
+            borderRadius: "20px 20px 0 0",
+            paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+          }}>
+            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 8px" }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)" }} />
+            </div>
+
+            {/* Transaction preview */}
+            <div style={{ padding: "0 20px 16px", borderBottom: "1px solid var(--hairline)" }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginBottom: 2 }}>
+                {actionTxn.category.path}
+              </p>
+              <p style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 24,
+                fontWeight: 600,
+                color: actionTxn.type === "expense" ? "#ff453a" : "#30d158",
+                letterSpacing: -0.3,
+              }}>
+                {actionTxn.type === "expense" ? "−" : "+"}{fmt(actionTxn.amount)}₫
+              </p>
+              {actionTxn.note && (
+                <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginTop: 2 }}>
+                  {actionTxn.note}
+                </p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+              <button
+                onClick={() => {
+                  setEditTxn(actionTxn);
+                  setActionTxn(null);
+                  setFormOpen(true);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "var(--canvas-parchment)",
+                  color: "var(--ink)",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Sửa
+              </button>
+              <button
+                onClick={() => handleDelete(actionTxn)}
+                disabled={deleting}
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "rgba(255,69,58,0.1)",
+                  color: "#ff453a",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                  opacity: deleting ? 0.6 : 1,
+                }}
+              >
+                {deleting ? "Đang xoá…" : "Xoá"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <TransactionForm
+        open={formOpen}
+        onClose={() => { setFormOpen(false); setEditTxn(undefined); }}
+        onSaved={load}
+        transaction={editTxn}
+      />
     </div>
   );
 }

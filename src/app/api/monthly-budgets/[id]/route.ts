@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getDB } from "@/lib/db";
+import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 
@@ -13,13 +13,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   const budgetId = Number(id);
   if (!Number.isInteger(budgetId)) return Errors.notFound();
 
-  const db = await getDB();
+  const db = await getKysely();
   const userId = session.user.id;
 
   const budget = await db
-    .prepare("SELECT id, amount FROM monthly_budget WHERE id = ? AND user_id = ?")
-    .bind(budgetId, userId)
-    .first<{ id: number; amount: number }>();
+    .selectFrom("monthly_budget")
+    .select(["id", "amount"])
+    .where("id", "=", budgetId)
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
   if (!budget) return Errors.notFound("Budget không tồn tại");
 
   const body = await request.json().catch(() => null);
@@ -40,28 +42,30 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   const note = typeof b.note === "string" ? b.note.substring(0, 500) : null;
 
-  await db.batch([
-    db
-      .prepare("UPDATE monthly_budget SET amount = amount + ? WHERE id = ? AND user_id = ?")
-      .bind(delta, budgetId, userId),
-    db
-      .prepare(
-        "INSERT INTO budget_adjustment (monthly_budget_id, delta, note) VALUES (?, ?, ?)",
-      )
-      .bind(budgetId, delta, note),
-  ]);
+  await db
+    .updateTable("monthly_budget")
+    .set((eb) => ({ amount: eb("amount", "+", delta) }))
+    .where("id", "=", budgetId)
+    .where("user_id", "=", userId)
+    .execute();
+
+  await db
+    .insertInto("budget_adjustment")
+    .values({ monthly_budget_id: budgetId, delta, note })
+    .execute();
 
   const updatedBudget = await db
-    .prepare("SELECT id, month, amount, created_at FROM monthly_budget WHERE id = ?")
-    .bind(budgetId)
-    .first<{ id: number; month: string; amount: number; created_at: number }>();
+    .selectFrom("monthly_budget")
+    .select(["id", "month", "amount", "created_at"])
+    .where("id", "=", budgetId)
+    .executeTakeFirst();
 
-  const { results: adjustments } = await db
-    .prepare(
-      "SELECT id, delta, note, created_at FROM budget_adjustment WHERE monthly_budget_id = ? ORDER BY created_at ASC",
-    )
-    .bind(budgetId)
-    .all<{ id: number; delta: number; note: string | null; created_at: number }>();
+  const adjustments = await db
+    .selectFrom("budget_adjustment")
+    .select(["id", "delta", "note", "created_at"])
+    .where("monthly_budget_id", "=", budgetId)
+    .orderBy("created_at", "asc")
+    .execute();
 
   const latestAdj = adjustments[adjustments.length - 1];
 

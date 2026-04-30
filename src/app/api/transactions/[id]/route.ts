@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getDB } from "@/lib/db";
+import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import {
@@ -8,6 +8,8 @@ import {
   getMonthFromDate,
   isLeafCategory,
 } from "@/lib/validators";
+import type { Kysely } from "kysely";
+import type { Database } from "@/lib/schema";
 
 type Params = Promise<{ id: string }>;
 
@@ -35,29 +37,38 @@ function buildCategoryPath(row: TxnRow) {
   return `${row.cat_p2_name} > ${row.cat_p1_name} > ${row.cat_name}`;
 }
 
-async function fetchFullTransaction(db: D1Database, txnId: number) {
-  const txn = await db
-    .prepare(
-      `SELECT t.id, t.amount, t.type, t.note, t.date, t.monthly_budget_id, t.created_at,
-              c.id as cat_id, c.name as cat_name, c.level as cat_level, c.parent_id as cat_parent_id,
-              p1.name as cat_p1_name, p2.name as cat_p2_name
-       FROM "transaction" t
-       JOIN category c ON t.category_id = c.id
-       LEFT JOIN category p1 ON c.parent_id = p1.id
-       LEFT JOIN category p2 ON p1.parent_id = p2.id
-       WHERE t.id = ?`,
-    )
-    .bind(txnId)
-    .first<TxnRow>();
+async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
+  const txn = (await db
+    .selectFrom("transaction as t")
+    .innerJoin("category as c", "c.id", "t.category_id")
+    .leftJoin("category as p1", "p1.id", "c.parent_id")
+    .leftJoin("category as p2", "p2.id", "p1.parent_id")
+    .select([
+      "t.id",
+      "t.amount",
+      "t.type",
+      "t.note",
+      "t.date",
+      "t.monthly_budget_id",
+      "t.created_at",
+      "c.id as cat_id",
+      "c.name as cat_name",
+      "c.level as cat_level",
+      "c.parent_id as cat_parent_id",
+      "p1.name as cat_p1_name",
+      "p2.name as cat_p2_name",
+    ])
+    .where("t.id", "=", txnId)
+    .executeTakeFirst()) as TxnRow | undefined;
 
   if (!txn) return null;
 
-  const { results: cbRows } = await db
-    .prepare(
-      `SELECT tcb.transaction_id, cb.id, cb.name FROM transaction_custom_budget tcb JOIN custom_budget cb ON tcb.custom_budget_id = cb.id WHERE tcb.transaction_id = ?`,
-    )
-    .bind(txnId)
-    .all<CbRow>();
+  const cbRows = (await db
+    .selectFrom("transaction_custom_budget as tcb")
+    .innerJoin("custom_budget as cb", "cb.id", "tcb.custom_budget_id")
+    .select(["tcb.transaction_id", "cb.id", "cb.name"])
+    .where("tcb.transaction_id", "=", txnId)
+    .execute()) as CbRow[];
 
   return {
     id: txn.id,
@@ -80,19 +91,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   const txnId = Number(id);
   if (!Number.isInteger(txnId)) return Errors.notFound();
 
-  const db = await getDB();
+  const db = await getKysely();
   const userId = session.user.id;
 
   const existing = await db
-    .prepare(`SELECT id, type, date, category_id, monthly_budget_id FROM "transaction" WHERE id = ? AND user_id = ?`)
-    .bind(txnId, userId)
-    .first<{
-      id: number;
-      type: "expense" | "income";
-      date: string;
-      category_id: number;
-      monthly_budget_id: number | null;
-    }>();
+    .selectFrom("transaction")
+    .select(["id", "type", "date", "category_id", "monthly_budget_id"])
+    .where("id", "=", txnId)
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
   if (!existing) return Errors.notFound("Giao dịch không tồn tại");
 
   const body = await request.json().catch(() => null);
@@ -128,9 +135,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   // Validate category
   if (b.category_id !== undefined) {
     const cat = await db
-      .prepare("SELECT id FROM category WHERE id = ? AND user_id = ?")
-      .bind(newCategoryId, userId)
-      .first<{ id: number }>();
+      .selectFrom("category")
+      .select("id")
+      .where("id", "=", newCategoryId)
+      .where("user_id", "=", userId)
+      .executeTakeFirst();
     if (!cat) return Errors.notFound("Danh mục không tồn tại");
 
     const leaf = await isLeafCategory(db, newCategoryId, userId);
@@ -142,15 +151,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   if (newType === "income") {
     newMonthlyBudgetId = null;
-  } else if (
-    newType === "expense" &&
-    (b.date !== undefined || b.type !== undefined)
-  ) {
+  } else if (newType === "expense" && (b.date !== undefined || b.type !== undefined)) {
     const month = getMonthFromDate(newDate);
     const budget = await db
-      .prepare("SELECT id FROM monthly_budget WHERE user_id = ? AND month = ?")
-      .bind(userId, month)
-      .first<{ id: number }>();
+      .selectFrom("monthly_budget")
+      .select("id")
+      .where("user_id", "=", userId)
+      .where("month", "=", month)
+      .executeTakeFirst();
     if (!budget) {
       return Response.json(
         {
@@ -166,58 +174,46 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   // Validate custom budget ownership
   if (newCustomBudgetIds && newCustomBudgetIds.length > 0) {
-    const placeholders = newCustomBudgetIds.map(() => "?").join(",");
-    const { results: valid } = await db
-      .prepare(`SELECT id FROM custom_budget WHERE id IN (${placeholders}) AND user_id = ?`)
-      .bind(...newCustomBudgetIds, userId)
-      .all<{ id: number }>();
+    const valid = await db
+      .selectFrom("custom_budget")
+      .select("id")
+      .where("id", "in", newCustomBudgetIds)
+      .where("user_id", "=", userId)
+      .execute();
     if (valid.length !== newCustomBudgetIds.length) return Errors.forbidden();
   }
 
-  // Build UPDATE fields
-  const setClauses: string[] = [];
-  const setBinds: unknown[] = [];
-
-  if (b.amount !== undefined) { setClauses.push("amount = ?"); setBinds.push(newAmount); }
-  if (b.type !== undefined) { setClauses.push("type = ?"); setBinds.push(newType); }
-  if (b.category_id !== undefined) { setClauses.push("category_id = ?"); setBinds.push(newCategoryId); }
-  if (b.note !== undefined) { setClauses.push("note = ?"); setBinds.push(newNote); }
-  if (b.date !== undefined) { setClauses.push("date = ?"); setBinds.push(newDate); }
-
+  // Build update object
+  const updateValues: Record<string, unknown> = {};
+  if (b.amount !== undefined) updateValues.amount = newAmount;
+  if (b.type !== undefined) updateValues.type = newType;
+  if (b.category_id !== undefined) updateValues.category_id = newCategoryId;
+  if (b.note !== undefined) updateValues.note = newNote;
+  if (b.date !== undefined) updateValues.date = newDate;
   // Always sync monthly_budget_id when type or date changes
-  if (b.type !== undefined || b.date !== undefined) {
-    setClauses.push("monthly_budget_id = ?");
-    setBinds.push(newMonthlyBudgetId);
-  }
+  if (b.type !== undefined || b.date !== undefined) updateValues.monthly_budget_id = newMonthlyBudgetId;
 
-  const stmts = [];
-
-  if (setClauses.length > 0) {
-    stmts.push(
-      db
-        .prepare(`UPDATE "transaction" SET ${setClauses.join(", ")} WHERE id = ? AND user_id = ?`)
-        .bind(...setBinds, txnId, userId),
-    );
+  if (Object.keys(updateValues).length > 0) {
+    await db
+      .updateTable("transaction")
+      .set(updateValues)
+      .where("id", "=", txnId)
+      .where("user_id", "=", userId)
+      .execute();
   }
 
   if (newCustomBudgetIds !== undefined) {
-    stmts.push(
-      db
-        .prepare("DELETE FROM transaction_custom_budget WHERE transaction_id = ?")
-        .bind(txnId),
-    );
-  }
+    await db
+      .deleteFrom("transaction_custom_budget")
+      .where("transaction_id", "=", txnId)
+      .execute();
 
-  if (stmts.length > 0) await db.batch(stmts);
-
-  if (newCustomBudgetIds && newCustomBudgetIds.length > 0) {
-    await db.batch(
-      newCustomBudgetIds.map((cbId) =>
-        db
-          .prepare("INSERT INTO transaction_custom_budget (transaction_id, custom_budget_id) VALUES (?, ?)")
-          .bind(txnId, cbId),
-      ),
-    );
+    if (newCustomBudgetIds.length > 0) {
+      await db
+        .insertInto("transaction_custom_budget")
+        .values(newCustomBudgetIds.map((cbId) => ({ transaction_id: txnId, custom_budget_id: cbId })))
+        .execute();
+    }
   }
 
   const updated = await fetchFullTransaction(db, txnId);
@@ -232,19 +228,22 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
   const txnId = Number(id);
   if (!Number.isInteger(txnId)) return Errors.notFound();
 
-  const db = await getDB();
+  const db = await getKysely();
   const userId = session.user.id;
 
   const existing = await db
-    .prepare(`SELECT id FROM "transaction" WHERE id = ? AND user_id = ?`)
-    .bind(txnId, userId)
-    .first<{ id: number }>();
+    .selectFrom("transaction")
+    .select("id")
+    .where("id", "=", txnId)
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
   if (!existing) return Errors.notFound("Giao dịch không tồn tại");
 
   await db
-    .prepare(`DELETE FROM "transaction" WHERE id = ? AND user_id = ?`)
-    .bind(txnId, userId)
-    .run();
+    .deleteFrom("transaction")
+    .where("id", "=", txnId)
+    .where("user_id", "=", userId)
+    .execute();
 
   return Response.json({});
 }

@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getDB } from "@/lib/db";
+import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 
@@ -35,13 +35,15 @@ export async function GET(request: NextRequest) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
 
-  const db = await getDB();
-  const { results } = await db
-    .prepare(
-      "SELECT id, name, parent_id, level, sort_order, type, created_at FROM category WHERE user_id = ? ORDER BY level, sort_order, id",
-    )
-    .bind(session.user.id)
-    .all<CategoryRow>();
+  const db = await getKysely();
+  const results = (await db
+    .selectFrom("category")
+    .select(["id", "name", "parent_id", "level", "sort_order", "type", "created_at"])
+    .where("user_id", "=", session.user.id)
+    .orderBy("level")
+    .orderBy("sort_order")
+    .orderBy("id")
+    .execute()) as CategoryRow[];
 
   return Response.json({ categories: buildTree(results) }, {
     headers: { "Cache-Control": "private, max-age=3600, stale-while-revalidate=300" },
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
   if (name.trim().length > 100)
     return Errors.validation("Tên danh mục tối đa 100 ký tự");
 
-  const db = await getDB();
+  const db = await getKysely();
   const userId = session.user.id;
 
   let level = 1;
@@ -77,9 +79,11 @@ export async function POST(request: NextRequest) {
       return Errors.validation("parent_id phải là số nguyên");
 
     const parent = await db
-      .prepare("SELECT level, type FROM category WHERE id = ? AND user_id = ?")
-      .bind(parent_id, userId)
-      .first<{ level: number; type: "income" | "expense" }>();
+      .selectFrom("category")
+      .select(["level", "type"])
+      .where("id", "=", parent_id)
+      .where("user_id", "=", userId)
+      .executeTakeFirst();
 
     if (!parent) return Errors.forbidden();
     if (parent.level >= 3)
@@ -93,12 +97,18 @@ export async function POST(request: NextRequest) {
     resolvedType = type;
   }
 
-  const result = await db
-    .prepare(
-      "INSERT INTO category (user_id, name, parent_id, level, sort_order, type) VALUES (?, ?, ?, ?, 0, ?) RETURNING id, name, parent_id, level, sort_order, type, created_at",
-    )
-    .bind(userId, name.trim(), parent_id ?? null, level, resolvedType)
-    .first<CategoryRow>();
+  const result = (await db
+    .insertInto("category")
+    .values({
+      user_id: userId,
+      name: name.trim(),
+      parent_id: (parent_id as number | null | undefined) ?? null,
+      level,
+      sort_order: 0,
+      type: resolvedType,
+    })
+    .returning(["id", "name", "parent_id", "level", "sort_order", "type", "created_at"])
+    .executeTakeFirst()) as CategoryRow;
 
   return Response.json({ category: result }, { status: 201 });
 }

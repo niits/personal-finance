@@ -1,3 +1,7 @@
+import type { Kysely } from "kysely";
+import type { Database } from "@/lib/schema";
+import { sql } from "kysely";
+
 const SEED_CATEGORIES: {
   name: string;
   type: "income" | "expense";
@@ -75,38 +79,54 @@ const SEED_CATEGORIES: {
   },
 ];
 
-export async function seedNewUser(db: D1Database, userId: string): Promise<void> {
+export async function seedNewUser(db: Kysely<Database>, userId: string): Promise<void> {
   await db
-    .prepare(
-      "INSERT OR IGNORE INTO budget_config (user_id, default_monthly_amount, updated_at) VALUES (?, 10000000, unixepoch())",
-    )
-    .bind(userId)
-    .run();
+    .insertInto("budget_config")
+    .values({
+      user_id: userId,
+      default_monthly_amount: 10_000_000,
+      updated_at: sql<number>`unixepoch()`,
+    })
+    .onConflict((oc) => oc.column("user_id").doNothing())
+    .execute();
 
   for (const parent of SEED_CATEGORIES) {
     await db
-      .prepare(
-        "INSERT OR IGNORE INTO category (user_id, name, parent_id, level, sort_order, type) VALUES (?, ?, NULL, 1, ?, ?)",
-      )
-      .bind(userId, parent.name, parent.sortOrder, parent.type)
-      .run();
+      .insertInto("category")
+      .values({
+        user_id: userId,
+        name: parent.name,
+        parent_id: null,
+        level: 1,
+        sort_order: parent.sortOrder,
+        type: parent.type,
+      })
+      .onConflict((oc) => oc.doNothing())
+      .execute();
 
     const parentRow = await db
-      .prepare(
-        "SELECT id FROM category WHERE user_id = ? AND name = ? AND parent_id IS NULL",
-      )
-      .bind(userId, parent.name)
-      .first<{ id: number }>();
+      .selectFrom("category")
+      .select("id")
+      .where("user_id", "=", userId)
+      .where("name", "=", parent.name)
+      .where("parent_id", "is", null)
+      .executeTakeFirst();
 
     if (!parentRow) continue;
 
     for (const child of parent.children) {
       await db
-        .prepare(
-          "INSERT OR IGNORE INTO category (user_id, name, parent_id, level, sort_order, type) VALUES (?, ?, ?, 2, ?, ?)",
-        )
-        .bind(userId, child.name, parentRow.id, child.sortOrder, parent.type)
-        .run();
+        .insertInto("category")
+        .values({
+          user_id: userId,
+          name: child.name,
+          parent_id: parentRow.id,
+          level: 2,
+          sort_order: child.sortOrder,
+          type: parent.type,
+        })
+        .onConflict((oc) => oc.doNothing())
+        .execute();
     }
   }
 }

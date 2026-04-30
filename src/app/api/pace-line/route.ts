@@ -1,9 +1,10 @@
 import type { NextRequest } from "next/server";
-import { getDB } from "@/lib/db";
+import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { parseMonth, getBudgetPeriod } from "@/lib/validators";
 import { buildIdealLine, buildActualLine } from "@/lib/pace-line";
+import { sql } from "kysely";
 
 export async function GET(request: NextRequest) {
   const session = await requireSession(request);
@@ -13,13 +14,15 @@ export async function GET(request: NextRequest) {
   const month = parseMonth(monthParam);
   if (!month) return Errors.validation("Thiếu hoặc sai định dạng tham số month (YYYY-MM)");
 
-  const db = await getDB();
+  const db = await getKysely();
   const userId = session.user.id;
 
   const budget = await db
-    .prepare("SELECT id, amount FROM monthly_budget WHERE user_id = ? AND month = ?")
-    .bind(userId, month)
-    .first<{ id: number; amount: number }>();
+    .selectFrom("monthly_budget")
+    .select(["id", "amount"])
+    .where("user_id", "=", userId)
+    .where("month", "=", month)
+    .executeTakeFirst();
 
   if (!budget) {
     return Response.json({ month, monthly_budget: null, ideal_line: [], actual_line: [] });
@@ -39,15 +42,18 @@ export async function GET(request: NextRequest) {
       )
     : periodDays;
 
-  const { results: expenses } = await db
-    .prepare(
-      `SELECT CAST(julianday(date) - julianday(?) + 1 AS INTEGER) as day, SUM(amount) as total
-       FROM "transaction"
-       WHERE user_id = ? AND type = 'expense' AND date >= ? AND date < ?
-       GROUP BY day`,
-    )
-    .bind(periodStart, userId, periodStart, periodEnd)
-    .all<{ day: number; total: number }>();
+  const expenses = await db
+    .selectFrom("transaction")
+    .select([
+      sql<number>`CAST(julianday(date) - julianday(${periodStart}) + 1 AS INTEGER)`.as("day"),
+      sql<number>`SUM(amount)`.as("total"),
+    ])
+    .where("user_id", "=", userId)
+    .where("type", "=", "expense")
+    .where("date", ">=", periodStart)
+    .where("date", "<", periodEnd)
+    .groupBy(sql`CAST(julianday(date) - julianday(${periodStart}) + 1 AS INTEGER)`)
+    .execute();
 
   const dailyMap = new Map(expenses.map((e) => [e.day, e.total]));
 

@@ -13,10 +13,21 @@ type Category = {
   children: Category[];
 };
 
+type EditTransaction = {
+  id: number;
+  amount: number;
+  type: "expense" | "income";
+  category: { id: number; name: string; path: string };
+  note: string | null;
+  date: string;
+  custom_budgets: { id: number; name: string }[];
+};
+
 type Props = {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  transaction?: EditTransaction;
 };
 
 function fmt(n: number) {
@@ -336,15 +347,30 @@ type CustomBudget = { id: number; name: string; amount: number; is_active: numbe
 
 // ─── Main Form ────────────────────────────────────────────────────────────────
 
-export default function TransactionForm({ open, onClose, onSaved }: Props) {
-  const [type, setType] = useState<"expense" | "income">("expense");
-  const [amountStr, setAmountStr] = useState("");
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [date, setDate] = useState(todayStr());
-  const [note, setNote] = useState("");
-  const [selectedCbIds, setSelectedCbIds] = useState<number[]>([]);
+export default function TransactionForm({ open, onClose, onSaved, transaction }: Props) {
+  const isEdit = !!transaction;
+  const [type, setType] = useState<"expense" | "income">(transaction?.type ?? "expense");
+  const [amountStr, setAmountStr] = useState(transaction ? fmt(transaction.amount) : "");
+  const [categoryId, setCategoryId] = useState<number | null>(transaction?.category.id ?? null);
+  const [date, setDate] = useState(transaction?.date ?? todayStr());
+  const [note, setNote] = useState(transaction?.note ?? "");
+  const [selectedCbIds, setSelectedCbIds] = useState<number[]>(
+    transaction?.custom_budgets.map((cb) => cb.id) ?? []
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Sync form state when transaction prop changes (switching between edit targets)
+  useEffect(() => {
+    if (transaction) {
+      setType(transaction.type);
+      setAmountStr(fmt(transaction.amount));
+      setCategoryId(transaction.category.id);
+      setDate(transaction.date);
+      setNote(transaction.note ?? "");
+      setSelectedCbIds(transaction.custom_budgets.map((cb) => cb.id));
+    }
+  }, [transaction]);
 
   const { data: catData } = useSWR<{ categories: Category[] }>(
     open ? "/api/categories" : null,
@@ -358,14 +384,10 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
   const cats = allCats.filter((c) => c.type === type);
   const customBudgets = cbData?.custom_budgets ?? [];
 
-  // Reset category selection when transaction type changes
+  // Reset category selection when transaction type changes (create mode only)
   useEffect(() => {
-    setCategoryId(null);
-  }, [type]);
-
-  useEffect(() => {
-    if (!open) return;
-  }, [open]);
+    if (!isEdit) setCategoryId(null);
+  }, [type, isEdit]);
 
   function reset() {
     setType("expense");
@@ -390,16 +412,18 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
     setSaving(true);
     setError("");
     const body: Record<string, unknown> = { amount, type, category_id: categoryId, note: note || null, date };
-    if (type === "expense" && selectedCbIds.length > 0) body.custom_budget_ids = selectedCbIds;
-    const r = await fetch("/api/transactions", {
-      method: "POST",
+    if (type === "expense") body.custom_budget_ids = selectedCbIds;
+    const url = isEdit ? `/api/transactions/${transaction!.id}` : "/api/transactions";
+    const method = isEdit ? "PATCH" : "POST";
+    const r = await fetch(url, {
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const d = await r.json() as { error?: string };
     if (!r.ok) { setError(d.error ?? "Lỗi khi lưu"); setSaving(false); return; }
     setSaving(false);
-    reset();
+    if (!isEdit) reset();
     onClose();
     onSaved();
   }
@@ -436,10 +460,15 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
         overflowY: "auto",
         paddingBottom: "max(28px, env(safe-area-inset-bottom))",
       }}>
-        {/* Handle */}
+        {/* Handle + title */}
         <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)" }} />
         </div>
+        {isEdit && (
+          <p style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>
+            Sửa giao dịch
+          </p>
+        )}
 
         <div style={{ padding: "0 20px 8px" }}>
 
@@ -609,7 +638,7 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
               transition: "opacity 0.15s",
             }}
           >
-            {saving ? "Đang lưu…" : "Lưu giao dịch"}
+            {saving ? "Đang lưu…" : isEdit ? "Cập nhật" : "Lưu giao dịch"}
           </button>
         </div>
       </div>
