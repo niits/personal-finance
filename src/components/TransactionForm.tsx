@@ -8,6 +8,7 @@ type Category = {
   id: number;
   name: string;
   level: number;
+  type: "income" | "expense";
   parent_id: number | null;
   children: Category[];
 };
@@ -353,8 +354,14 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
     open ? "/api/custom-budgets?active_only=true" : null,
     fetcher,
   );
-  const cats = catData?.categories ?? [];
+  const allCats = catData?.categories ?? [];
+  const cats = allCats.filter((c) => c.type === type);
   const customBudgets = cbData?.custom_budgets ?? [];
+
+  // Reset category selection when transaction type changes
+  useEffect(() => {
+    setCategoryId(null);
+  }, [type]);
 
   useEffect(() => {
     if (!open) return;

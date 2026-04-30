@@ -1,10 +1,12 @@
 const SEED_CATEGORIES: {
   name: string;
+  type: "income" | "expense";
   sortOrder: number;
   children: { name: string; sortOrder: number }[];
 }[] = [
   {
     name: "Ăn uống",
+    type: "expense",
     sortOrder: 0,
     children: [
       { name: "Ăn ngoài", sortOrder: 0 },
@@ -14,6 +16,7 @@ const SEED_CATEGORIES: {
   },
   {
     name: "Đi lại",
+    type: "expense",
     sortOrder: 1,
     children: [
       { name: "Xăng", sortOrder: 0 },
@@ -23,6 +26,7 @@ const SEED_CATEGORIES: {
   },
   {
     name: "Mua sắm",
+    type: "expense",
     sortOrder: 2,
     children: [
       { name: "Quần áo", sortOrder: 0 },
@@ -32,6 +36,7 @@ const SEED_CATEGORIES: {
   },
   {
     name: "Sức khoẻ",
+    type: "expense",
     sortOrder: 3,
     children: [
       { name: "Thuốc", sortOrder: 0 },
@@ -40,6 +45,7 @@ const SEED_CATEGORIES: {
   },
   {
     name: "Giải trí",
+    type: "expense",
     sortOrder: 4,
     children: [
       { name: "Phim / sự kiện", sortOrder: 0 },
@@ -49,6 +55,7 @@ const SEED_CATEGORIES: {
   },
   {
     name: "Hoá đơn & dịch vụ",
+    type: "expense",
     sortOrder: 5,
     children: [
       { name: "Điện nước", sortOrder: 0 },
@@ -58,6 +65,7 @@ const SEED_CATEGORIES: {
   },
   {
     name: "Thu nhập",
+    type: "income",
     sortOrder: 6,
     children: [
       { name: "Lương", sortOrder: 0 },
@@ -68,7 +76,6 @@ const SEED_CATEGORIES: {
 ];
 
 export async function seedNewUser(db: D1Database, userId: string): Promise<void> {
-  // Insert budget_config (INSERT OR IGNORE for idempotency)
   await db
     .prepare(
       "INSERT OR IGNORE INTO budget_config (user_id, default_monthly_amount, updated_at) VALUES (?, 10000000, unixepoch())",
@@ -76,16 +83,14 @@ export async function seedNewUser(db: D1Database, userId: string): Promise<void>
     .bind(userId)
     .run();
 
-  // Insert seed categories
   for (const parent of SEED_CATEGORIES) {
-    const parentResult = await db
+    await db
       .prepare(
-        "INSERT OR IGNORE INTO category (user_id, name, parent_id, level, sort_order) VALUES (?, ?, NULL, 1, ?)",
+        "INSERT OR IGNORE INTO category (user_id, name, parent_id, level, sort_order, type) VALUES (?, ?, NULL, 1, ?, ?)",
       )
-      .bind(userId, parent.name, parent.sortOrder)
+      .bind(userId, parent.name, parent.sortOrder, parent.type)
       .run();
 
-    // Get parent id — look it up since INSERT OR IGNORE may skip on re-seed
     const parentRow = await db
       .prepare(
         "SELECT id FROM category WHERE user_id = ? AND name = ? AND parent_id IS NULL",
@@ -94,17 +99,13 @@ export async function seedNewUser(db: D1Database, userId: string): Promise<void>
       .first<{ id: number }>();
 
     if (!parentRow) continue;
-    const parentId = parentRow.id;
-
-    // Suppress unused variable warning
-    void parentResult;
 
     for (const child of parent.children) {
       await db
         .prepare(
-          "INSERT OR IGNORE INTO category (user_id, name, parent_id, level, sort_order) VALUES (?, ?, ?, 2, ?)",
+          "INSERT OR IGNORE INTO category (user_id, name, parent_id, level, sort_order, type) VALUES (?, ?, ?, 2, ?, ?)",
         )
-        .bind(userId, child.name, parentId, child.sortOrder)
+        .bind(userId, child.name, parentRow.id, child.sortOrder, parent.type)
         .run();
     }
   }

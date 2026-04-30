@@ -9,6 +9,7 @@ type CategoryRow = {
   parent_id: number | null;
   level: number;
   sort_order: number;
+  type: "income" | "expense";
   created_at: number;
 };
 
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
   const db = await getDB();
   const { results } = await db
     .prepare(
-      "SELECT id, name, parent_id, level, sort_order, created_at FROM category WHERE user_id = ? ORDER BY level, sort_order, id",
+      "SELECT id, name, parent_id, level, sort_order, type, created_at FROM category WHERE user_id = ? ORDER BY level, sort_order, id",
     )
     .bind(session.user.id)
     .all<CategoryRow>();
@@ -54,7 +55,11 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body) return Errors.validation("Request body không hợp lệ");
 
-  const { name, parent_id } = body as { name?: unknown; parent_id?: unknown };
+  const { name, parent_id, type } = body as {
+    name?: unknown;
+    parent_id?: unknown;
+    type?: unknown;
+  };
 
   if (typeof name !== "string" || name.trim().length === 0)
     return Errors.validation("Tên danh mục không được để trống");
@@ -65,31 +70,34 @@ export async function POST(request: NextRequest) {
   const userId = session.user.id;
 
   let level = 1;
+  let resolvedType: "income" | "expense";
 
   if (parent_id !== undefined && parent_id !== null) {
     if (typeof parent_id !== "number")
       return Errors.validation("parent_id phải là số nguyên");
 
     const parent = await db
-      .prepare("SELECT level FROM category WHERE id = ? AND user_id = ?")
+      .prepare("SELECT level, type FROM category WHERE id = ? AND user_id = ?")
       .bind(parent_id, userId)
-      .first<{ level: number }>();
+      .first<{ level: number; type: "income" | "expense" }>();
 
     if (!parent) return Errors.forbidden();
     if (parent.level >= 3)
-      return Errors.conflict(
-        "Danh mục cấp 3 không thể có danh mục con",
-        "CONFLICT",
-      );
+      return Errors.conflict("Danh mục cấp 3 không thể có danh mục con", "CONFLICT");
 
     level = parent.level + 1;
+    resolvedType = parent.type;
+  } else {
+    if (type !== "income" && type !== "expense")
+      return Errors.validation("type phải là 'income' hoặc 'expense'");
+    resolvedType = type;
   }
 
   const result = await db
     .prepare(
-      "INSERT INTO category (user_id, name, parent_id, level, sort_order) VALUES (?, ?, ?, ?, 0) RETURNING id, name, parent_id, level, sort_order, created_at",
+      "INSERT INTO category (user_id, name, parent_id, level, sort_order, type) VALUES (?, ?, ?, ?, 0, ?) RETURNING id, name, parent_id, level, sort_order, type, created_at",
     )
-    .bind(userId, name.trim(), parent_id ?? null, level)
+    .bind(userId, name.trim(), parent_id ?? null, level, resolvedType)
     .first<CategoryRow>();
 
   return Response.json({ category: result }, { status: 201 });

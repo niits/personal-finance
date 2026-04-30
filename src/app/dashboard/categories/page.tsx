@@ -8,20 +8,36 @@ type Category = {
   id: number;
   name: string;
   level: number;
+  type: "income" | "expense";
   parent_id: number | null;
   children: Category[];
 };
 
 const CATS_KEY = "/api/categories";
 
+function getParentType(cats: Category[], parentId: number | null): "income" | "expense" | null {
+  if (parentId === null) return null;
+  for (const c of cats) {
+    if (c.id === parentId) return c.type;
+    for (const cc of c.children) {
+      if (cc.id === parentId) return cc.type;
+    }
+  }
+  return null;
+}
+
 export default function CategoriesPage() {
   const { data, isLoading } = useSWR<{ categories: Category[] }>(CATS_KEY, fetcher);
   const cats = data?.categories ?? [];
   const [newName, setNewName] = useState("");
   const [parentId, setParentId] = useState<number | null>(null);
+  const [newType, setNewType] = useState<"income" | "expense">("expense");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+
+  const inheritedType = getParentType(cats, parentId);
+  const resolvedType = inheritedType ?? newType;
 
   async function save() {
     if (!newName.trim()) return;
@@ -30,7 +46,7 @@ export default function CategoriesPage() {
     const r = await fetch("/api/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim(), parent_id: parentId }),
+      body: JSON.stringify({ name: newName.trim(), parent_id: parentId, type: resolvedType }),
     });
     const d = await r.json() as { category?: Category; error?: string };
     if (!r.ok) { setError(d.error ?? "Lỗi"); setSaving(false); return; }
@@ -74,17 +90,30 @@ export default function CategoriesPage() {
             {depth > 0 && <span style={{ color: "var(--ink-muted-48)", marginRight: 8 }}>└</span>}
             {cat.name}
           </span>
-          <span style={{
-            marginLeft: "auto",
-            fontSize: 11,
-            color: "var(--ink-muted-48)",
-            fontFamily: "var(--font-body)",
-            background: "var(--canvas-parchment)",
-            padding: "2px 8px",
-            borderRadius: 999,
-          }}>
-            Cấp {cat.level}
-          </span>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+            {depth === 0 && (
+              <span style={{
+                fontSize: 11,
+                color: cat.type === "income" ? "#34c759" : "var(--primary)",
+                fontFamily: "var(--font-body)",
+                background: cat.type === "income" ? "rgba(52,199,89,0.1)" : "rgba(0,102,204,0.08)",
+                padding: "2px 8px",
+                borderRadius: 999,
+              }}>
+                {cat.type === "income" ? "Thu nhập" : "Chi tiêu"}
+              </span>
+            )}
+            <span style={{
+              fontSize: 11,
+              color: "var(--ink-muted-48)",
+              fontFamily: "var(--font-body)",
+              background: "var(--canvas-parchment)",
+              padding: "2px 8px",
+              borderRadius: 999,
+            }}>
+              Cấp {cat.level}
+            </span>
+          </div>
         </div>
         {cat.children?.map((child) => renderCategory(child, depth + 1))}
       </div>
@@ -194,6 +223,36 @@ export default function CategoriesPage() {
                 </option>
               ))}
             </select>
+
+            {/* Type selector: shown only for root categories; children inherit from parent */}
+            {parentId === null ? (
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["expense", "income"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setNewType(t)}
+                    style={{
+                      flex: 1,
+                      padding: "9px",
+                      borderRadius: 11,
+                      border: `1px solid ${newType === t ? "var(--primary)" : "var(--hairline)"}`,
+                      background: newType === t ? "rgba(0,102,204,0.08)" : "var(--canvas-parchment)",
+                      color: newType === t ? "var(--primary)" : "var(--ink-muted-48)",
+                      fontFamily: "var(--font-body)",
+                      fontSize: 14,
+                      fontWeight: newType === t ? 600 : 400,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t === "expense" ? "Chi tiêu" : "Thu nhập"}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", paddingLeft: 4 }}>
+                Phân loại: <strong>{resolvedType === "expense" ? "Chi tiêu" : "Thu nhập"}</strong> (kế thừa từ danh mục cha)
+              </p>
+            )}
 
             {error && (
               <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)" }}>
