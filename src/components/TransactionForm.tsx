@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 type Category = {
   id: number;
@@ -46,20 +46,13 @@ function CategoryDrillDown({
   cats,
   selected,
   onSelect,
-  onCatsChanged,
 }: {
   cats: Category[];
   selected: number | null;
   onSelect: (id: number) => void;
-  onCatsChanged: () => void;
 }) {
   // path = [l1Id, l2Id?, l3Id?] – breadcrumb of what user has drilled into
   const [path, setPath] = useState<number[]>([]);
-  const [addingAt, setAddingAt] = useState<number | null>(null); // parent_id for new cat (null = L1)
-  const [newName, setNewName] = useState("");
-  const [addErr, setAddErr] = useState("");
-  const [addSaving, setAddSaving] = useState(false);
-
   // Navigate back when cats change (in case selected node was reparented)
   useEffect(() => { setPath([]); }, [cats]);
 
@@ -86,28 +79,8 @@ function CategoryDrillDown({
     return names;
   }
 
-  async function addCategory() {
-    if (!newName.trim()) return;
-    setAddSaving(true);
-    setAddErr("");
-    const r = await fetch("/api/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim(), parent_id: addingAt ?? null }),
-    });
-    const d = await r.json() as { category?: Category; error?: string };
-    if (!r.ok) { setAddErr(d.error ?? "Lỗi"); setAddSaving(false); return; }
-    setNewName("");
-    setAddingAt(null);
-    setAddSaving(false);
-    onCatsChanged();
-  }
-
   const current = getCurrent();
-  const currentParentId = path.length > 0 ? path[path.length - 1] : null;
   const pathNames = getPathNames();
-  const currentLevel = path.length + 1; // 1, 2, or 3
-  const canAddHere = currentLevel <= 3;
 
   return (
     <div>
@@ -141,7 +114,7 @@ function CategoryDrillDown({
         overflow: "hidden",
         background: "var(--canvas)",
       }}>
-        {current.length === 0 && !canAddHere && (
+        {current.length === 0 && (
           <div style={{ padding: "12px 16px", color: "var(--ink-muted-48)", fontSize: 14, fontFamily: "var(--font-body)" }}>
             Không có danh mục con
           </div>
@@ -203,89 +176,7 @@ function CategoryDrillDown({
           );
         })}
 
-        {/* Add inline */}
-        {canAddHere && (
-          <div style={{ borderTop: current.length > 0 ? "1px solid var(--hairline)" : "none" }}>
-            {addingAt === currentParentId && (
-              <div style={{ padding: "10px 12px", display: "flex", gap: 8 }}>
-                <input
-                  autoFocus
-                  placeholder={`Tên danh mục cấp ${currentLevel}…`}
-                  value={newName}
-                  onChange={(e) => { setNewName(e.target.value); setAddErr(""); }}
-                  onKeyDown={(e) => e.key === "Enter" && addCategory()}
-                  style={{
-                    flex: 1,
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: addErr ? "1px solid #ff453a" : "1px solid var(--hairline)",
-                    fontFamily: "var(--font-body)",
-                    fontSize: 14,
-                    color: "var(--ink)",
-                    background: "var(--canvas-parchment)",
-                    outline: "none",
-                  }}
-                />
-                <button
-                  onClick={addCategory}
-                  disabled={addSaving || !newName.trim()}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: newName.trim() ? "var(--primary)" : "var(--hairline)",
-                    color: newName.trim() ? "#fff" : "var(--ink-muted-48)",
-                    fontFamily: "var(--font-body)",
-                    fontSize: 13,
-                    cursor: newName.trim() ? "pointer" : "default",
-                    flexShrink: 0,
-                  }}
-                >
-                  {addSaving ? "…" : "Lưu"}
-                </button>
-                <button
-                  onClick={() => { setAddingAt(null); setNewName(""); setAddErr(""); }}
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: 8,
-                    border: "1px solid var(--hairline)",
-                    background: "transparent",
-                    color: "var(--ink-muted-48)",
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-            {addErr && (
-              <p style={{ padding: "0 12px 8px", color: "#ff453a", fontSize: 12, fontFamily: "var(--font-body)" }}>{addErr}</p>
-            )}
-            {addingAt !== currentParentId && (
-              <button
-                onClick={() => { setAddingAt(currentParentId); setNewName(""); }}
-                style={{
-                  width: "100%",
-                  padding: "11px 14px",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  color: "var(--primary)",
-                  fontFamily: "var(--font-body)",
-                  fontSize: 14,
-                }}
-              >
-                <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
-                Thêm danh mục cấp {currentLevel}
-              </button>
-            )}
-          </div>
-        )}
+
       </div>
     </div>
   );
@@ -352,7 +243,6 @@ function selectedDateLabel(s: string): string {
 }
 
 function DatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const hints = getDateHints();
   const isCustom = !hints.includes(value);
 
@@ -402,8 +292,7 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
 
       {/* Date display — separate, same unit width, opens datepicker */}
       <div style={{ flex: 1, position: "relative" }}>
-        <button
-          onClick={() => inputRef.current?.showPicker?.()}
+        <div
           style={{
             ...btnBase,
             width: "100%",
@@ -413,12 +302,15 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
             background: isCustom ? "var(--ink)" : "var(--canvas-parchment)",
             color: isCustom ? "#fff" : "var(--ink-muted-48)",
             fontWeight: isCustom ? 600 : 400,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
           }}
         >
           {isCustom ? selectedDateLabel(value) : "···"}
-        </button>
+        </div>
         <input
-          ref={inputRef}
           type="date"
           value={value}
           max={todayStr()}
@@ -429,7 +321,7 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
             opacity: 0,
             width: "100%",
             height: "100%",
-            pointerEvents: "none",
+            cursor: "pointer",
           }}
         />
       </div>
@@ -630,7 +522,6 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
               cats={cats}
               selected={categoryId}
               onSelect={(id) => { setCategoryId(id); setError(""); }}
-              onCatsChanged={loadData}
             />
           </div>
 
