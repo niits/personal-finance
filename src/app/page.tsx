@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useSession, signIn } from "@/lib/auth-client";
 
 const GitHubIcon = () => (
@@ -10,6 +12,13 @@ const GitHubIcon = () => (
 
 export default function Home() {
   const { data: session, isPending } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isPending && session) {
+      router.replace("/dashboard");
+    }
+  }, [session, isPending, router]);
 
   return (
     <main>
