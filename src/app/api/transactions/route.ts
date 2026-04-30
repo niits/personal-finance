@@ -6,8 +6,9 @@ import {
   parseAmount,
   parseDate,
   parseMonth,
-  getMonthFromDate,
-  currentMonth,
+  getBudgetMonthForDate,
+  getBudgetPeriod,
+  currentBudgetMonth,
   isLeafCategory,
 } from "@/lib/validators";
 
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
   if (!session) return Errors.unauthorized();
 
   const p = request.nextUrl.searchParams;
-  const month = parseMonth(p.get("month")) ?? currentMonth();
+  const month = parseMonth(p.get("month")) ?? currentBudgetMonth();
   const typeFilter = p.get("type");
   const categoryId = p.get("category_id") ? Number(p.get("category_id")) : null;
   const customBudgetId = p.get("custom_budget_id") ? Number(p.get("custom_budget_id")) : null;
@@ -79,8 +80,9 @@ export async function GET(request: NextRequest) {
     sql += ` JOIN transaction_custom_budget tcb ON tcb.transaction_id = t.id AND tcb.custom_budget_id = ${customBudgetId}`;
   }
 
-  sql += ` WHERE t.user_id = ? AND t.date LIKE ?`;
-  const binds: unknown[] = [userId, `${month}-%`];
+  const { start: txStart, end: txEnd } = getBudgetPeriod(month);
+  sql += ` WHERE t.user_id = ? AND t.date >= ? AND t.date < ?`;
+  const binds: unknown[] = [userId, txStart, txEnd];
 
   if (typeFilter === "expense" || typeFilter === "income") {
     sql += ` AND t.type = ?`;
@@ -113,15 +115,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Summary always for the full month regardless of filters
+  // Summary always for the full budget period regardless of filters
   const summary = await db
     .prepare(
-      `SELECT COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as total_expense, COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as total_income FROM "transaction" WHERE user_id=? AND date LIKE ?`,
+      `SELECT COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as total_expense, COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as total_income FROM "transaction" WHERE user_id=? AND date >= ? AND date < ?`,
     )
-    .bind(userId, `${month}-%`)
+    .bind(userId, txStart, txEnd)
     .first<{ total_expense: number; total_income: number }>();
 
-  const isPastMonth = month !== currentMonth();
+  const isPastMonth = month !== currentBudgetMonth();
   const cacheHeader = isPastMonth
     ? "private, max-age=86400"
     : "private, max-age=30, stale-while-revalidate=120";
@@ -180,7 +182,7 @@ export async function POST(request: NextRequest) {
   // Get monthly budget for expense
   let monthlyBudgetId: number | null = null;
   if (b.type === "expense") {
-    const month = getMonthFromDate(date);
+    const month = getBudgetMonthForDate(date);
     const budget = await db
       .prepare("SELECT id FROM monthly_budget WHERE user_id = ? AND month = ?")
       .bind(userId, month)

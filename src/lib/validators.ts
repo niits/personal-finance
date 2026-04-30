@@ -30,6 +30,39 @@ export function currentDate(): string {
   return new Date().toISOString().substring(0, 10);
 }
 
+// Returns the last Mon-Fri of the given calendar month as YYYY-MM-DD.
+export function lastWorkingDay(year: number, month: number): string {
+  const d = new Date(Date.UTC(year, month, 0)); // last calendar day of month
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
+  return d.toISOString().substring(0, 10);
+}
+
+// Maps a transaction date to its budget month (YYYY-MM).
+// If date >= lastWorkingDay(calendarMonth), it belongs to the NEXT budget month.
+export function getBudgetMonthForDate(dateStr: string): string {
+  const [y, m] = dateStr.substring(0, 7).split("-").map(Number);
+  if (dateStr >= lastWorkingDay(y, m)) {
+    return new Date(Date.UTC(y, m, 1)).toISOString().substring(0, 7);
+  }
+  return dateStr.substring(0, 7);
+}
+
+// Returns the half-open date interval [start, end) for a budget month.
+// Transactions with start <= date < end belong to this budget month.
+export function getBudgetPeriod(budgetMonth: string): { start: string; end: string } {
+  const [y, m] = budgetMonth.split("-").map(Number);
+  const prevFirst = new Date(Date.UTC(y, m - 2, 1));
+  const start = lastWorkingDay(prevFirst.getUTCFullYear(), prevFirst.getUTCMonth() + 1);
+  const end = lastWorkingDay(y, m);
+  return { start, end };
+}
+
+export function currentBudgetMonth(): string {
+  return getBudgetMonthForDate(currentDate());
+}
+
 export async function isLeafCategory(
   db: D1Database,
   categoryId: number,

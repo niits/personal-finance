@@ -2,24 +2,32 @@ import type { NextRequest } from "next/server";
 import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { parseMonth, currentMonth } from "@/lib/validators";
-import { getDaysInMonth, idealBudgetAtDay } from "@/lib/pace-line";
+import { parseMonth, currentBudgetMonth, getBudgetPeriod } from "@/lib/validators";
+import { idealBudgetAtDay } from "@/lib/pace-line";
 
 export async function GET(request: NextRequest) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
 
-  const month = parseMonth(request.nextUrl.searchParams.get("month")) ?? currentMonth();
+  const month = parseMonth(request.nextUrl.searchParams.get("month")) ?? currentBudgetMonth();
   const db = await getDB();
   const userId = session.user.id;
 
-  const [year, monthNum] = month.split("-").map(Number);
-  const daysInMonth = getDaysInMonth(year, monthNum);
+  const { start: periodStart, end: periodEnd } = getBudgetPeriod(month);
+  const periodDays = Math.round(
+    (new Date(periodEnd + "T00:00:00Z").getTime() - new Date(periodStart + "T00:00:00Z").getTime()) / 86400000,
+  );
+
+  const isCurrentBudgetMonth = month === currentBudgetMonth();
   const today = new Date();
-  const isCurrentMonth =
-    today.getFullYear() === year && today.getMonth() + 1 === monthNum;
-  const daysElapsed = isCurrentMonth ? today.getDate() : daysInMonth;
-  const daysRemaining = daysInMonth - daysElapsed;
+  const todayStr = today.toISOString().substring(0, 10);
+  const daysElapsed = isCurrentBudgetMonth
+    ? Math.min(
+        Math.round((new Date(todayStr + "T00:00:00Z").getTime() - new Date(periodStart + "T00:00:00Z").getTime()) / 86400000) + 1,
+        periodDays,
+      )
+    : periodDays;
+  const daysRemaining = periodDays - daysElapsed;
 
   const summary = await db
     .prepare(
@@ -27,9 +35,9 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as total_expense,
         COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0) as total_income
       FROM "transaction"
-      WHERE user_id = ? AND date LIKE ?`,
+      WHERE user_id = ? AND date >= ? AND date < ?`,
     )
-    .bind(userId, `${month}-%`)
+    .bind(userId, periodStart, periodEnd)
     .first<{ total_expense: number; total_income: number }>();
 
   const totalExpense = summary?.total_expense ?? 0;
@@ -48,23 +56,25 @@ export async function GET(request: NextRequest) {
     monthlyBudget = { id: budget.id, amount: budget.amount, remaining };
     const ideal = idealBudgetAtDay({
       budget: budget.amount,
-      daysInMonth,
+      daysInMonth: periodDays,
       day: daysElapsed,
     });
     paceStatus = totalExpense > ideal ? "over" : "under";
   }
 
-  const cacheHeader = isCurrentMonth
+  const cacheHeader = isCurrentBudgetMonth
     ? "private, max-age=60, stale-while-revalidate=300"
     : "private, max-age=86400";
 
   return Response.json({
     month,
+    period_start: periodStart,
+    period_end: periodEnd,
     total_expense: totalExpense,
     total_income: totalIncome,
     savings: totalIncome - totalExpense,
     monthly_budget: monthlyBudget,
-    days_in_month: daysInMonth,
+    days_in_period: periodDays,
     days_elapsed: daysElapsed,
     days_remaining: daysRemaining,
     pace_status: paceStatus,
