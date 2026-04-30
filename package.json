@@ -9,7 +9,10 @@
     "lint": "eslint",
     "build:cf": "opennextjs-cloudflare build",
     "dev:cf": "opennextjs-cloudflare build && opennextjs-cloudflare preview -- --port 8787",
-    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --env production"
+    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --env production",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:integration": "vitest run --config vitest.config.ts",
+    "test": "npm run test:unit && npm run test:integration"
   },
   "dependencies": {
     "@better-auth/cli": "^1.4.21",
@@ -20,6 +23,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.71",
     "@opennextjs/cloudflare": "^1.19.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -29,6 +33,7 @@
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vitest": "^3.2.4",
     "wrangler": "^4.86.0"
   }
 }

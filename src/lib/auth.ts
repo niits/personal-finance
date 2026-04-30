@@ -1,3 +1,5 @@
+import { seedNewUser } from "./seed";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let authInstance: any;
 
@@ -18,13 +20,20 @@ export async function getAuth() {
   authInstance = betterAuth({
     secret: cfEnv.BETTER_AUTH_SECRET,
     baseURL: cfEnv.BETTER_AUTH_URL,
-    // Pass the raw D1 database — Better Auth auto-detects D1 and uses its own
-    // dialect with proper transaction fallback (kysely-d1 throws on beginTransaction)
     database: cfEnv.DB,
     socialProviders: {
       github: {
         clientId: cfEnv.GITHUB_CLIENT_ID,
         clientSecret: cfEnv.GITHUB_CLIENT_SECRET,
+      },
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            await seedNewUser(cfEnv.DB, user.id);
+          },
+        },
       },
     },
   });
