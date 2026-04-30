@@ -1,4 +1,5 @@
 # Business Requirements Document (BRD)
+
 ## Personal Finance Tracker
 
 ---
@@ -345,6 +346,7 @@ User ─────────┬──── BudgetConfig (1:1)
 ### 9.2 Data Dictionary
 
 #### User
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | TEXT | PK | Managed by better-auth |
@@ -353,6 +355,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | created_at | DATETIME | NOT NULL | |
 
 #### Category
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
@@ -364,6 +367,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | created_at | DATETIME | NOT NULL | |
 
 #### Transaction
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
@@ -377,6 +381,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | created_at | DATETIME | NOT NULL | |
 
 #### TransactionCustomBudget
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | transaction_id | INTEGER | NOT NULL, FK → Transaction.id | |
@@ -384,6 +389,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | PRIMARY KEY | | (transaction_id, custom_budget_id) | |
 
 #### MonthlyBudget
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
@@ -394,6 +400,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | UNIQUE | | (user_id, month) | |
 
 #### BudgetAdjustment
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
@@ -403,6 +410,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | created_at | DATETIME | NOT NULL | |
 
 #### CustomBudget
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
@@ -413,6 +421,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | created_at | DATETIME | NOT NULL | |
 
 #### BudgetConfig
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
@@ -468,6 +477,7 @@ App (authenticated)
 ### 10.3 Status Card (Home)
 
 Displayed in order:
+
 1. Month label: "Tháng 5/2026 · còn N ngày"
 2. Progress: "Đã chi X.XXX.XXX ₫ / Y.YYY.YYY ₫"
 3. Mini pace bar: 2 layers (ideal budget to today vs actual)
@@ -476,6 +486,7 @@ Displayed in order:
 ### 10.4 Design System
 
 Tuân thủ `DESIGN.md`:
+
 - Color tokens (no inline hex values)
 - Typography: SF Pro Display/Text, body 17px
 - Spacing tokens

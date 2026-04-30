@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 type Category = {
   id: number;
@@ -299,143 +299,145 @@ function makeDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function getLast14Days(): string[] {
-  const days: string[] = [];
-  for (let i = 0; i < 14; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(makeDateStr(d));
+function getDateHints(): string[] {
+  const now = new Date();
+  const today = makeDateStr(now);
+
+  const lastSun = new Date(now);
+  lastSun.setDate(now.getDate() - now.getDay()); // most recent Sunday (today if Sunday)
+  const sunday = makeDateStr(lastSun);
+
+  if (today === sunday) {
+    // Today is Sunday — fill remaining slots with recent days
+    const result = [today];
+    for (let i = 1; result.length < 3; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      result.push(makeDateStr(d));
+    }
+    return result;
   }
-  return days;
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const yesterdayStr = makeDateStr(yesterday);
+
+  // today + sunday = 2 required; add yesterday in between if it's not sunday
+  const result = [today];
+  if (yesterdayStr !== sunday) result.push(yesterdayStr);
+  result.push(sunday);
+  return result;
+}
+
+function hintLabel(s: string): string {
+  const now = new Date();
+  const today = makeDateStr(now);
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (s === today) return "Hôm nay";
+  if (s === makeDateStr(yest)) return "Hôm qua";
+  const d = new Date(s + "T00:00:00");
+  return `${WEEKDAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
+}
+
+function selectedDateLabel(s: string): string {
+  const now = new Date();
+  const today = makeDateStr(now);
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (s === today) return "Hôm nay";
+  if (s === makeDateStr(yest)) return "Hôm qua";
+  const d = new Date(s + "T00:00:00");
+  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()}/${d.getMonth() + 1}`;
 }
 
 function DatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [showInput, setShowInput] = useState(false);
-  const days = getLast14Days();
-  const inStrip = days.includes(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const hints = getDateHints();
+  const isCustom = !hints.includes(value);
+
+  const btnBase: React.CSSProperties = {
+    flex: 1,
+    padding: "11px 4px",
+    border: "none",
+    fontFamily: "var(--font-body)",
+    fontSize: 13,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    letterSpacing: -0.2,
+    transition: "background 0.12s",
+    minWidth: 0,
+  };
 
   return (
-    <div style={{
-      background: "var(--canvas-parchment)",
-      borderRadius: 11,
-      border: "1px solid var(--hairline)",
-      overflow: "hidden",
-    }}>
-      {/* Scrollable day strip */}
+    <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+      {/* Hint bar — 3 equal buttons grouped */}
       <div style={{
+        flex: 3,
         display: "flex",
-        overflowX: "auto",
-        gap: 0,
-        scrollbarWidth: "none",
-        WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
-      } as React.CSSProperties}>
-        {days.map((d, i) => {
-          const dateObj = new Date(d + "T00:00:00");
+        borderRadius: 11,
+        border: "1px solid var(--hairline)",
+        overflow: "hidden",
+        background: "var(--canvas-parchment)",
+      }}>
+        {hints.map((d, i) => {
           const isSelected = value === d;
-          const isToday = d === todayStr();
-          const weekday = WEEKDAYS[dateObj.getDay()];
-          const dayNum = dateObj.getDate();
-
           return (
             <button
               key={d}
-              onClick={() => { onChange(d); setShowInput(false); }}
+              onClick={() => onChange(d)}
               style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                minWidth: 52,
-                padding: "10px 4px",
-                border: "none",
-                borderRight: i < days.length - 1 ? "1px solid var(--hairline)" : "none",
+                ...btnBase,
+                borderRight: i < hints.length - 1 ? "1px solid var(--hairline)" : "none",
                 background: isSelected ? "var(--primary)" : "transparent",
-                cursor: "pointer",
-                gap: 4,
-                transition: "background 0.12s",
+                color: isSelected ? "#fff" : "var(--ink-muted-80)",
+                fontWeight: isSelected ? 600 : 400,
               }}
             >
-              <span style={{
-                fontFamily: "var(--font-body)",
-                fontSize: 10,
-                color: isSelected ? "rgba(255,255,255,0.8)" : "var(--ink-muted-48)",
-                fontWeight: 400,
-                letterSpacing: 0.3,
-              }}>
-                {isToday ? "HN" : weekday}
-              </span>
-              <span style={{
-                fontFamily: "var(--font-display)",
-                fontSize: 17,
-                fontWeight: isSelected ? 600 : (isToday ? 600 : 400),
-                color: isSelected ? "#fff" : isToday ? "var(--primary)" : "var(--ink)",
-                lineHeight: 1,
-              }}>
-                {dayNum}
-              </span>
+              {hintLabel(d)}
             </button>
           );
         })}
-
-        {/* "…" button for older dates */}
-        <button
-          onClick={() => setShowInput(!showInput)}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minWidth: 44,
-            padding: "10px 8px",
-            border: "none",
-            background: (!inStrip && value) ? "var(--ink)" : "transparent",
-            cursor: "pointer",
-            gap: 4,
-          }}
-        >
-          <span style={{
-            fontFamily: "var(--font-body)",
-            fontSize: 10,
-            color: (!inStrip && value) ? "rgba(255,255,255,0.7)" : "var(--ink-muted-48)",
-          }}>
-            {(!inStrip && value) ? new Date(value + "T00:00:00").getDate() : ""}
-          </span>
-          <span style={{
-            fontSize: 16,
-            color: (!inStrip && value) ? "#fff" : "var(--ink-muted-48)",
-            lineHeight: 1,
-          }}>
-            {(!inStrip && value) ? WEEKDAYS[new Date(value + "T00:00:00").getDay()] : "···"}
-          </span>
-        </button>
       </div>
 
-      {/* Hidden date input for older dates */}
-      {showInput && (
-        <div style={{ borderTop: "1px solid var(--hairline)", padding: "10px 12px" }}>
-          <input
-            type="date"
-            value={value}
-            max={todayStr()}
-            onChange={(e) => { if (e.target.value) { onChange(e.target.value); setShowInput(false); } }}
-            autoFocus
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid var(--hairline)",
-              fontFamily: "var(--font-body)",
-              fontSize: 15,
-              color: "var(--ink)",
-              background: "var(--canvas)",
-              outline: "none",
-            }}
-          />
-        </div>
-      )}
+      {/* Date display — separate, same unit width, opens datepicker */}
+      <div style={{ flex: 1, position: "relative" }}>
+        <button
+          onClick={() => inputRef.current?.showPicker?.()}
+          style={{
+            ...btnBase,
+            width: "100%",
+            height: "100%",
+            borderRadius: 11,
+            border: "1px solid var(--hairline)",
+            background: isCustom ? "var(--ink)" : "var(--canvas-parchment)",
+            color: isCustom ? "#fff" : "var(--ink-muted-48)",
+            fontWeight: isCustom ? 600 : 400,
+          }}
+        >
+          {isCustom ? selectedDateLabel(value) : "···"}
+        </button>
+        <input
+          ref={inputRef}
+          type="date"
+          value={value}
+          max={todayStr()}
+          onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
     </div>
   );
 }
+
+type CustomBudget = { id: number; name: string; amount: number; is_active: number };
 
 // ─── Main Form ────────────────────────────────────────────────────────────────
 
@@ -446,18 +448,25 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
   const [date, setDate] = useState(todayStr());
   const [note, setNote] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
+  const [customBudgets, setCustomBudgets] = useState<CustomBudget[]>([]);
+  const [selectedCbIds, setSelectedCbIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const loadCats = useCallback(async () => {
-    const r = await fetch("/api/categories");
-    const d = await r.json() as { categories?: Category[] };
-    setCats(d.categories ?? []);
+  const loadData = useCallback(async () => {
+    const [catRes, cbRes] = await Promise.all([
+      fetch("/api/categories"),
+      fetch("/api/custom-budgets?active_only=true"),
+    ]);
+    const catData = await catRes.json() as { categories?: Category[] };
+    const cbData = await cbRes.json() as { custom_budgets?: CustomBudget[] };
+    setCats(catData.categories ?? []);
+    setCustomBudgets(cbData.custom_budgets ?? []);
   }, []);
 
   useEffect(() => {
-    if (open) loadCats();
-  }, [open, loadCats]);
+    if (open) loadData();
+  }, [open, loadData]);
 
   function reset() {
     setType("expense");
@@ -465,7 +474,14 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
     setCategoryId(null);
     setDate(todayStr());
     setNote("");
+    setSelectedCbIds([]);
     setError("");
+  }
+
+  function toggleCb(id: number) {
+    setSelectedCbIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   }
 
   async function submit() {
@@ -474,10 +490,12 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
     if (!categoryId) { setError("Chọn danh mục"); return; }
     setSaving(true);
     setError("");
+    const body: Record<string, unknown> = { amount, type, category_id: categoryId, note: note || null, date };
+    if (type === "expense" && selectedCbIds.length > 0) body.custom_budget_ids = selectedCbIds;
     const r = await fetch("/api/transactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount, type, category_id: categoryId, note: note || null, date }),
+      body: JSON.stringify(body),
     });
     const d = await r.json() as { error?: string };
     if (!r.ok) { setError(d.error ?? "Lỗi khi lưu"); setSaving(false); return; }
@@ -535,7 +553,7 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
             marginBottom: 18,
           }}>
             {(["expense", "income"] as const).map((t) => (
-              <button key={t} onClick={() => { setType(t); setError(""); }} style={{
+              <button key={t} onClick={() => { setType(t); setError(""); if (t === "income") setSelectedCbIds([]); }} style={{
                 flex: 1,
                 padding: "9px",
                 borderRadius: 8,
@@ -612,9 +630,43 @@ export default function TransactionForm({ open, onClose, onSaved }: Props) {
               cats={cats}
               selected={categoryId}
               onSelect={(id) => { setCategoryId(id); setError(""); }}
-              onCatsChanged={loadCats}
+              onCatsChanged={loadData}
             />
           </div>
+
+          {/* Custom budgets — expense only */}
+          {type === "expense" && customBudgets.length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                Gán vào quỹ
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {customBudgets.map((cb) => {
+                  const on = selectedCbIds.includes(cb.id);
+                  return (
+                    <button
+                      key={cb.id}
+                      onClick={() => toggleCb(cb.id)}
+                      style={{
+                        padding: "7px 14px",
+                        borderRadius: 999,
+                        border: on ? "none" : "1px solid var(--hairline)",
+                        background: on ? "var(--ink)" : "var(--canvas-parchment)",
+                        color: on ? "#fff" : "var(--ink-muted-80)",
+                        fontFamily: "var(--font-body)",
+                        fontSize: 13,
+                        fontWeight: on ? 600 : 400,
+                        cursor: "pointer",
+                        transition: "all 0.12s",
+                      }}
+                    >
+                      {on && <span style={{ marginRight: 5 }}>✓</span>}{cb.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Note */}
           <input
