@@ -67,7 +67,12 @@ export default function TransactionsPage() {
     setDeleting(false);
     if (r.ok) {
       setActionTxn(null);
-      load();
+      setTxns((prev) => prev.filter((t) => t.id !== txn.id));
+      setSummary((prev) => {
+        const expense = txn.type === "expense" ? prev.total_expense - txn.amount : prev.total_expense;
+        const income = txn.type === "income" ? prev.total_income - txn.amount : prev.total_income;
+        return { total_expense: expense, total_income: income, savings: income - expense };
+      });
     }
   }
 
