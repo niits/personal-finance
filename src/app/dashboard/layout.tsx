@@ -7,7 +7,6 @@ const tabs = [
   { href: "/dashboard", label: "Tổng quan", icon: "◎" },
   { href: "/dashboard/categories", label: "Danh mục", icon: "⊞" },
   { href: "/dashboard/budget", label: "Ngân sách", icon: "◈" },
-  { href: "/dashboard/transactions", label: "Giao dịch", icon: "≡" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

@@ -258,7 +258,7 @@ Thu nhập
 |----|-------------|----------|
 | RPT-01 | The Home screen must display: total spent this month, remaining budget, and this month's savings | Must Have |
 | RPT-02 | Monthly savings = total income − total expenses for the month | Must Have |
-| RPT-03 | The Transactions screen must display a summary: total expenses, total income, and savings for the viewed month | Must Have |
+| RPT-03 | The Home screen transaction feed must display transactions grouped by date for the selected month, with a daily net total per group | Must Have |
 | RPT-04 | Users must be able to navigate to view data from previous months | Must Have |
 
 ---
@@ -440,26 +440,22 @@ User ─────────┬──── BudgetConfig (1:1)
 
 ```
 App (authenticated)
-├── Tab 1: Home
-│   ├── Status Card (budget pace summary)
-│   └── Log Transaction Form
-├── Tab 2: Transactions
-│   ├── Month Navigator
-│   ├── Summary Bar (expenses / income / savings)
-│   └── Transaction Feed (grouped by date)
-├── Tab 3: Budgets
-│   ├── Monthly Budget Section
-│   │   ├── Pace Line Chart
-│   │   ├── Adjust Budget Action
-│   │   └── Adjustment History (accordion)
-│   └── Custom Budgets Section
-│       ├── Budget Cards (progress + toggle)
-│       └── Create Custom Budget (FAB)
-└── Tab 4: Settings
-    ├── Categories (tree view, 3 levels)
-    ├── Budget Config (default monthly amount)
-    └── Account (profile + sign out)
+├── Tab 1: Home (Tổng quan)
+│   ├── Header: month navigator ‹ › , hero spend, budget bar with pace layer
+│   ├── Category filter chips (top 3 level-1 by expense count)
+│   └── Transaction feed (grouped by date, current month default)
+├── Tab 2: Categories (Danh mục)
+│   └── Category tree (3 levels, manage)
+└── Tab 3: Budgets (Ngân sách)
+    ├── Monthly Budget Section
+    │   ├── Adjust Budget Action
+    │   └── Adjustment History (accordion)
+    └── Custom Budgets Section
+        ├── Budget Cards (progress + toggle)
+        └── Create Custom Budget (FAB)
 ```
+
+**Removed:** Tab "Giao dịch" (Transactions) — merged into Home tab. The Home tab is now the primary surface for both overview and transaction history.
 
 ### 10.2 Home Screen — Log Transaction Form
 
@@ -469,22 +465,26 @@ App (authenticated)
 |---|-------|------|----------|-------|
 | 1 | Số tiền | Number input | Yes | Auto-focus when tab opens; auto-formats thousands separator |
 | 2 | Loại | Segmented control | Yes | Chi tiêu / Thu nhập; default Chi tiêu |
-| 3 | Danh mục | Bottom sheet picker | Yes | 3-level tree; leaf nodes only |
+| 3 | Danh mục | Bottom sheet picker | Yes | 3-level tree; leaf nodes only; parent rows show selected child as subtitle |
 | 4 | Ghi chú | Text input | No | Placeholder "Ghi chú..." |
 | 5 | Ngày | Date picker | Yes | Defaults to today |
 | 6 | Custom budgets | Multi-select chips | No | Shown only when Loại = Chi tiêu; active budgets only |
 | 7 | Nút Lưu | Button | — | Submit form |
 
-**Post-submit behavior:** Reset Số tiền and custom budgets; preserve Loại, Danh mục, and Ngày; show toast "Đã lưu ✓"; refresh status card.
+**Post-submit behavior:** Reset Số tiền and custom budgets; preserve Loại, Danh mục, and Ngày; refresh home screen.
 
-### 10.3 Status Card (Home)
+### 10.3 Home Screen — Header (Status Card)
 
 Displayed in order:
 
-1. Month label: "Tháng 5/2026 · còn N ngày"
-2. Progress: "Đã chi X.XXX.XXX ₫ / Y.YYY.YYY ₫"
-3. Mini pace bar: 2 layers (ideal budget to today vs actual)
-4. Savings: "Tiết kiệm: +Z.ZZZ.ZZZ ₫" (green if positive, red if negative)
+1. Month navigator: `‹ Tháng 5/2026 ›` — `›` hidden on current month
+2. Period dates: `29/4 – 28/5`
+3. Hero number: total spent this month
+4. Budget bar — two layers:
+   - Background layer (muted white): ideal pace position = `days_elapsed / days_in_period`
+   - Foreground layer (blue/red): actual spend = `total_expense / budget`
+5. Budget label: `Ngân sách X₫` left, `Còn Y₫` / `Vượt Y₫` right
+6. Income + Savings row — only rendered when `total_income > 0`
 
 ### 10.4 Design System
 

@@ -37,6 +37,12 @@ function buildCategoryPath(row: TxnRow) {
   return `${row.cat_p2_name} > ${row.cat_p1_name} > ${row.cat_name}`;
 }
 
+function getRootCategoryName(row: TxnRow): string {
+  if (row.cat_level === 1) return row.cat_name;
+  if (row.cat_level === 2) return row.cat_p1_name ?? row.cat_name;
+  return row.cat_p2_name ?? row.cat_p1_name ?? row.cat_name;
+}
+
 function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: string }[]>) {
   return {
     id: row.id,
@@ -47,6 +53,7 @@ function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: s
       name: row.cat_name,
       path: buildCategoryPath(row),
     },
+    root_category_name: getRootCategoryName(row),
     note: row.note,
     date: row.date,
     monthly_budget_id: row.monthly_budget_id,

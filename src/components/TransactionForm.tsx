@@ -56,6 +56,16 @@ function formatDateLabel(s: string) {
 
 // ─── Category Drill-Down ──────────────────────────────────────────────────────
 
+function findSelectedChild(cat: Category, selectedId: number | null): string | null {
+  if (!selectedId) return null;
+  for (const child of cat.children) {
+    if (child.id === selectedId) return child.name;
+    const found = findSelectedChild(child, selectedId);
+    if (found) return found;
+  }
+  return null;
+}
+
 function CategoryDrillDown({
   cats,
   selected,
@@ -65,9 +75,7 @@ function CategoryDrillDown({
   selected: number | null;
   onSelect: (id: number) => void;
 }) {
-  // path = [l1Id, l2Id?, l3Id?] – breadcrumb of what user has drilled into
   const [path, setPath] = useState<number[]>([]);
-  // Navigate back when cats change (in case selected node was reparented)
   useEffect(() => { setPath([]); }, [cats]);
 
   function getCurrent(): Category[] {
@@ -101,19 +109,13 @@ function CategoryDrillDown({
       {/* Breadcrumb */}
       {path.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
-          <button
-            onClick={() => setPath([])}
-            style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 13, cursor: "pointer", padding: "2px 0", fontFamily: "var(--font-body)" }}
-          >
+          <button onClick={() => setPath([])} style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 13, cursor: "pointer", padding: "2px 0", fontFamily: "var(--font-body)" }}>
             Tất cả
           </button>
           {pathNames.map((name, i) => (
             <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ color: "var(--ink-muted-48)", fontSize: 12 }}>›</span>
-              <button
-                onClick={() => setPath(path.slice(0, i + 1))}
-                style={{ background: "none", border: "none", color: i === pathNames.length - 1 ? "var(--ink)" : "var(--primary)", fontSize: 13, cursor: "pointer", padding: "2px 0", fontFamily: "var(--font-body)", fontWeight: i === pathNames.length - 1 ? 600 : 400 }}
-              >
+              <button onClick={() => setPath(path.slice(0, i + 1))} style={{ background: "none", border: "none", color: i === pathNames.length - 1 ? "var(--ink)" : "var(--primary)", fontSize: 13, cursor: "pointer", padding: "2px 0", fontFamily: "var(--font-body)", fontWeight: i === pathNames.length - 1 ? 600 : 400 }}>
                 {name}
               </button>
             </span>
@@ -122,12 +124,7 @@ function CategoryDrillDown({
       )}
 
       {/* Category list */}
-      <div style={{
-        borderRadius: 11,
-        border: "1px solid var(--hairline)",
-        overflow: "hidden",
-        background: "var(--canvas)",
-      }}>
+      <div style={{ borderRadius: 11, border: "1px solid var(--hairline)", overflow: "hidden", background: "var(--canvas)" }}>
         {current.length === 0 && (
           <div style={{ padding: "12px 16px", color: "var(--ink-muted-48)", fontSize: 14, fontFamily: "var(--font-body)" }}>
             Không có danh mục con
@@ -137,33 +134,32 @@ function CategoryDrillDown({
         {current.map((cat, i) => {
           const isLeaf = cat.children.length === 0;
           const isSelected = selected === cat.id;
+          // For parent rows: which descendant is currently selected?
+          const selectedChildName = !isLeaf ? findSelectedChild(cat, selected) : null;
+          const hasSelectedChild = !!selectedChildName;
+
           return (
             <div key={cat.id} style={{ borderTop: i > 0 ? "1px solid var(--hairline)" : "none" }}>
               <button
-                onClick={() => {
-                  if (isLeaf) {
-                    onSelect(cat.id);
-                  } else {
-                    setPath([...path, cat.id]);
-                  }
-                }}
+                onClick={() => isLeaf ? onSelect(cat.id) : setPath([...path, cat.id])}
                 style={{
                   width: "100%",
                   display: "flex",
                   alignItems: "center",
                   padding: "11px 14px",
-                  background: isSelected ? "rgba(0,102,204,0.08)" : "transparent",
+                  background: isSelected || hasSelectedChild ? "rgba(0,102,204,0.06)" : "transparent",
                   border: "none",
                   cursor: "pointer",
                   textAlign: "left",
                   gap: 10,
                 }}
               >
+                {/* Radio indicator */}
                 <span style={{
                   width: 20,
                   height: 20,
                   borderRadius: "50%",
-                  border: `2px solid ${isSelected ? "var(--primary)" : "var(--hairline)"}`,
+                  border: `2px solid ${isSelected ? "var(--primary)" : hasSelectedChild ? "var(--primary)" : "var(--hairline)"}`,
                   background: isSelected ? "var(--primary)" : "transparent",
                   flexShrink: 0,
                   display: "flex",
@@ -171,26 +167,43 @@ function CategoryDrillDown({
                   justifyContent: "center",
                 }}>
                   {isSelected && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
+                  {hasSelectedChild && !isSelected && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--primary)", opacity: 0.5 }} />}
                 </span>
-                <span style={{
-                  flex: 1,
-                  fontFamily: "var(--font-body)",
-                  fontSize: 15,
-                  color: isSelected ? "var(--primary)" : "var(--ink)",
-                  fontWeight: isSelected ? 600 : 400,
-                  letterSpacing: -0.374,
-                }}>
-                  {cat.name}
+
+                {/* Name + selected child subtitle */}
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{
+                    display: "block",
+                    fontFamily: "var(--font-body)",
+                    fontSize: 15,
+                    color: isSelected || hasSelectedChild ? "var(--primary)" : "var(--ink)",
+                    fontWeight: isSelected || hasSelectedChild ? 600 : 400,
+                    letterSpacing: -0.374,
+                  }}>
+                    {cat.name}
+                  </span>
+                  {hasSelectedChild && (
+                    <span style={{
+                      display: "block",
+                      fontFamily: "var(--font-body)",
+                      fontSize: 12,
+                      color: "var(--primary)",
+                      opacity: 0.7,
+                      marginTop: 1,
+                      letterSpacing: -0.2,
+                    }}>
+                      {selectedChildName}
+                    </span>
+                  )}
                 </span>
+
                 {!isLeaf && (
-                  <span style={{ color: "var(--ink-muted-48)", fontSize: 14 }}>›</span>
+                  <span style={{ color: hasSelectedChild ? "var(--primary)" : "var(--ink-muted-48)", fontSize: 14, opacity: hasSelectedChild ? 0.6 : 1 }}>›</span>
                 )}
               </button>
             </div>
           );
         })}
-
-
       </div>
     </div>
   );

@@ -66,6 +66,23 @@ export async function GET(request: NextRequest) {
   const totalExpense = summary?.total_expense ?? 0;
   const totalIncome = summary?.total_income ?? 0;
 
+  let dailyExpenseQuery = db
+    .selectFrom("transaction")
+    .select([
+      "date",
+      sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("amount"),
+    ])
+    .where("user_id", "=", userId)
+    .where("date", ">=", periodStart)
+    .groupBy("date")
+    .orderBy("date", "asc");
+
+  dailyExpenseQuery = useStoredDates
+    ? dailyExpenseQuery.where("date", "<=", periodEnd)
+    : dailyExpenseQuery.where("date", "<", periodEndExclusive);
+
+  const dailyExpenses = await dailyExpenseQuery.execute();
+
   let paceStatus: "under" | "over" | "no_budget" = "no_budget";
   let monthlyBudget: { id: number; amount: number; remaining: number } | null = null;
 
@@ -94,5 +111,6 @@ export async function GET(request: NextRequest) {
     days_elapsed: daysElapsed,
     days_remaining: daysRemaining,
     pace_status: paceStatus,
+    daily_expenses: dailyExpenses,
   }, { headers: { "Cache-Control": cacheHeader } });
 }
