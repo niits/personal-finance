@@ -18,6 +18,9 @@
       "migrations_dir": "migrations"
     }
   ],
+  "ai": {
+    "binding": "AI"
+  },
 
   "env": {
     // Production environment — used by `deploy:cf`

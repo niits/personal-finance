@@ -1,12 +1,10 @@
 import type { NextRequest } from "next/server";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { StructuredOutputParser } from "@langchain/core/output_parsers";
-import { RunnableSequence } from "@langchain/core/runnables";
-import { z } from "zod/v3";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { getLLM } from "@/lib/llm";
+import { getModel } from "@/lib/llm";
 
 type CategoryRow = { id: number; name: string; type: "income" | "expense" };
 type TransactionRow = { id: number; note: string; type: "income" | "expense"; category_id: number; cat_name: string };
@@ -21,8 +19,6 @@ const RecategorizeSchema = z.object({
     }),
   ),
 });
-
-type LLMOutput = z.infer<typeof RecategorizeSchema>;
 
 export type RecategorizeSuggestion = {
   transaction_id: number;
@@ -43,20 +39,7 @@ Quy tắc:
 2. suggested_category_id PHẢI là ID từ danh sách danh mục lá đã cung cấp
 3. Không gợi ý nếu danh mục hiện tại đã phù hợp
 4. reason ngắn gọn, 1 câu tiếng Việt
-5. Trả về danh sách rỗng nếu mọi danh mục đã phù hợp
-
-{format_instructions}`;
-
-const parser = StructuredOutputParser.fromZodSchema(RecategorizeSchema);
-
-const prompt = ChatPromptTemplate.fromMessages([
-  ["system", SYSTEM_PROMPT],
-  ["human", "{user_content}"],
-]);
-
-function getChain() {
-  return RunnableSequence.from([prompt, getLLM(), parser]);
-}
+5. Trả về danh sách rỗng nếu mọi danh mục đã phù hợp`;
 
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
@@ -65,7 +48,6 @@ export async function POST(request: NextRequest) {
   const db = await getDB();
   const userId = session.user.id;
 
-  // Read the latest available run — both bounds come from here
   const run = await db
     .prepare(
       "SELECT id, from_tx_id, up_to_tx_id FROM ai_suggestion_run WHERE user_id = ? AND status = 'available' ORDER BY id DESC LIMIT 1",
@@ -121,12 +103,16 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
 
 Gợi ý đổi danh mục cho các giao dịch có danh mục chưa phù hợp.`;
 
-  let output: LLMOutput;
+  let output: z.infer<typeof RecategorizeSchema>;
   try {
-    output = await getChain().invoke({
-      format_instructions: parser.getFormatInstructions(),
-      user_content: userContent,
+    const model = await getModel();
+    const { object } = await generateObject({
+      model,
+      schema: RecategorizeSchema,
+      system: SYSTEM_PROMPT,
+      prompt: userContent,
     });
+    output = object;
   } catch (err) {
     console.error("AI recategorize error:", err);
     return Response.json({ error: "Không thể phân tích lúc này. Thử lại sau.", code: "AI_ERROR" }, { status: 502 });

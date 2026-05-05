@@ -1,12 +1,10 @@
 import type { NextRequest } from "next/server";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { StructuredOutputParser } from "@langchain/core/output_parsers";
-import { RunnableSequence } from "@langchain/core/runnables";
-import { z } from "zod/v3";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { getLLM } from "@/lib/llm";
+import { getModel } from "@/lib/llm";
 
 type CategoryRow = { id: number; name: string; type: "income" | "expense"; level: number };
 type TransactionRow = { note: string; type: "income" | "expense"; cat_name: string };
@@ -24,8 +22,6 @@ const SuggestionSchema = z.object({
     }),
   ),
 });
-
-type LLMOutput = z.infer<typeof SuggestionSchema>;
 
 type Suggestion = {
   name: string;
@@ -48,21 +44,7 @@ Quy tắc:
 5. example_notes phải là ghi chú thực từ danh sách giao dịch, không tự tạo
 6. Gom nhóm theo hành vi chi tiêu, không theo tên thương hiệu
 7. Chỉ gợi ý khi có ít nhất 3 giao dịch tương tự
-8. Trả về danh sách rỗng nếu không tìm thấy gợi ý phù hợp
-
-{format_instructions}`;
-
-const parser = StructuredOutputParser.fromZodSchema(SuggestionSchema);
-
-const prompt = ChatPromptTemplate.fromMessages([
-  ["system", SYSTEM_PROMPT],
-  ["human", "{user_content}"],
-]);
-
-// Chain is built lazily — getLLM() reads env vars that are absent at build time
-function getChain() {
-  return RunnableSequence.from([prompt, getLLM(), parser]);
-}
+8. Trả về danh sách rỗng nếu không tìm thấy gợi ý phù hợp`;
 
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
@@ -71,7 +53,6 @@ export async function POST(request: NextRequest) {
   const db = await getDB();
   const userId = session.user.id;
 
-  // Lower bound: last completed run's up_to_tx_id (null = analyze from beginning)
   const [lastDoneRun, maxTxRow] = await Promise.all([
     db
       .prepare("SELECT up_to_tx_id FROM ai_suggestion_run WHERE user_id = ? AND status = 'done' ORDER BY id DESC LIMIT 1")
@@ -105,7 +86,6 @@ export async function POST(request: NextRequest) {
   const txBinds = fromTxId === null ? [userId] : [userId, fromTxId, upToTxId];
   const { results: transactions } = await db.prepare(txQuery).bind(...txBinds).all<TransactionRow>();
 
-  // Create run record regardless — marks this window even if no notes found
   const { meta } = await db
     .prepare("INSERT INTO ai_suggestion_run (user_id, from_tx_id, up_to_tx_id, status) VALUES (?, ?, ?, ?)")
     .bind(userId, fromTxId, upToTxId, transactions.length === 0 ? "done" : "pending")
@@ -127,15 +107,18 @@ ${JSON.stringify(transactions.map((t) => ({ note: t.note, type: t.type, category
 
 Gợi ý các danh mục mới nên thêm để tổ chức tốt hơn.`;
 
-  let output: LLMOutput;
+  let output: z.infer<typeof SuggestionSchema>;
   try {
-    output = await getChain().invoke({
-      format_instructions: parser.getFormatInstructions(),
-      user_content: userContent,
+    const model = await getModel();
+    const { object } = await generateObject({
+      model,
+      schema: SuggestionSchema,
+      system: SYSTEM_PROMPT,
+      prompt: userContent,
     });
+    output = object;
   } catch (err) {
     console.error("AI suggest error:", err);
-    // Clean up the pending run so user can retry cleanly
     await db.prepare("DELETE FROM ai_suggestion_run WHERE id = ?").bind(runId).run();
     return Response.json({ error: "Không thể phân tích lúc này. Thử lại sau.", code: "AI_ERROR" }, { status: 502 });
   }
