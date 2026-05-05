@@ -15,7 +15,10 @@
     "test": "npm run test:unit && npm run test:integration"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.93.0",
     "@better-auth/cli": "^1.4.21",
+    "@langchain/cloudflare": "^1.0.5",
+    "@langchain/core": "^1.1.44",
     "better-auth": "^1.6.9",
     "kysely": "^0.28.16",
     "kysely-d1": "^0.4.0",
