@@ -4,5 +4,5 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 export async function getModel() {
   const { env } = await getCloudflareContext({ async: true });
   const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
-  return workersai(process.env.CF_AI_MODEL ?? "google/gemini-3-flash");
+  return workersai(process.env.CF_AI_MODEL ?? "@cf/zai-org/glm-4.7-flash");
 }
