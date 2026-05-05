@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
@@ -107,16 +107,18 @@ ${JSON.stringify(transactions.map((t) => ({ note: t.note, type: t.type, category
 
 Gợi ý các danh mục mới nên thêm để tổ chức tốt hơn.`;
 
-  let output: z.infer<typeof SuggestionSchema>;
+  let parsedOutput: z.infer<typeof SuggestionSchema>;
   try {
     const model = await getModel();
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model,
-      schema: SuggestionSchema,
+      output: Output.object({
+        schema: SuggestionSchema
+      }),
       system: SYSTEM_PROMPT,
       prompt: userContent,
     });
-    output = object;
+    parsedOutput = SuggestionSchema.parse(output);
   } catch (err) {
     console.error("AI suggest error:", err);
     await db.prepare("DELETE FROM ai_suggestion_run WHERE id = ?").bind(runId).run();
@@ -125,7 +127,7 @@ Gợi ý các danh mục mới nên thêm để tổ chức tốt hơn.`;
 
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
 
-  const suggestions: Suggestion[] = (output.suggestions ?? [])
+  const suggestions: Suggestion[] = (parsedOutput.suggestions ?? [])
     .filter((s) => {
       if (s.parent_category_id !== null && !categoryIdSet.has(s.parent_category_id)) return false;
       return true;
