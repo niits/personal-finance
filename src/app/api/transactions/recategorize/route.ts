@@ -54,7 +54,9 @@ const prompt = ChatPromptTemplate.fromMessages([
   ["human", "{user_content}"],
 ]);
 
-const chain = RunnableSequence.from([prompt, getLLM(), parser]);
+function getChain() {
+  return RunnableSequence.from([prompt, getLLM(), parser]);
+}
 
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
@@ -121,7 +123,7 @@ Gợi ý đổi danh mục cho các giao dịch có danh mục chưa phù hợp.
 
   let output: LLMOutput;
   try {
-    output = await chain.invoke({
+    output = await getChain().invoke({
       format_instructions: parser.getFormatInstructions(),
       user_content: userContent,
     });
