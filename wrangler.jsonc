@@ -3,11 +3,12 @@
   "name": "personal-finance",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-04-01",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "assets": {
     "directory": ".open-next/assets"
   },
-
   // Dev environment (default) — used by `dev:cf` and `preview:cf`
   // Secrets loaded from .dev.vars, D1 runs locally
   "d1_databases": [
@@ -21,7 +22,6 @@
   "ai": {
     "binding": "AI"
   },
-
   "env": {
     // Production environment — used by `deploy:cf`
     // Secrets must be set via: wrangler secret put <KEY> --env production
@@ -34,7 +34,10 @@
           "database_id": "cae84e96-2c02-4d2e-8a0f-0e4935a2efde",
           "migrations_dir": "migrations"
         }
-      ]
+      ],
+      "ai": {
+        "binding": "AI"
+      }
     }
   }
 }
