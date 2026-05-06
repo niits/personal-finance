@@ -45,9 +45,7 @@ export async function GET(request: NextRequest) {
     .orderBy("id")
     .execute()) as CategoryRow[];
 
-  return Response.json({ categories: buildTree(results) }, {
-    headers: { "Cache-Control": "private, max-age=3600, stale-while-revalidate=300" },
-  });
+  return Response.json({ categories: buildTree(results) });
 }
 
 export async function POST(request: NextRequest) {
