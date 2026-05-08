@@ -42,7 +42,7 @@ export default function Navbar() {
               {session.user.name || session.user.email}
             </span>
             <button
-              onClick={() => signOut()}
+              onClick={() => signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/"; } } })}
               style={{
                 background: "transparent",
                 border: "none",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import TransactionForm from "@/components/TransactionForm";
 
 type DashboardData = {
@@ -101,19 +102,28 @@ export default function DashboardPage() {
   const [editTxn, setEditTxn] = useState<Transaction | undefined>(undefined);
   const [actionTxn, setActionTxn] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
 
   const load = useCallback(async (month?: string) => {
     const q = month ? `?month=${month}` : "";
+    const [dashRes, txnRes] = await Promise.all([
+      fetch(`/api/dashboard${q}`),
+      fetch(`/api/transactions${q}`),
+    ]);
+    if (dashRes.status === 401 || txnRes.status === 401) {
+      router.replace("/");
+      return;
+    }
     const [dr, tr] = await Promise.all([
-      fetch(`/api/dashboard${q}`).then((r) => r.json()) as Promise<DashboardData>,
-      fetch(`/api/transactions${q}`).then((r) => r.json()) as Promise<{ transactions: Transaction[] }>,
+      dashRes.json() as Promise<DashboardData>,
+      txnRes.json() as Promise<{ transactions: Transaction[] }>,
     ]);
     setData(dr);
     setTxns(tr.transactions ?? []);
     if (!currentMonthRef.current) currentMonthRef.current = dr.month;
     setSelectedMonth(dr.month);
     setLoading(false);
-  }, []);
+  }, [router]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 type Adjustment = { id: number; delta: number; note: string | null; created_at: number };
 type MonthlyBudget = {
@@ -42,6 +43,7 @@ export default function BudgetPage() {
   const [period, setPeriod] = useState<{ start: string; end: string } | null>(null);
   const [customBudgets, setCustomBudgets] = useState<CustomBudget[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const monthLabel = month
     ? (() => { const [y, m] = month.split("-"); return `Tháng ${parseInt(m)}/${y}`; })()
@@ -72,6 +74,10 @@ export default function BudgetPage() {
       fetch("/api/monthly-budgets"),
       fetch("/api/custom-budgets"),
     ]);
+    if (mRes.status === 401 || cRes.status === 401) {
+      router.replace("/");
+      return;
+    }
     const mData = await mRes.json() as BudgetPageData;
     const cData = await cRes.json() as { custom_budgets?: CustomBudget[] };
     setMonth(mData.month);
@@ -79,7 +85,7 @@ export default function BudgetPage() {
     setPeriod(mData.start && mData.end ? { start: mData.start, end: mData.end } : null);
     setCustomBudgets(cData.custom_budgets ?? []);
     setLoading(false);
-  }, []);
+  }, [router]);
 
   useEffect(() => { load(); }, [load]);
 
