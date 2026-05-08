@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useSession } from "@/lib/auth-client";
 
 const tabs = [
   { href: "/dashboard", label: "Tổng quan", icon: "◎" },
@@ -11,6 +13,16 @@ const tabs = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: session, isPending } = useSession();
+
+  useEffect(() => {
+    if (!isPending && !session) {
+      router.replace("/");
+    }
+  }, [session, isPending, router]);
+
+  if (isPending || !session) return null;
 
   return (
     <div style={{ minHeight: "100svh", background: "var(--canvas-parchment)", paddingTop: 44 }}>
