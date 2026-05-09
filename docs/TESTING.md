@@ -1,5 +1,17 @@
 # Testing Strategy
 
+| Field | Value |
+|-------|-------|
+| Type | Testing Strategy |
+| Status | Draft |
+| Version | 1.0 |
+| Author | niits |
+| Created | 2026-04-29 |
+| Last Updated | 2026-04-29 |
+| Related | TECHNICAL_DESIGN.md |
+
+---
+
 ## Overview
 
 Two layers of automated testing:

@@ -5,11 +5,13 @@
 
 | Field | Value |
 |-------|-------|
-| Document Version | 1.0 |
+| Type | Technical Design Document |
+| Document Version | 1.1 |
 | Status | Draft |
 | Author | niits |
 | Created | 2026-04-29 |
-| Based On | BRD v1.0, FLOWS v1.0 |
+| Last Updated | 2026-05-06 |
+| Based On | BRD v1.1, specs/flows.md v1.1 |
 
 ---
 
@@ -79,12 +81,13 @@ user ────────────────┬──── budget_conf
 |--------|-------------|-------------|
 | `user` | Managed by better-auth. One row per GitHub account. | — |
 | `budget_config` | Default monthly amount. Auto-created on first login. | 1 per user |
-| `category` | Hierarchical expense/income labels. Max 3 levels. | N per user |
-| `monthly_budget` | Budget for a specific calendar month. | 1 per user per month |
+| `category` | Hierarchical expense/income labels. Max 3 levels. Has `type` (income/expense). | N per user |
+| `monthly_budget` | Budget for a specific budget period (see §6.4). | 1 per user per month |
 | `budget_adjustment` | Immutable audit log of each budget change. | N per monthly_budget |
 | `custom_budget` | Open-ended named budget (e.g. "Trip Đà Lạt"). | N per user |
 | `transaction` | Single expense or income event. | N per user |
 | `transaction_custom_budget` | Junction: one expense ↔ many custom budgets. | N:M |
+| `ai_suggestion_run` | Tracks each AI suggestion session and its transaction window. | N per user |
 
 ---
 
@@ -101,18 +104,21 @@ CREATE TABLE IF NOT EXISTS category (
   parent_id   INTEGER REFERENCES category(id) ON DELETE RESTRICT,
   level       INTEGER NOT NULL CHECK (level IN (1, 2, 3)),
   sort_order  INTEGER NOT NULL DEFAULT 0,
+  type        TEXT    NOT NULL CHECK (type IN ('income', 'expense')),
   created_at  INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
 CREATE INDEX IF NOT EXISTS idx_category_user_parent
   ON category(user_id, parent_id);
 
--- Monthly budgets (one per user per calendar month)
+-- Monthly budgets (one per user per budget period)
 CREATE TABLE IF NOT EXISTS monthly_budget (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id    TEXT    NOT NULL REFERENCES user(id) ON DELETE CASCADE,
-  month      TEXT    NOT NULL,            -- 'YYYY-MM'
+  month      TEXT    NOT NULL,            -- 'YYYY-MM' (budget month label)
   amount     INTEGER NOT NULL CHECK (amount > 0),
+  start_date TEXT,                        -- first day of budget period, 'YYYY-MM-DD'
+  end_date   TEXT,                        -- last day of budget period, inclusive, 'YYYY-MM-DD'
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   UNIQUE (user_id, month)
 );
@@ -182,6 +188,16 @@ CREATE TABLE IF NOT EXISTS transaction_custom_budget (
 CREATE INDEX IF NOT EXISTS idx_txn_custom_budget_budget
   ON transaction_custom_budget(custom_budget_id);
 
+-- AI suggestion run history (tracks transaction window per run)
+CREATE TABLE IF NOT EXISTS ai_suggestion_run (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      TEXT    NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+  from_tx_id   INTEGER,                   -- NULL = start from beginning of history
+  up_to_tx_id  INTEGER NOT NULL,          -- max transaction id at time of run
+  status       TEXT    NOT NULL CHECK (status IN ('pending', 'available', 'done')),
+  created_at   INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
 -- Budget config (one row per user, seeded on first login)
 CREATE TABLE IF NOT EXISTS budget_config (
   id                     INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,6 +218,9 @@ CREATE TABLE IF NOT EXISTS budget_config (
 | `ON DELETE CASCADE` on transaction_custom_budget | Cleans up junction rows when either side is deleted |
 | `CHECK` on transaction | DB-level enforcement of BR-03 (income has no monthly_budget_id) |
 | UNIQUE (user_id, month) on monthly_budget | DB-level enforcement of BR-01 |
+| `type` on category | All categories carry an income/expense label; child inherits from parent, enforced in API layer |
+| `start_date`/`end_date` on monthly_budget | Stored at creation time so period boundaries are stable even if the derivation logic changes later |
+| `ai_suggestion_run.status` flow | `pending` → `available` (user approves suggestions) → `done` (recategorize consumed the window) |
 
 ---
 
@@ -236,6 +255,7 @@ Returns the full category tree for the current user.
       "parent_id": null,
       "level": 1,
       "sort_order": 0,
+      "type": "expense",
       "children": [
         {
           "id": 4,
@@ -243,6 +263,7 @@ Returns the full category tree for the current user.
           "parent_id": 1,
           "level": 2,
           "sort_order": 0,
+          "type": "expense",
           "children": []
         }
       ]
@@ -273,22 +294,25 @@ Create a new category.
 ```json
 {
   "name": "Bún bò",
-  "parent_id": 1
+  "parent_id": 1,
+  "type": "expense"
 }
 ```
 
-> `parent_id` null → level 1 category.
+- `parent_id` null → level-1 category. `type` is **required** for level-1 (`"income"` or `"expense"`).
+- `parent_id` provided → child category. `type` is **ignored** — inherited from parent automatically.
 
 **Validations:**
 - `name` required, non-empty string, max 100 chars
 - `parent_id` must belong to the current user if provided
 - `parent_id` category's level must be < 3 (cannot add child to level-3 node)
+- `type` required and must be `"income"` or `"expense"` when `parent_id` is null
 - Resulting level = parent.level + 1 (or 1 if no parent)
 
 **Response `201`:**
 ```json
 {
-  "category": { "id": 42, "name": "Bún bò", "parent_id": 1, "level": 2, "sort_order": 0 }
+  "category": { "id": 42, "name": "Bún bò", "parent_id": 1, "level": 2, "sort_order": 0, "type": "expense" }
 }
 ```
 
@@ -481,6 +505,7 @@ COMMIT
 **Response `200`:**
 ```json
 {
+  "month": "2026-04",
   "monthly_budget": {
     "id": 3,
     "month": "2026-04",
@@ -489,11 +514,13 @@ COMMIT
     "adjustments": [
       { "id": 1, "delta": 5000000, "note": "Lương thưởng thêm", "created_at": 1744070400 }
     ]
-  }
+  },
+  "start": "2026-03-31",
+  "end": "2026-04-29"
 }
 ```
 
-> Returns `null` for `monthly_budget` if none exists for that month.
+> Returns `null` for `monthly_budget` if none exists for that month. `start` and `end` are always present (computed from `getBudgetPeriodInclusive` when no budget exists).
 
 ---
 
@@ -514,8 +541,14 @@ COMMIT
 
 **Response `201`:**
 ```json
-{ "monthly_budget": { "id": 4, "month": "2026-05", "amount": 12000000, "adjustments": [] } }
+{
+  "monthly_budget": { "id": 4, "month": "2026-05", "amount": 12000000, "adjustments": [] },
+  "start": "2026-04-29",
+  "end": "2026-05-29"
+}
 ```
+
+> `start_date` and `end_date` are computed via `getBudgetPeriodInclusive(month)` and stored in the `monthly_budget` row at creation time.
 
 ---
 
@@ -693,6 +726,8 @@ Upsert (INSERT OR REPLACE).
 ```json
 {
   "month": "2026-04",
+  "period_start": "2026-03-31",
+  "period_end": "2026-04-29",
   "total_expense": 8500000,
   "total_income": 20000000,
   "savings": 11500000,
@@ -701,15 +736,20 @@ Upsert (INSERT OR REPLACE).
     "amount": 15000000,
     "remaining": 6500000
   },
-  "days_in_month": 30,
+  "days_in_period": 30,
   "days_elapsed": 29,
   "days_remaining": 1,
-  "pace_status": "under"
+  "pace_status": "under",
+  "daily_expenses": [
+    { "date": "2026-04-01", "amount": 150000 },
+    { "date": "2026-04-02", "amount": 320000 }
+  ]
 }
 ```
 
 > `pace_status`: `"under"` if actual ≤ ideal, `"over"` if actual > ideal, `"no_budget"` if no monthly_budget exists.
-> `ideal_today = (budget_amount / days_in_month) × days_elapsed`
+> `ideal_today = (budget_amount / days_in_period) × days_elapsed`
+> `daily_expenses`: aggregated expense per date within the period, ordered ascending. Used by the spending chart on the Home screen.
 
 ---
 
@@ -749,6 +789,49 @@ Upsert (INSERT OR REPLACE).
 > `actual_line` has 1..today_day points (current month) or 1..days_in_month (past month).
 > Both lines start implicitly at (0, 0).
 > If no monthly_budget: return `{ monthly_budget: null, ideal_line: [], actual_line: [] }`.
+
+---
+
+### 4.9 AI Suggestion Runs
+
+#### `POST /api/categories/suggest`
+
+See `specs/ai-category-suggestions.md` for the full spec. Summary:
+- Analyzes transactions with notes since the last completed run
+- Creates an `ai_suggestion_run` record with `status = 'pending'`
+- Returns `{ suggestions: Suggestion[], run_id: number }`
+- Returns `{ suggestions: [], run_id }` (not a 400 error) when there are no new transactions to analyze
+
+#### `PATCH /api/ai-suggestion-runs/:id`
+
+Transitions a suggestion run from `pending` → `available`. Called after the user reviews and accepts the suggestions from `/api/categories/suggest`.
+
+**Request:**
+```json
+{ "status": "available" }
+```
+
+**Validations:**
+- Run must exist, belong to current user, and currently have `status = 'pending'`
+
+**Response `200`:** `{ "ok": true }`
+
+**Errors:** `400` if `status` is not `"available"`; `404` if run not found or not in `pending` state.
+
+#### `POST /api/transactions/recategorize`
+
+See `specs/transaction-recategorize.md` for the full spec. Summary:
+- Finds the most recent run with `status = 'available'` for the current user
+- Sends transactions in that run's window to the AI with only leaf categories
+- Marks the run `done` **before** the LLM call (window is committed regardless of AI outcome)
+- Returns `{ suggestions: RecategorizeSuggestion[] }`
+
+**`ai_suggestion_run` status flow:**
+```
+POST /api/categories/suggest    → creates run with status = 'pending'
+PATCH /api/ai-suggestion-runs/:id { status: "available" }  → pending → available
+POST /api/transactions/recategorize  → available → done
+```
 
 ---
 
@@ -875,11 +958,48 @@ A category is a **leaf** if it has no rows in `category` with `parent_id = categ
 SELECT COUNT(*) FROM category WHERE parent_id = :id AND user_id = :user_id
 ```
 
-### 6.4 Monthly Budget Month Derivation
+### 6.4 Budget Period & Month Derivation
 
-When creating an expense transaction:
+A budget period is **not** a calendar month. It spans from the last working day of the previous calendar month to the last working day of the current budget month (inclusive).
+
+**Last working day** = the last Monday–Friday that is not a Vietnamese public holiday in that calendar month.
+
 ```
-month = date.substring(0, 7)   // "2026-04-29" → "2026-04"
+lastWorkingDay(year, month):
+  d = last calendar day of month
+  while d is weekend or VN public holiday:
+    d -= 1 day
+  return d
+
+getBudgetMonthForDate(dateStr):
+  [y, m] = dateStr year and month
+  if dateStr >= lastWorkingDay(y, m):
+    return next calendar month (YYYY-MM)   // belongs to the NEXT budget period
+  return dateStr.substring(0, 7)           // belongs to current calendar month's budget
+
+getBudgetPeriod(budgetMonth):
+  start = lastWorkingDay(prevMonth)   // first day of the period (inclusive)
+  end   = lastWorkingDay(budgetMonth) // exclusive upper bound for queries
+```
+
+**Example:** For budget month `2026-04`:
+- `lastWorkingDay(2026-03)` = `2026-03-31` (assuming it's a weekday/non-holiday)
+- `lastWorkingDay(2026-04)` = `2026-04-29` (last working day of April)
+- Period = `2026-03-31` (inclusive) to `2026-04-29` (exclusive in queries; `2026-04-28` inclusive for storage)
+
+**Transaction date routing:**
+```
+date = "2026-04-29"
+getBudgetMonthForDate("2026-04-29") → "2026-05"  // April 29 is the last working day of April
+                                                  // so it belongs to the MAY budget period
+```
+
+**`start_date` and `end_date` in `monthly_budget` table:**
+Computed via `getBudgetPeriodInclusive(month)` and stored at budget creation time. Subsequent queries use the stored dates for consistency — the period is frozen at creation even if the derivation logic changes.
+
+When resolving which monthly_budget an expense transaction belongs to:
+```
+month = getBudgetMonthForDate(date)
 SELECT id FROM monthly_budget WHERE user_id = ? AND month = ?
 ```
 
@@ -1017,17 +1137,19 @@ For field-level errors, include `details`:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/categories` | List category tree |
-| POST | `/api/categories` | Create category |
+| GET | `/api/categories` | List category tree (includes `type` field) |
+| POST | `/api/categories` | Create category (`type` required for level-1) |
 | POST | `/api/categories/seed` | Create default seed categories (idempotent) |
+| POST | `/api/categories/suggest` | AI: suggest new categories from transaction history |
 | PATCH | `/api/categories/:id` | Rename / reorder |
 | DELETE | `/api/categories/:id` | Delete (with checks) |
 | GET | `/api/transactions` | List with filters + summary |
 | POST | `/api/transactions` | Create transaction |
 | PATCH | `/api/transactions/:id` | Update transaction |
 | DELETE | `/api/transactions/:id` | Delete transaction |
-| GET | `/api/monthly-budgets` | Get budget for a month |
-| POST | `/api/monthly-budgets` | Create monthly budget |
+| POST | `/api/transactions/recategorize` | AI: suggest recategorizations for a run window |
+| GET | `/api/monthly-budgets` | Get budget + period dates for a month |
+| POST | `/api/monthly-budgets` | Create monthly budget (stores period dates) |
 | PATCH | `/api/monthly-budgets/:id` | Adjust budget (creates audit record) |
 | GET | `/api/custom-budgets` | List custom budgets with spent |
 | POST | `/api/custom-budgets` | Create custom budget |
@@ -1035,5 +1157,6 @@ For field-level errors, include `details`:
 | DELETE | `/api/custom-budgets/:id` | Delete (keeps transactions) |
 | GET | `/api/budget-config` | Get default monthly amount |
 | PUT | `/api/budget-config` | Upsert default monthly amount |
-| GET | `/api/dashboard` | Summary stats for a month |
+| GET | `/api/dashboard` | Summary stats + daily expenses for a period |
 | GET | `/api/pace-line` | Pace line chart data for a month |
+| PATCH | `/api/ai-suggestion-runs/:id` | Transition run: `pending` → `available` |
