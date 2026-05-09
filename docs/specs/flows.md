@@ -1,4 +1,16 @@
-# Sequence Diagrams — Personal Finance Tracker
+# Sequence Diagrams
+
+| Field | Value |
+|-------|-------|
+| Type | Flow Specification |
+| Status | Draft |
+| Version | 1.1 |
+| Author | niits |
+| Created | 2026-04-29 |
+| Last Updated | 2026-05-02 |
+| Related | BRD.md §11, TECHNICAL_DESIGN.md §4 |
+
+---
 
 ## Pre-condition: Authentication
 

@@ -6,11 +6,12 @@
 
 | Field | Value |
 |-------|-------|
-| Document Version | 1.0 |
+| Type | Business Requirements Document |
+| Document Version | 1.1 |
 | Status | Draft |
 | Author | niits |
 | Created | 2026-04-29 |
-| Last Updated | 2026-04-29 |
+| Last Updated | 2026-05-06 |
 
 ---
 
@@ -56,6 +57,10 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 | Budget tracking | None or end-of-month check only | Real-time pace line — know instantly if today is over or under pace |
 | Categorization | Inconsistent | Hierarchical, consistent, customizable categories |
 | Reporting | Calculated manually | Automatic aggregation by month, category, and budget |
+
+---
+
+## 3. Business Objectives
 
 ### 3.1 Primary Objectives
 
@@ -147,8 +152,9 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| MBGT-01 | Each user may have at most 1 Monthly Budget per month | Must Have |
+| MBGT-01 | Each user may have at most 1 Monthly Budget per budget period (unique constraint: user_id + month label) | Must Have |
 | MBGT-02 | Users must be able to manually create a Monthly Budget for any month that does not yet have one | Must Have |
+| MBGT-02a | A budget period spans from the last working day of the previous calendar month to the last working day of the budget month (inclusive). "Working day" = Monday–Friday, excluding Vietnamese public holidays. | Must Have |
 | MBGT-03 | When creating a Monthly Budget, the default amount is taken from Budget Config | Should Have |
 | MBGT-04 | Users must be able to adjust the Monthly Budget amount (up or down) along with a reason note | Must Have |
 | MBGT-05 | Each adjustment must create a Budget Adjustment record to maintain history | Must Have |
@@ -244,8 +250,8 @@ Thu nhập
 |----|-------------|----------|
 | CHART-01 | The chart must display 2 lines: the ideal budget line (dashed) and the actual spending line (solid) | Must Have |
 | CHART-02 | X-axis: days of the month (1 to N); Y-axis: amount in VND | Must Have |
-| CHART-03 | Ideal budget line: linear from 0 to `budget_amount`; value at day D = `(budget_amount / days_in_month) × D` | Must Have |
-| CHART-04 | Actual spending line: cumulative sum of expense transactions from the start of the month to today | Must Have |
+| CHART-03 | Ideal budget line: linear from 0 to `budget_amount`; value at day D = `(budget_amount / days_in_period) × D` | Must Have |
+| CHART-04 | Actual spending line: cumulative sum of expense transactions from the start of the budget period to today | Must Have |
 | CHART-05 | Fill area between the two lines: green when actual ≤ ideal, red when actual > ideal | Must Have |
 | CHART-06 | The actual line is drawn only up to the current day (no future projection) | Must Have |
 | CHART-07 | When the budget is adjusted, the ideal line must reflect the current budget amount | Must Have |
@@ -367,6 +373,7 @@ User ─────────┬──── BudgetConfig (1:1)
 | parent_id | INTEGER | FK → Category.id, nullable | Null if level 1 |
 | level | INTEGER | NOT NULL, CHECK (1-3) | |
 | sort_order | INTEGER | NOT NULL, DEFAULT 0 | Display order |
+| type | TEXT | NOT NULL, CHECK ('income','expense') | Set on level-1; inherited by children |
 | created_at | DATETIME | NOT NULL | |
 
 #### Transaction
@@ -397,8 +404,10 @@ User ─────────┬──── BudgetConfig (1:1)
 |-------|------|-------------|-------------|
 | id | INTEGER | PK AUTOINCREMENT | |
 | user_id | TEXT | NOT NULL, FK → User.id | |
-| month | TEXT | NOT NULL | Format YYYY-MM |
+| month | TEXT | NOT NULL | Format YYYY-MM (budget period label) |
 | amount | INTEGER | NOT NULL, CHECK (> 0) | Current value after adjustments |
+| start_date | TEXT | nullable | First day of budget period, YYYY-MM-DD |
+| end_date | TEXT | nullable | Last day of budget period, inclusive, YYYY-MM-DD |
 | created_at | DATETIME | NOT NULL | |
 | UNIQUE | | (user_id, month) | |
 
@@ -552,7 +561,9 @@ Detailed sequence diagrams are described in [`FLOWS.md`](./FLOWS.md).
 
 | Term | Definition |
 |------|------------|
-| Monthly Budget | Budget created for a specific calendar month. Each user has at most 1 budget per month. |
+| Monthly Budget | Budget created for a specific budget period. Each user has at most 1 budget per period. |
+| Budget Period | The date range covered by a Monthly Budget. Spans from the last working day of the previous calendar month to the last working day of the budget month (inclusive). Not a strict calendar month. |
+| Last Working Day | The last Monday–Friday, non-Vietnamese-public-holiday day within a given calendar month. |
 | Custom Budget | An open-ended named budget with no time limit, used for specific projects or goals (e.g., "Da Lat Trip"). |
 | Budget Adjustment | A single change to a Monthly Budget's amount, recording the delta and a note to create an audit trail. |
 | Budget Config | Settings that store the default budget value, used only to seed next month's Monthly Budget. |
