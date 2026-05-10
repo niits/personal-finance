@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 
@@ -134,7 +134,6 @@ function CategoryDrillDown({
         {current.map((cat, i) => {
           const isLeaf = cat.children.length === 0;
           const isSelected = selected === cat.id;
-          // For parent rows: which descendant is currently selected?
           const selectedChildName = !isLeaf ? findSelectedChild(cat, selected) : null;
           const hasSelectedChild = !!selectedChildName;
 
@@ -154,7 +153,6 @@ function CategoryDrillDown({
                   gap: 10,
                 }}
               >
-                {/* Radio indicator */}
                 <span style={{
                   width: 20,
                   height: 20,
@@ -170,7 +168,6 @@ function CategoryDrillDown({
                   {hasSelectedChild && !isSelected && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--primary)", opacity: 0.5 }} />}
                 </span>
 
-                {/* Name + selected child subtitle */}
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{
                     display: "block",
@@ -222,11 +219,10 @@ function getDateHints(): string[] {
   const today = makeDateStr(now);
 
   const lastSun = new Date(now);
-  lastSun.setDate(now.getDate() - now.getDay()); // most recent Sunday (today if Sunday)
+  lastSun.setDate(now.getDate() - now.getDay());
   const sunday = makeDateStr(lastSun);
 
   if (today === sunday) {
-    // Today is Sunday — fill remaining slots with recent days
     const result = [today];
     for (let i = 1; result.length < 3; i++) {
       const d = new Date(now);
@@ -240,7 +236,6 @@ function getDateHints(): string[] {
   yesterday.setDate(now.getDate() - 1);
   const yesterdayStr = makeDateStr(yesterday);
 
-  // today + sunday = 2 required; add yesterday in between if it's not sunday
   const result = [today];
   if (yesterdayStr !== sunday) result.push(yesterdayStr);
   result.push(sunday);
@@ -288,7 +283,6 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
 
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-      {/* Hint bar — 3 equal buttons grouped */}
       <div style={{
         flex: 3,
         display: "flex",
@@ -317,7 +311,6 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
         })}
       </div>
 
-      {/* Date display — separate, same unit width, opens datepicker */}
       <div style={{ flex: 1, position: "relative" }}>
         <div
           style={{
@@ -360,6 +353,10 @@ type CustomBudget = { id: number; name: string; amount: number; is_active: numbe
 
 // ─── Main Form ────────────────────────────────────────────────────────────────
 
+const SPRING = "cubic-bezier(0.32, 0.72, 0, 1)";
+const DRAG_CLOSE_THRESHOLD = 120; // px
+const DRAG_VELOCITY_THRESHOLD = 0.5; // px/ms
+
 export default function TransactionForm({ open, onClose, onSaved, transaction }: Props) {
   const isEdit = !!transaction;
   const [type, setType] = useState<"expense" | "income">(transaction?.type ?? "expense");
@@ -373,7 +370,32 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Sync form state when transaction prop changes (switching between edit targets)
+  // Animation state
+  const [mounted, setMounted] = useState(false);
+  const [show, setShow] = useState(false);
+
+  // Drag state
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const touchStartY = useRef(0);
+  const touchStartTime = useRef(0);
+  const currentDragY = useRef(0);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      // Let the DOM paint first, then trigger the slide-in
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setShow(true));
+      });
+    } else {
+      setShow(false);
+      setDragY(0);
+      const t = setTimeout(() => setMounted(false), 400);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
   useEffect(() => {
     if (transaction) {
       setType(transaction.type);
@@ -397,7 +419,6 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
   const cats = allCats.filter((c) => c.type === type);
   const customBudgets = cbData?.custom_budgets ?? [];
 
-  // Reset category selection when transaction type changes (create mode only)
   useEffect(() => {
     if (!isEdit) setCategoryId(null);
   }, [type, isEdit]);
@@ -441,7 +462,42 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
     onSaved();
   }
 
-  if (!open) return null;
+  // ── Drag-to-close handlers ──────────────────────────────────────────────────
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartY.current = e.touches[0].clientY;
+    touchStartTime.current = Date.now();
+    currentDragY.current = 0;
+    setIsDragging(true);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (dy > 0) {
+      // Dampen drag so it feels resistant
+      const dampened = Math.pow(dy, 0.85);
+      currentDragY.current = dampened;
+      setDragY(dampened);
+    }
+  }
+
+  function handleTouchEnd() {
+    setIsDragging(false);
+    const elapsed = Date.now() - touchStartTime.current;
+    const velocity = currentDragY.current / elapsed;
+    if (currentDragY.current > DRAG_CLOSE_THRESHOLD || velocity > DRAG_VELOCITY_THRESHOLD) {
+      onClose();
+      reset();
+    } else {
+      setDragY(0);
+    }
+    currentDragY.current = 0;
+  }
+
+  if (!mounted) return null;
+
+  const backdropOpacity = show ? Math.max(0, 0.5 - (dragY / 400) * 0.5) : 0;
+  const sheetTranslateY = show ? dragY : "100%";
 
   return (
     <div style={{
@@ -451,6 +507,8 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
       display: "flex",
       flexDirection: "column",
       justifyContent: "flex-end",
+      // Prevent any horizontal overflow from shifting the overlay
+      overflowX: "hidden",
     }}>
       {/* Backdrop */}
       <div
@@ -461,22 +519,54 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
           background: "rgba(0,0,0,0.5)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
+          opacity: backdropOpacity,
+          transition: isDragging ? "none" : `opacity 0.4s ${SPRING}`,
         }}
       />
 
       {/* Sheet */}
-      <div style={{
-        position: "relative",
-        background: "var(--canvas)",
-        borderRadius: "20px 20px 0 0",
-        maxHeight: "92svh",
-        overflowY: "auto",
-        paddingBottom: "max(28px, env(safe-area-inset-bottom))",
-      }}>
-        {/* Handle + title */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)" }} />
+      <div
+        style={{
+          position: "relative",
+          background: "var(--canvas)",
+          borderRadius: "20px 20px 0 0",
+          maxHeight: "92svh",
+          overflowY: "auto",
+          overflowX: "hidden",
+          paddingBottom: "max(28px, env(safe-area-inset-bottom))",
+          // Lock to vertical-only touch interactions, prevents horizontal drift on iPhone
+          touchAction: "pan-y",
+          transform: `translateY(${sheetTranslateY}${typeof sheetTranslateY === "number" ? "px" : ""})`,
+          transition: isDragging ? "none" : `transform 0.4s ${SPRING}`,
+          willChange: "transform",
+        }}
+      >
+        {/* Drag handle — touch target for swipe-to-close */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "12px 0 4px",
+            // Tall touch target so it's easy to grab on iPhone
+            cursor: "grab",
+            userSelect: "none",
+            touchAction: "none",
+          }}
+        >
+          <div style={{
+            width: 36,
+            height: 4,
+            borderRadius: 2,
+            background: "var(--hairline)",
+            transition: `width 0.15s ease, background 0.15s ease`,
+            ...(isDragging ? { width: 48, background: "var(--ink-muted-48)" } : {}),
+          }} />
         </div>
+
         {isEdit && (
           <p style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>
             Sửa giao dịch
