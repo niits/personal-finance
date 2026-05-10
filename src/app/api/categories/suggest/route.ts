@@ -8,8 +8,8 @@ import { getModel } from "@/lib/llm";
 
 type CategoryRow = { id: number; name: string; type: "income" | "expense"; level: number };
 type TransactionRow = { note: string; type: "income" | "expense"; cat_name: string };
-type RunRow = { up_to_tx_id: number };
-type MaxTxRow = { max_id: number | null };
+type RunRow = { up_to_updated_at: number | null };
+type MaxUpdatedAtRow = { max_val: number | null };
 
 const SuggestionSchema = z.object({
   suggestions: z.array(
@@ -53,19 +53,19 @@ export async function POST(request: NextRequest) {
   const db = await getDB();
   const userId = session.user.id;
 
-  const [lastDoneRun, maxTxRow] = await Promise.all([
+  const [lastDoneRun, maxUpdatedAtRow] = await Promise.all([
     db
-      .prepare("SELECT up_to_tx_id FROM ai_suggestion_run WHERE user_id = ? AND status = 'done' ORDER BY id DESC LIMIT 1")
+      .prepare("SELECT up_to_updated_at FROM ai_suggestion_run WHERE user_id = ? AND status = 'done' AND up_to_updated_at IS NOT NULL ORDER BY id DESC LIMIT 1")
       .bind(userId)
       .first<RunRow>(),
     db
-      .prepare(`SELECT MAX(id) as max_id FROM "transaction" WHERE user_id = ?`)
+      .prepare(`SELECT MAX(updated_at) as max_val FROM "transaction" WHERE user_id = ?`)
       .bind(userId)
-      .first<MaxTxRow>(),
+      .first<MaxUpdatedAtRow>(),
   ]);
 
-  const fromTxId = lastDoneRun?.up_to_tx_id ?? null;
-  const upToTxId = maxTxRow?.max_id ?? 0;
+  const fromUpdatedAt = lastDoneRun?.up_to_updated_at ?? null;
+  const upToUpdatedAt = maxUpdatedAtRow?.max_val ?? 0;
 
   const { results: categories } = await db
     .prepare("SELECT id, name, type, level FROM category WHERE user_id = ? ORDER BY level, id")
@@ -73,22 +73,22 @@ export async function POST(request: NextRequest) {
     .all<CategoryRow>();
 
   const txQuery =
-    fromTxId === null
+    fromUpdatedAt === null
       ? `SELECT t.note, t.type, c.name as cat_name
          FROM "transaction" t JOIN category c ON t.category_id = c.id
-         WHERE t.user_id = ? AND t.note IS NOT NULL AND t.note != ''
-         ORDER BY t.id DESC`
+         WHERE t.user_id = ? AND t.updated_at <= ? AND t.note IS NOT NULL AND t.note != ''
+         ORDER BY t.updated_at DESC`
       : `SELECT t.note, t.type, c.name as cat_name
          FROM "transaction" t JOIN category c ON t.category_id = c.id
-         WHERE t.user_id = ? AND t.id > ? AND t.id <= ? AND t.note IS NOT NULL AND t.note != ''
-         ORDER BY t.id DESC`;
+         WHERE t.user_id = ? AND t.updated_at > ? AND t.updated_at <= ? AND t.note IS NOT NULL AND t.note != ''
+         ORDER BY t.updated_at DESC`;
 
-  const txBinds = fromTxId === null ? [userId] : [userId, fromTxId, upToTxId];
+  const txBinds = fromUpdatedAt === null ? [userId, upToUpdatedAt] : [userId, fromUpdatedAt, upToUpdatedAt];
   const { results: transactions } = await db.prepare(txQuery).bind(...txBinds).all<TransactionRow>();
 
   const { meta } = await db
-    .prepare("INSERT INTO ai_suggestion_run (user_id, from_tx_id, up_to_tx_id, status) VALUES (?, ?, ?, ?)")
-    .bind(userId, fromTxId, upToTxId, transactions.length === 0 ? "done" : "pending")
+    .prepare("INSERT INTO ai_suggestion_run (user_id, from_updated_at, up_to_updated_at, status) VALUES (?, ?, ?, ?)")
+    .bind(userId, fromUpdatedAt, upToUpdatedAt, transactions.length === 0 ? "done" : "pending")
     .run();
   const runId = meta.last_row_id as number;
 

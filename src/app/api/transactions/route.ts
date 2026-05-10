@@ -21,6 +21,7 @@ type TxnRow = {
   date: string;
   monthly_budget_id: number | null;
   created_at: number;
+  updated_at: number;
   cat_id: number;
   cat_name: string;
   cat_level: number;
@@ -59,6 +60,7 @@ function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: s
     monthly_budget_id: row.monthly_budget_id,
     custom_budgets: cbMap.get(row.id) ?? [],
     created_at: row.created_at,
+    updated_at: row.updated_at,
   };
 }
 
@@ -99,6 +101,7 @@ export async function GET(request: NextRequest) {
       "t.date",
       "t.monthly_budget_id",
       "t.created_at",
+      "t.updated_at",
       "c.id as cat_id",
       "c.name as cat_name",
       "c.level as cat_level",

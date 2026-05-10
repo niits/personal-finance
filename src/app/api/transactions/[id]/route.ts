@@ -10,6 +10,7 @@ import {
 } from "@/lib/validators";
 import type { Kysely } from "kysely";
 import type { Database } from "@/lib/schema";
+import { sql } from "kysely";
 
 type Params = Promise<{ id: string }>;
 
@@ -21,6 +22,7 @@ type TxnRow = {
   date: string;
   monthly_budget_id: number | null;
   created_at: number;
+  updated_at: number;
   cat_id: number;
   cat_name: string;
   cat_level: number;
@@ -51,6 +53,7 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
       "t.date",
       "t.monthly_budget_id",
       "t.created_at",
+      "t.updated_at",
       "c.id as cat_id",
       "c.name as cat_name",
       "c.level as cat_level",
@@ -80,6 +83,7 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
     monthly_budget_id: txn.monthly_budget_id,
     custom_budgets: cbRows.map((r) => ({ id: r.id, name: r.name })),
     created_at: txn.created_at,
+    updated_at: txn.updated_at,
   };
 }
 
@@ -183,8 +187,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     if (valid.length !== newCustomBudgetIds.length) return Errors.forbidden();
   }
 
-  // Build update object
-  const updateValues: Record<string, unknown> = {};
+  // Build update object — always bump updated_at so the AI feed window
+  // captures edits (category, note, custom-budget links) on old transactions.
+  const updateValues: Record<string, unknown> = {
+    updated_at: sql`unixepoch()`,
+  };
   if (b.amount !== undefined) updateValues.amount = newAmount;
   if (b.type !== undefined) updateValues.type = newType;
   if (b.category_id !== undefined) updateValues.category_id = newCategoryId;
@@ -193,14 +200,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   // Always sync monthly_budget_id when type or date changes
   if (b.type !== undefined || b.date !== undefined) updateValues.monthly_budget_id = newMonthlyBudgetId;
 
-  if (Object.keys(updateValues).length > 0) {
-    await db
-      .updateTable("transaction")
-      .set(updateValues)
-      .where("id", "=", txnId)
-      .where("user_id", "=", userId)
-      .execute();
-  }
+  await db
+    .updateTable("transaction")
+    .set(updateValues)
+    .where("id", "=", txnId)
+    .where("user_id", "=", userId)
+    .execute();
 
   if (newCustomBudgetIds !== undefined) {
     await db
