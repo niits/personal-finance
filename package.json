@@ -10,6 +10,7 @@
     "build:cf": "opennextjs-cloudflare build",
     "dev:cf": "opennextjs-cloudflare build && opennextjs-cloudflare preview -- --port 8787",
     "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --env production",
+    "deploy:staging": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --env staging",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:integration": "vitest run --config vitest.config.ts",
     "test": "npm run test:unit && npm run test:integration"

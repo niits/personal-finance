@@ -38,6 +38,26 @@
       "ai": {
         "binding": "AI"
       }
+    },
+    // Staging environment — separate Worker and D1 database.
+    // One-time setup (run locally):
+    //   wrangler d1 create personal-finance-auth-staging
+    //   → copy the returned database_id and replace STAGING_DB_ID below
+    //   wrangler secret put BETTER_AUTH_SECRET --env staging
+    //   wrangler secret put BETTER_AUTH_URL    --env staging
+    "staging": {
+      "name": "personal-finance-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "personal-finance-auth-staging",
+          "database_id": "STAGING_DB_ID",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "ai": {
+        "binding": "AI"
+      }
     }
   }
 }
