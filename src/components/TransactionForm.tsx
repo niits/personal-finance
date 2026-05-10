@@ -531,9 +531,9 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
           background: "var(--canvas)",
           borderRadius: "20px 20px 0 0",
           maxHeight: "92svh",
-          overflowY: "auto",
-          overflowX: "hidden",
-          paddingBottom: "max(28px, env(safe-area-inset-bottom))",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
           // Lock to vertical-only touch interactions, prevents horizontal drift on iPhone
           touchAction: "pan-y",
           transform: `translateY(${sheetTranslateY}${typeof sheetTranslateY === "number" ? "px" : ""})`,
@@ -573,90 +573,95 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
           </p>
         )}
 
-        <div style={{ padding: "0 20px 8px" }}>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden", padding: "0 20px" }}>
 
-          {/* Type toggle */}
-          <div style={{
-            display: "flex",
-            background: "var(--canvas-parchment)",
-            borderRadius: 11,
-            padding: 4,
-            marginBottom: 18,
-          }}>
-            {(["expense", "income"] as const).map((t) => (
-              <button key={t} onClick={() => { setType(t); setError(""); if (t === "income") setSelectedCbIds([]); }} style={{
-                flex: 1,
-                padding: "9px",
-                borderRadius: 8,
-                border: "none",
-                background: type === t ? (t === "expense" ? "#ff453a" : "#30d158") : "transparent",
-                color: type === t ? "#fff" : "var(--ink-muted-48)",
-                fontFamily: "var(--font-body)",
-                fontSize: 15,
-                fontWeight: type === t ? 600 : 400,
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}>
-                {t === "expense" ? "Chi tiêu" : "Thu nhập"}
-              </button>
-            ))}
-          </div>
+          {/* TOP: fixed — type, amount, date, category label */}
+          <div style={{ flexShrink: 0 }}>
+            {/* Type toggle */}
+            <div style={{
+              display: "flex",
+              background: "var(--canvas-parchment)",
+              borderRadius: 11,
+              padding: 4,
+              marginBottom: 18,
+            }}>
+              {(["expense", "income"] as const).map((t) => (
+                <button key={t} onClick={() => { setType(t); setError(""); if (t === "income") setSelectedCbIds([]); }} style={{
+                  flex: 1,
+                  padding: "9px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: type === t ? (t === "expense" ? "#ff453a" : "#30d158") : "transparent",
+                  color: type === t ? "#fff" : "var(--ink-muted-48)",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 15,
+                  fontWeight: type === t ? 600 : 400,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}>
+                  {t === "expense" ? "Chi tiêu" : "Thu nhập"}
+                </button>
+              ))}
+            </div>
 
-          {/* Amount */}
-          <div style={{ position: "relative", marginBottom: 18 }}>
-            <span style={{
-              position: "absolute",
-              left: 16,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 22,
-              color: "var(--ink-muted-48)",
-              fontFamily: "var(--font-display)",
-              fontWeight: 600,
-              pointerEvents: "none",
-            }}>₫</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="0"
-              value={amountStr}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/[^\d]/g, "");
-                setAmountStr(raw ? fmt(parseInt(raw, 10)) : "");
-                setError("");
-              }}
-              autoFocus
-              style={{
-                width: "100%",
-                padding: "14px 16px 14px 44px",
-                borderRadius: 11,
-                border: "1px solid var(--hairline)",
+            {/* Amount */}
+            <div style={{ position: "relative", marginBottom: 18 }}>
+              <span style={{
+                position: "absolute",
+                left: 16,
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: 22,
+                color: "var(--ink-muted-48)",
                 fontFamily: "var(--font-display)",
-                fontSize: 28,
                 fontWeight: 600,
-                color: "var(--ink)",
-                background: "var(--canvas-parchment)",
-                outline: "none",
-                letterSpacing: -0.3,
-                textAlign: "right",
-                paddingRight: 16,
-              }}
-            />
-          </div>
+                pointerEvents: "none",
+              }}>₫</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={amountStr}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^\d]/g, "");
+                  setAmountStr(raw ? fmt(parseInt(raw, 10)) : "");
+                  setError("");
+                }}
+                autoFocus
+                style={{
+                  width: "100%",
+                  padding: "14px 16px 14px 44px",
+                  borderRadius: 11,
+                  border: "1px solid var(--hairline)",
+                  fontFamily: "var(--font-display)",
+                  fontSize: 28,
+                  fontWeight: 600,
+                  color: "var(--ink)",
+                  background: "var(--canvas-parchment)",
+                  outline: "none",
+                  letterSpacing: -0.3,
+                  textAlign: "right",
+                  paddingRight: 16,
+                }}
+              />
+            </div>
 
-          {/* Date */}
-          <div style={{ marginBottom: 18 }}>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
-              Ngày
-            </p>
-            <DatePicker value={date} onChange={setDate} />
-          </div>
+            {/* Date */}
+            <div style={{ marginBottom: 18 }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                Ngày
+              </p>
+              <DatePicker value={date} onChange={setDate} />
+            </div>
 
-          {/* Category */}
-          <div style={{ marginBottom: 18 }}>
+            {/* Category label */}
             <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
               Danh mục
             </p>
+          </div>
+
+          {/* MIDDLE: category list — scrollable */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", marginBottom: 18 }}>
             <CategoryDrillDown
               cats={cats}
               selected={categoryId}
@@ -664,85 +669,88 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
             />
           </div>
 
-          {/* Custom budgets — expense only */}
-          {type === "expense" && customBudgets.length > 0 && (
-            <div style={{ marginBottom: 18 }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                Gán vào quỹ
-              </p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {customBudgets.map((cb) => {
-                  const on = selectedCbIds.includes(cb.id);
-                  return (
-                    <button
-                      key={cb.id}
-                      onClick={() => toggleCb(cb.id)}
-                      style={{
-                        padding: "7px 14px",
-                        borderRadius: 999,
-                        border: on ? "none" : "1px solid var(--hairline)",
-                        background: on ? "var(--ink)" : "var(--canvas-parchment)",
-                        color: on ? "#fff" : "var(--ink-muted-80)",
-                        fontFamily: "var(--font-body)",
-                        fontSize: 13,
-                        fontWeight: on ? 600 : 400,
-                        cursor: "pointer",
-                        transition: "all 0.12s",
-                      }}
-                    >
-                      {on && <span style={{ marginRight: 5 }}>✓</span>}{cb.name}
-                    </button>
-                  );
-                })}
+          {/* BOTTOM: fixed — custom budgets, note, error, submit */}
+          <div style={{ flexShrink: 0, paddingBottom: "max(28px, env(safe-area-inset-bottom))" }}>
+            {/* Custom budgets — expense only */}
+            {type === "expense" && customBudgets.length > 0 && (
+              <div style={{ marginBottom: 18 }}>
+                <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                  Gán vào quỹ
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {customBudgets.map((cb) => {
+                    const on = selectedCbIds.includes(cb.id);
+                    return (
+                      <button
+                        key={cb.id}
+                        onClick={() => toggleCb(cb.id)}
+                        style={{
+                          padding: "7px 14px",
+                          borderRadius: 999,
+                          border: on ? "none" : "1px solid var(--hairline)",
+                          background: on ? "var(--ink)" : "var(--canvas-parchment)",
+                          color: on ? "#fff" : "var(--ink-muted-80)",
+                          fontFamily: "var(--font-body)",
+                          fontSize: 13,
+                          fontWeight: on ? 600 : 400,
+                          cursor: "pointer",
+                          transition: "all 0.12s",
+                        }}
+                      >
+                        {on && <span style={{ marginRight: 5 }}>✓</span>}{cb.name}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Note */}
-          <input
-            type="text"
-            placeholder="Ghi chú (tuỳ chọn)"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "12px 16px",
-              borderRadius: 11,
-              border: "1px solid var(--hairline)",
-              fontFamily: "var(--font-body)",
-              fontSize: 15,
-              color: "var(--ink)",
-              background: "var(--canvas-parchment)",
-              outline: "none",
-              marginBottom: error ? 10 : 18,
-            }}
-          />
+            {/* Note */}
+            <input
+              type="text"
+              placeholder="Ghi chú (tuỳ chọn)"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                borderRadius: 11,
+                border: "1px solid var(--hairline)",
+                fontFamily: "var(--font-body)",
+                fontSize: 15,
+                color: "var(--ink)",
+                background: "var(--canvas-parchment)",
+                outline: "none",
+                marginBottom: error ? 10 : 18,
+              }}
+            />
 
-          {error && (
-            <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 12 }}>
-              {error}
-            </p>
-          )}
+            {error && (
+              <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 12 }}>
+                {error}
+              </p>
+            )}
 
-          <button
-            onClick={submit}
-            disabled={saving}
-            style={{
-              width: "100%",
-              padding: "15px",
-              borderRadius: 999,
-              border: "none",
-              background: "var(--primary)",
-              color: "#fff",
-              fontFamily: "var(--font-body)",
-              fontSize: 17,
-              cursor: saving ? "not-allowed" : "pointer",
-              opacity: saving ? 0.7 : 1,
-              transition: "opacity 0.15s",
-            }}
-          >
-            {saving ? "Đang lưu…" : isEdit ? "Cập nhật" : "Lưu giao dịch"}
-          </button>
+            <button
+              onClick={submit}
+              disabled={saving}
+              style={{
+                width: "100%",
+                padding: "15px",
+                borderRadius: 999,
+                border: "none",
+                background: "var(--primary)",
+                color: "#fff",
+                fontFamily: "var(--font-body)",
+                fontSize: 17,
+                cursor: saving ? "not-allowed" : "pointer",
+                opacity: saving ? 0.7 : 1,
+                transition: "opacity 0.15s",
+              }}
+            >
+              {saving ? "Đang lưu…" : isEdit ? "Cập nhật" : "Lưu giao dịch"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
