@@ -22,6 +22,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [session, isPending, router]);
 
+  // Listen for global 401 events dispatched by the fetcher (e.g. from SWR
+  // revalidation) so we redirect even when the layout session is still truthy.
+  useEffect(() => {
+    const handle = () => router.replace("/");
+    window.addEventListener("auth:expired", handle);
+    return () => window.removeEventListener("auth:expired", handle);
+  }, [router]);
+
   if (isPending || !session) return null;
 
   return (

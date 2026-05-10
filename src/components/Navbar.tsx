@@ -32,7 +32,12 @@ export default function Navbar() {
 
       {/* Auth controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        {isPending ? null : session ? (
+        {isPending ? (
+          // Render a neutral placeholder while the session resolves.
+          // Showing null here causes a flash of the "Đăng nhập" button
+          // when navigating between pages while authenticated.
+          <div style={{ width: 48, height: 12, borderRadius: 4, background: "rgba(255,255,255,0.12)" }} />
+        ) : session ? (
           <>
             <span style={{
               color: "rgba(255,255,255,0.6)",
