@@ -412,12 +412,17 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
     fetcher,
   );
   const { data: cbData } = useSWR<{ custom_budgets: CustomBudget[] }>(
-    open ? "/api/custom-budgets?active_only=true" : null,
+    open ? (isEdit ? "/api/custom-budgets" : "/api/custom-budgets?active_only=true") : null,
     fetcher,
   );
   const allCats = catData?.categories ?? [];
   const cats = allCats.filter((c) => c.type === type);
-  const customBudgets = cbData?.custom_budgets ?? [];
+  const allCbs = cbData?.custom_budgets ?? [];
+  // In edit mode: show active budgets + inactive ones that were already linked to this transaction
+  // In create mode: only active budgets (already filtered by active_only=true)
+  const customBudgets = isEdit
+    ? allCbs.filter((cb) => cb.is_active === 1 || selectedCbIds.includes(cb.id))
+    : allCbs;
 
   useEffect(() => {
     if (!isEdit) setCategoryId(null);
@@ -680,24 +685,28 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {customBudgets.map((cb) => {
                     const on = selectedCbIds.includes(cb.id);
+                    const inactive = cb.is_active === 0;
                     return (
                       <button
                         key={cb.id}
-                        onClick={() => toggleCb(cb.id)}
+                        onClick={() => !inactive && toggleCb(cb.id)}
+                        disabled={inactive}
                         style={{
                           padding: "7px 14px",
                           borderRadius: 999,
                           border: on ? "none" : "1px solid var(--hairline)",
-                          background: on ? "var(--ink)" : "var(--canvas-parchment)",
-                          color: on ? "#fff" : "var(--ink-muted-80)",
+                          background: on ? (inactive ? "var(--ink-muted-48)" : "var(--ink)") : "var(--canvas-parchment)",
+                          color: on ? "#fff" : "var(--ink-muted-48)",
                           fontFamily: "var(--font-body)",
                           fontSize: 13,
                           fontWeight: on ? 600 : 400,
-                          cursor: "pointer",
+                          cursor: inactive ? "default" : "pointer",
+                          opacity: inactive ? 0.55 : 1,
                           transition: "all 0.12s",
                         }}
                       >
                         {on && <span style={{ marginRight: 5 }}>✓</span>}{cb.name}
+                        {inactive && <span style={{ marginLeft: 5, fontSize: 10, opacity: 0.8 }}>· đã tắt</span>}
                       </button>
                     );
                   })}

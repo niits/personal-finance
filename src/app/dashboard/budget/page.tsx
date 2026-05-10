@@ -69,6 +69,16 @@ export default function BudgetPage() {
   const [cbErr, setCbErr] = useState("");
   const [cbSaving, setCbSaving] = useState(false);
 
+  // Custom budget edit
+  const [editingCbId, setEditingCbId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editAmountStr, setEditAmountStr] = useState("");
+  const [editErr, setEditErr] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  // Custom budget delete confirm
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
   const load = useCallback(async () => {
     const [mRes, cRes] = await Promise.all([
       fetch("/api/monthly-budgets"),
@@ -152,10 +162,44 @@ export default function BudgetPage() {
     if (r.ok) load();
   }
 
+  // ── Edit custom budget ──
+  function startEdit(cb: CustomBudget) {
+    setEditingCbId(cb.id);
+    setEditName(cb.name);
+    setEditAmountStr(fmt(cb.amount));
+    setEditErr("");
+  }
+
+  async function updateCustom() {
+    if (!editingCbId) return;
+    if (!editName.trim()) { setEditErr("Nhập tên"); return; }
+    const amount = parseVND(editAmountStr);
+    if (!amount) { setEditErr("Số tiền không hợp lệ"); return; }
+    setEditSaving(true); setEditErr("");
+    const r = await fetch(`/api/custom-budgets/${editingCbId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editName.trim(), amount }),
+    });
+    const d = await r.json() as { custom_budget?: CustomBudget; error?: string };
+    if (!r.ok) { setEditErr(d.error ?? "Lỗi"); setEditSaving(false); return; }
+    setCustomBudgets((prev) => prev.map((c) => c.id === editingCbId ? { ...c, name: editName.trim(), amount: amount } : c));
+    setEditingCbId(null); setEditSaving(false);
+  }
+
   // ── Delete custom budget ──
+  function requestDelete(cb: CustomBudget) {
+    if (cb.spent > 0) {
+      setConfirmDeleteId(cb.id);
+    } else {
+      deleteCustom(cb.id);
+    }
+  }
+
   async function deleteCustom(id: number) {
     await fetch(`/api/custom-budgets/${id}`, { method: "DELETE" });
     setCustomBudgets((prev) => prev.filter((c) => c.id !== id));
+    setConfirmDeleteId(null);
   }
 
   if (loading) return (
@@ -444,53 +488,125 @@ export default function BudgetPage() {
               {customBudgets.map((cb) => {
                 const pct = Math.min((cb.spent / cb.amount) * 100, 100);
                 const over = cb.spent > cb.amount;
+                const isEditing = editingCbId === cb.id;
+                const isConfirming = confirmDeleteId === cb.id;
+                const canDelete = cb.is_active === 1;
+
                 return (
                   <div key={cb.id} style={{
                     background: "var(--canvas)", borderRadius: "var(--radius-lg)",
                     border: "1px solid var(--hairline)", padding: "16px",
                     opacity: cb.is_active ? 1 : 0.6,
                   }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                    {isEditing ? (
+                      /* ── Edit form ── */
                       <div>
-                        <p style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 2 }}>
-                          {cb.name}
+                        <p style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
+                          Sửa ngân sách
                         </p>
-                        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
-                          {fmt(cb.spent)}₫ / {fmt(cb.amount)}₫
+                        <input type="text" placeholder="Tên" value={editName} autoFocus
+                          onChange={(e) => { setEditName(e.target.value); setEditErr(""); }}
+                          style={{ width: "100%", padding: "11px 14px", borderRadius: 11, border: "1px solid var(--hairline)", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none", marginBottom: 8 }}
+                        />
+                        <div style={{ position: "relative", marginBottom: 8 }}>
+                          <input type="text" inputMode="numeric" placeholder="Mục tiêu"
+                            value={editAmountStr}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^\d]/g, "");
+                              const n = parseInt(raw, 10);
+                              setEditAmountStr(raw ? fmt(n) : "");
+                              setEditErr("");
+                            }}
+                            style={{ width: "100%", padding: "11px 44px 11px 16px", borderRadius: 11, border: "1px solid var(--hairline)", fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600, color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none" }}
+                          />
+                          <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "var(--ink-muted-48)", fontFamily: "var(--font-display)", fontWeight: 600 }}>₫</span>
+                        </div>
+                        {editErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 8 }}>{editErr}</p>}
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => setEditingCbId(null)}
+                            style={{ flex: 1, padding: "10px", borderRadius: 999, border: "1px solid var(--hairline)", background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer" }}>
+                            Huỷ
+                          </button>
+                          <button onClick={updateCustom} disabled={editSaving}
+                            style={{ flex: 2, padding: "10px", borderRadius: 999, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 14, cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? 0.7 : 1 }}>
+                            {editSaving ? "Đang lưu…" : "Lưu"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : isConfirming ? (
+                      /* ── Delete confirmation ── */
+                      <div>
+                        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>
+                          Xoá &ldquo;{cb.name}&rdquo;?
                         </p>
+                        <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginBottom: 16, lineHeight: 1.5 }}>
+                          Quỹ này đang có giao dịch liên kết. Xoá sẽ gỡ liên kết các giao dịch khỏi quỹ — giao dịch không bị xoá.
+                        </p>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => setConfirmDeleteId(null)}
+                            style={{ flex: 1, padding: "10px", borderRadius: 999, border: "1px solid var(--hairline)", background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer" }}>
+                            Huỷ
+                          </button>
+                          <button onClick={() => deleteCustom(cb.id)}
+                            style={{ flex: 2, padding: "10px", borderRadius: 999, border: "none", background: "#ff453a", color: "#fff", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer" }}>
+                            Xác nhận xoá
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => toggleActive(cb)}
-                          style={{
-                            padding: "4px 10px", borderRadius: 999, border: "1px solid var(--hairline)",
-                            background: cb.is_active ? "var(--canvas-parchment)" : "var(--ink)",
-                            color: cb.is_active ? "var(--ink-muted-48)" : "#fff",
-                            fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer",
-                          }}>
-                          {cb.is_active ? "Tắt" : "Bật"}
-                        </button>
-                        <button onClick={() => deleteCustom(cb.id)}
-                          style={{
-                            padding: "4px 8px", borderRadius: 999, border: "1px solid #ff453a",
-                            background: "transparent", color: "#ff453a",
-                            fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer",
-                          }}>
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                    {/* Progress bar */}
-                    <div style={{ height: 4, background: "var(--hairline)", borderRadius: 2, overflow: "hidden" }}>
-                      <div style={{
-                        height: "100%", width: `${pct}%`,
-                        background: over ? "#ff453a" : "var(--primary)",
-                        borderRadius: 2, transition: "width 0.4s ease",
-                      }} />
-                    </div>
-                    {over && (
-                      <p style={{ fontSize: 11, color: "#ff453a", fontFamily: "var(--font-body)", marginTop: 4 }}>
-                        Vượt {fmt(cb.spent - cb.amount)}₫
-                      </p>
+                    ) : (
+                      /* ── Normal view ── */
+                      <>
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 2 }}>
+                              {cb.name}
+                            </p>
+                            <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
+                              {fmt(cb.spent)}₫ / {fmt(cb.amount)}₫
+                            </p>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                            {cb.is_active === 1 && (
+                              <button onClick={() => startEdit(cb)}
+                                style={{ padding: "4px 10px", borderRadius: 999, border: "1px solid var(--hairline)", background: "var(--canvas-parchment)", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer" }}>
+                                Sửa
+                              </button>
+                            )}
+                            <button onClick={() => toggleActive(cb)}
+                              style={{
+                                padding: "4px 10px", borderRadius: 999, border: "1px solid var(--hairline)",
+                                background: cb.is_active ? "var(--canvas-parchment)" : "var(--ink)",
+                                color: cb.is_active ? "var(--ink-muted-48)" : "#fff",
+                                fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer",
+                              }}>
+                              {cb.is_active ? "Tắt" : "Bật"}
+                            </button>
+                            <button
+                              onClick={() => canDelete ? requestDelete(cb) : undefined}
+                              disabled={!canDelete}
+                              style={{
+                                padding: "4px 8px", borderRadius: 999,
+                                border: canDelete ? "1px solid #ff453a" : "1px solid var(--hairline)",
+                                background: "transparent",
+                                color: canDelete ? "#ff453a" : "var(--ink-muted-48)",
+                                fontFamily: "var(--font-body)", fontSize: 12,
+                                cursor: canDelete ? "pointer" : "not-allowed",
+                                opacity: canDelete ? 1 : 0.35,
+                              }}>
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        {/* Progress bar */}
+                        <div style={{ height: 4, background: "var(--hairline)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: over ? "#ff453a" : "var(--primary)", borderRadius: 2, transition: "width 0.4s ease" }} />
+                        </div>
+                        {over && (
+                          <p style={{ fontSize: 11, color: "#ff453a", fontFamily: "var(--font-body)", marginTop: 4 }}>
+                            Vượt {fmt(cb.spent - cb.amount)}₫
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 );
