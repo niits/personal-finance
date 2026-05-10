@@ -52,6 +52,7 @@ export interface TransactionTable {
   date: string;
   monthly_budget_id: number | null;
   created_at: Generated<number>;
+  updated_at: Generated<number>;
 }
 
 export type Transaction = Selectable<TransactionTable>;

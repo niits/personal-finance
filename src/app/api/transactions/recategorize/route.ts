@@ -8,7 +8,7 @@ import { getModel } from "@/lib/llm";
 
 type CategoryRow = { id: number; name: string; type: "income" | "expense" };
 type TransactionRow = { id: number; note: string; type: "income" | "expense"; category_id: number; cat_name: string };
-type RunRow = { id: number; from_tx_id: number | null; up_to_tx_id: number };
+type RunRow = { id: number; from_updated_at: number | null; up_to_updated_at: number };
 
 const RecategorizeSchema = z.object({
   recategorizations: z.array(
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
   const run = await db
     .prepare(
-      "SELECT id, from_tx_id, up_to_tx_id FROM ai_suggestion_run WHERE user_id = ? AND status = 'available' ORDER BY id DESC LIMIT 1",
+      "SELECT id, from_updated_at, up_to_updated_at FROM ai_suggestion_run WHERE user_id = ? AND status = 'available' AND up_to_updated_at IS NOT NULL ORDER BY id DESC LIMIT 1",
     )
     .bind(userId)
     .first<RunRow>();
@@ -68,17 +68,17 @@ export async function POST(request: NextRequest) {
     .all<CategoryRow>();
 
   const txQuery =
-    run.from_tx_id === null
+    run.from_updated_at === null
       ? `SELECT t.id, t.note, t.type, t.category_id, c.name as cat_name
          FROM "transaction" t JOIN category c ON t.category_id = c.id
-         WHERE t.user_id = ? AND t.id <= ? AND t.note IS NOT NULL AND t.note != ''
-         ORDER BY t.id DESC`
+         WHERE t.user_id = ? AND t.updated_at <= ? AND t.note IS NOT NULL AND t.note != ''
+         ORDER BY t.updated_at DESC`
       : `SELECT t.id, t.note, t.type, t.category_id, c.name as cat_name
          FROM "transaction" t JOIN category c ON t.category_id = c.id
-         WHERE t.user_id = ? AND t.id > ? AND t.id <= ? AND t.note IS NOT NULL AND t.note != ''
-         ORDER BY t.id DESC`;
+         WHERE t.user_id = ? AND t.updated_at > ? AND t.updated_at <= ? AND t.note IS NOT NULL AND t.note != ''
+         ORDER BY t.updated_at DESC`;
 
-  const txBinds = run.from_tx_id === null ? [userId, run.up_to_tx_id] : [userId, run.from_tx_id, run.up_to_tx_id];
+  const txBinds = run.from_updated_at === null ? [userId, run.up_to_updated_at] : [userId, run.from_updated_at, run.up_to_updated_at];
   const { results: transactions } = await db.prepare(txQuery).bind(...txBinds).all<TransactionRow>();
 
   // Mark run as done before LLM call — window is now committed

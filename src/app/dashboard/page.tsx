@@ -28,6 +28,8 @@ type Transaction = {
   note: string | null;
   date: string;
   custom_budgets: { id: number; name: string }[];
+  created_at: number;
+  updated_at: number;
 };
 
 function fmt(n: number) {
@@ -321,6 +323,20 @@ export default function DashboardPage() {
                       <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, minHeight: "1em" }}>
                         {txn.note ?? ""}
                       </p>
+                      {txn.custom_budgets.length > 0 && (
+                        <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center" }}>
+                          {txn.custom_budgets.slice(0, 2).map((cb) => (
+                            <span key={cb.id} style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 500, padding: "2px 7px", borderRadius: 10, background: "rgba(0,102,204,0.08)", color: "var(--primary)", whiteSpace: "nowrap", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {cb.name}
+                            </span>
+                          ))}
+                          {txn.custom_budgets.length > 2 && (
+                            <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 500, padding: "2px 6px", borderRadius: 10, background: "var(--canvas-parchment)", color: "var(--ink-muted-48)", whiteSpace: "nowrap" }}>
+                              +{txn.custom_budgets.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <p style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: txn.type === "expense" ? "#ff453a" : "#30d158", letterSpacing: -0.2, flexShrink: 0 }}>
                       {txn.type === "expense" ? "−" : "+"}{fmt(txn.amount)}₫
@@ -357,6 +373,20 @@ export default function DashboardPage() {
                 {actionTxn.type === "expense" ? "−" : "+"}{fmt(actionTxn.amount)}₫
               </p>
               {actionTxn.note && <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginTop: 2 }}>{actionTxn.note}</p>}
+              {actionTxn.custom_budgets.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                  {actionTxn.custom_budgets.map((cb) => (
+                    <span key={cb.id} style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, padding: "3px 10px", borderRadius: 12, background: "rgba(0,102,204,0.08)", color: "var(--primary)" }}>
+                      {cb.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {actionTxn.updated_at !== actionTxn.created_at && (
+                <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)", marginTop: 8 }}>
+                  Cập nhật {new Date(actionTxn.updated_at * 1000).toLocaleString("vi-VN", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              )}
             </div>
             <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
               <button onClick={() => { setEditTxn(actionTxn); setActionTxn(null); setFormOpen(true); }}
