@@ -726,7 +726,7 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
                 borderRadius: 11,
                 border: "1px solid var(--hairline)",
                 fontFamily: "var(--font-body)",
-                fontSize: 15,
+                fontSize: 16,
                 color: "var(--ink)",
                 background: "var(--canvas-parchment)",
                 outline: "none",
