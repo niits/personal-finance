@@ -12,6 +12,9 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Personal Finance",
   },
+  icons: {
+    apple: "/icons/icon-192.png",
+  },
 };
 
 export const viewport: Viewport = {
