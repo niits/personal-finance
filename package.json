@@ -7,38 +7,34 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build:cf": "opennextjs-cloudflare build",
-    "dev:cf": "opennextjs-cloudflare build && opennextjs-cloudflare preview -- --port 8787",
-    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --env production",
     "test:unit": "vitest run --config vitest.unit.config.ts",
-    "test:integration": "vitest run --config vitest.config.ts",
-    "test": "npm run test:unit && npm run test:integration"
+    "test:integration": "firebase emulators:exec --only auth,firestore --project=demo-personal-finance \"vitest run --config vitest.config.ts\"",
+    "test:integration:nofire": "vitest run --config vitest.config.ts",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:e2e": "firebase emulators:exec --only auth,firestore --project=demo-personal-finance \"npx playwright test\"",
+    "test:e2e:nofire": "npx playwright test",
+    "firestore:deploy": "firebase deploy --only firestore:rules,firestore:indexes"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.93.0",
-    "@better-auth/cli": "^1.4.21",
-    "ai": "^6.0.175",
-    "better-auth": "^1.6.9",
-    "kysely": "^0.28.16",
-    "kysely-d1": "^0.4.0",
+    "firebase": "^11.7.0",
+    "firebase-admin": "^13.2.0",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "swr": "^2.4.1",
-    "workers-ai-provider": "^3.1.13"
+    "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.8.71",
-    "@opennextjs/cloudflare": "^1.19.4",
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "firebase-tools": "^14.0.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^3.2.4",
-    "wrangler": "^4.86.0"
+    "vitest": "^3.2.4"
   }
 }

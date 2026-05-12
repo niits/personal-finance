@@ -1,128 +1,240 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { SELF } from "cloudflare:test";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import type { RulesTestEnvironment } from "@firebase/rules-unit-testing";
 import {
-  applyMigrations,
-  seedUser,
-  createTestSession,
-  seedCategory,
-  authHeaders,
+  setupTestEnvironment,
+  authenticatedDb,
+  assertFails,
+  assertSucceeds,
+  uid,
 } from "./helpers";
+import {
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  listCategories,
+  isLeafCategory,
+  CategoryError,
+} from "@/lib/data/categories";
+import { createTransaction } from "@/lib/data/transactions";
+import { createMonthlyBudget } from "@/lib/data/monthly-budgets";
+import { collection, getDocs } from "firebase/firestore";
 
-let cookie: string;
-let userId: string;
+let env: RulesTestEnvironment;
 
-beforeAll(async () => {
-  await applyMigrations();
-  userId = await seedUser({ id: "user-cat", email: "cat@example.com" });
-  cookie = await createTestSession(userId);
-});
+beforeAll(async () => { env = await setupTestEnvironment(); });
+afterAll(async () => { await env.cleanup(); });
 
-describe("GET /api/categories", () => {
-  it("returns empty list for new user (before seed)", async () => {
-    const res = await SELF.fetch("http://localhost/api/categories", {
-      headers: { Cookie: cookie },
-    });
-    expect(res.status).toBe(200);
-    const body = await res.json<{ categories: unknown[] }>();
-    expect(Array.isArray(body.categories)).toBe(true);
+describe("createCategory", () => {
+  it("creates a root expense category", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cat = await createCategory(db, u, { name: "Ăn uống", type: "expense", parentId: null });
+    expect(cat.id).toBeTruthy();
+    expect(cat.name).toBe("Ăn uống");
+    expect(cat.level).toBe(1);
+    expect(cat.type).toBe("expense");
+    expect(cat.parentId).toBeNull();
+  });
+
+  it("creates a root income category", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cat = await createCategory(db, u, { name: "Thu nhập", type: "income", parentId: null });
+    expect(cat.type).toBe("income");
+    expect(cat.level).toBe(1);
+  });
+
+  it("creates a level-2 child — inherits parent type", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const parent = await createCategory(db, u, { name: "Ăn uống", type: "expense", parentId: null });
+    const child = await createCategory(db, u, { name: "Ăn ngoài", parentId: parent.id });
+    expect(child.level).toBe(2);
+    expect(child.type).toBe("expense");
+    expect(child.parentId).toBe(parent.id);
+  });
+
+  it("creates a level-3 category", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const l1 = await createCategory(db, u, { name: "L1", type: "expense", parentId: null });
+    const l2 = await createCategory(db, u, { name: "L2", parentId: l1.id });
+    const l3 = await createCategory(db, u, { name: "L3", parentId: l2.id });
+    expect(l3.level).toBe(3);
+  });
+
+  it("rejects level-4 (parent is level-3)", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const l1 = await createCategory(db, u, { name: "L1", type: "expense", parentId: null });
+    const l2 = await createCategory(db, u, { name: "L2", parentId: l1.id });
+    const l3 = await createCategory(db, u, { name: "L3", parentId: l2.id });
+    await expect(createCategory(db, u, { name: "L4", parentId: l3.id })).rejects.toThrow(CategoryError);
+  });
+
+  it("rejects empty name", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    await expect(createCategory(db, u, { name: "  ", type: "expense", parentId: null })).rejects.toThrow(CategoryError);
+  });
+
+  it("rejects name longer than 100 chars", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    await expect(
+      createCategory(db, u, { name: "a".repeat(101), type: "expense", parentId: null }),
+    ).rejects.toThrow(CategoryError);
+  });
+
+  it("rejects root category without type", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    await expect(createCategory(db, u, { name: "No type", parentId: null })).rejects.toThrow(CategoryError);
+  });
+
+  it("rejects non-existent parent", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    await expect(createCategory(db, u, { name: "Child", parentId: "no-such-id" })).rejects.toThrow(CategoryError);
   });
 });
 
-describe("POST /api/categories", () => {
-  it("creates a level-1 category", async () => {
-    const res = await SELF.fetch("http://localhost/api/categories", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Ăn uống" }),
-    });
+describe("listCategories", () => {
+  it("returns categories sorted by level then sortOrder", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const l1a = await createCategory(db, u, { name: "A", type: "expense", parentId: null });
+    const l1b = await createCategory(db, u, { name: "B", type: "expense", parentId: null });
+    await createCategory(db, u, { name: "A2", parentId: l1a.id });
+    await createCategory(db, u, { name: "B2", parentId: l1b.id });
 
-    expect(res.status).toBe(201);
-    const body = await res.json<{ category: { level: number; parent_id: null } }>();
-    expect(body.category.level).toBe(1);
-    expect(body.category.parent_id).toBeNull();
+    const list = await listCategories(db, u);
+    expect(list[0].level).toBe(1);
+    expect(list[1].level).toBe(1);
+    expect(list[2].level).toBe(2);
+    expect(list[3].level).toBe(2);
   });
 
-  it("creates a level-2 category under level-1", async () => {
-    const parentId = await seedCategory(userId, "Đi lại", null, 1);
-
-    const res = await SELF.fetch("http://localhost/api/categories", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Xăng", parent_id: parentId }),
-    });
-
-    expect(res.status).toBe(201);
-    const body = await res.json<{ category: { level: number; parent_id: number } }>();
-    expect(body.category.level).toBe(2);
-    expect(body.category.parent_id).toBe(parentId);
-  });
-
-  it("creates a level-3 category under level-2", async () => {
-    const l1Id = await seedCategory(userId, "Sức khoẻ L1", null, 1);
-    const l2Id = await seedCategory(userId, "Thuốc L2", l1Id, 2);
-
-    const res = await SELF.fetch("http://localhost/api/categories", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Vitamin", parent_id: l2Id }),
-    });
-
-    expect(res.status).toBe(201);
-    const body = await res.json<{ category: { level: number } }>();
-    expect(body.category.level).toBe(3);
-  });
-
-  it("returns 409 when trying to add child to level-3 category", async () => {
-    const l1Id = await seedCategory(userId, "Giải trí L1", null, 1);
-    const l2Id = await seedCategory(userId, "Game L2", l1Id, 2);
-    const l3Id = await seedCategory(userId, "Mobile L3", l2Id, 3);
-
-    const res = await SELF.fetch("http://localhost/api/categories", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Too deep", parent_id: l3Id }),
-    });
-
-    expect(res.status).toBe(409);
-  });
-
-  it("returns 400 for empty name", async () => {
-    const res = await SELF.fetch("http://localhost/api/categories", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "" }),
-    });
-    expect(res.status).toBe(400);
+  it("returns empty array when no categories", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    expect(await listCategories(db, u)).toHaveLength(0);
   });
 });
 
-describe("DELETE /api/categories/:id", () => {
+describe("updateCategory", () => {
+  it("updates name", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cat = await createCategory(db, u, { name: "Old name", type: "expense", parentId: null });
+    await updateCategory(db, u, cat.id, { name: "New name" });
+    const list = await listCategories(db, u);
+    expect(list.find((c) => c.id === cat.id)?.name).toBe("New name");
+  });
+
+  it("updates sortOrder", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cat = await createCategory(db, u, { name: "Cat", type: "expense", parentId: null });
+    await updateCategory(db, u, cat.id, { sortOrder: 5 });
+    const list = await listCategories(db, u);
+    expect(list.find((c) => c.id === cat.id)?.sortOrder).toBe(5);
+  });
+
+  it("rejects empty name on update", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cat = await createCategory(db, u, { name: "Cat", type: "expense", parentId: null });
+    await expect(updateCategory(db, u, cat.id, { name: "" })).rejects.toThrow(CategoryError);
+  });
+
+  it("rejects update with no fields", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cat = await createCategory(db, u, { name: "Cat", type: "expense", parentId: null });
+    await expect(updateCategory(db, u, cat.id, {})).rejects.toThrow(CategoryError);
+  });
+});
+
+describe("deleteCategory", () => {
   it("deletes a leaf category with no transactions", async () => {
-    const catId = await seedCategory(userId, "Temp category", null, 1);
-
-    const res = await SELF.fetch(`http://localhost/api/categories/${catId}`, {
-      method: "DELETE",
-      headers: { Cookie: cookie },
-    });
-    expect(res.status).toBe(200);
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cat = await createCategory(db, u, { name: "Cat", type: "expense", parentId: null });
+    await deleteCategory(db, u, cat.id);
+    expect(await listCategories(db, u)).toHaveLength(0);
   });
 
-  it("returns 409 when category has children", async () => {
-    const parentId = await seedCategory(userId, "Parent with child", null, 1);
-    await seedCategory(userId, "Child", parentId, 2);
-
-    const res = await SELF.fetch(`http://localhost/api/categories/${parentId}`, {
-      method: "DELETE",
-      headers: { Cookie: cookie },
-    });
-    expect(res.status).toBe(409);
+  it("rejects deleting a category that has children", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const parent = await createCategory(db, u, { name: "Parent", type: "expense", parentId: null });
+    await createCategory(db, u, { name: "Child", parentId: parent.id });
+    await expect(deleteCategory(db, u, parent.id)).rejects.toThrow(CategoryError);
   });
 
-  it("returns 404 for non-existent category", async () => {
-    const res = await SELF.fetch("http://localhost/api/categories/99999", {
-      method: "DELETE",
-      headers: { Cookie: cookie },
+  it("rejects deleting a category used by a transaction", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const parent = await createCategory(db, u, { name: "Parent", type: "expense", parentId: null });
+    const child = await createCategory(db, u, { name: "Child", parentId: parent.id });
+    await createMonthlyBudget(db, u, { month: "2026-05", amount: 10_000_000 });
+    await createTransaction(db, u, {
+      amount: 100_000,
+      type: "expense",
+      categoryId: child.id,
+      date: "2026-05-10",
+      note: null,
     });
-    expect(res.status).toBe(404);
+    await expect(deleteCategory(db, u, child.id)).rejects.toThrow(CategoryError);
+  });
+});
+
+describe("isLeafCategory", () => {
+  it("returns true for a category with no children", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cat = await createCategory(db, u, { name: "Leaf", type: "expense", parentId: null });
+    expect(await isLeafCategory(db, u, cat.id)).toBe(true);
+  });
+
+  it("returns false for a category with children", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const parent = await createCategory(db, u, { name: "Parent", type: "expense", parentId: null });
+    await createCategory(db, u, { name: "Child", parentId: parent.id });
+    expect(await isLeafCategory(db, u, parent.id)).toBe(false);
+  });
+});
+
+describe("security rules — categories", () => {
+  it("unauthenticated user cannot read categories", async () => {
+    const u = uid();
+    const adb = authenticatedDb(env, u);
+    await createCategory(adb, u, { name: "Cat", type: "expense", parentId: null });
+
+    // Read as a different (unauthenticated) context.
+    const unauthDb = env.unauthenticatedContext().firestore();
+    const snap = getDocs(collection(unauthDb as unknown as import("firebase/firestore").Firestore, "users", u, "categories"));
+    await assertFails(snap);
+  });
+
+  it("user B cannot read user A's categories", async () => {
+    const userA = uid();
+    const userB = uid();
+    const adb = authenticatedDb(env, userA);
+    await createCategory(adb, userA, { name: "Private", type: "expense", parentId: null });
+
+    const bdb = authenticatedDb(env, userB);
+    const snap = getDocs(collection(bdb, "users", userA, "categories"));
+    await assertFails(snap);
+  });
+
+  it("user can read their own categories", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    await createCategory(db, u, { name: "Mine", type: "expense", parentId: null });
+    const snap = getDocs(collection(db, "users", u, "categories"));
+    await assertSucceeds(snap);
   });
 });
