@@ -380,6 +380,7 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
   // Drag state
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const amountRef = useRef<HTMLInputElement>(null);
   const touchStartY = useRef(0);
   const touchStartTime = useRef(0);
   const currentDragY = useRef(0);
@@ -387,9 +388,13 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
   useEffect(() => {
     if (open) {
       setMounted(true);
-      // Let the DOM paint first, then trigger the slide-in
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => setShow(true));
+        requestAnimationFrame(() => {
+          setShow(true);
+          // Delay focus until after the slide-in animation (400ms) to prevent
+          // iOS keyboard from opening before the sheet is in its final position
+          setTimeout(() => amountRef.current?.focus(), 420);
+        });
       });
     } else {
       setShow(false);
@@ -637,7 +642,7 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
                   setAmountStr(raw ? fmt(parseInt(raw, 10)) : "");
                   setError("");
                 }}
-                autoFocus
+                ref={amountRef}
                 style={{
                   width: "100%",
                   padding: "14px 16px 14px 44px",
