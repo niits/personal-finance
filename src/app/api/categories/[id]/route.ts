@@ -27,7 +27,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   const body = await request.json().catch(() => null);
   if (!body) return Errors.validation("Request body không hợp lệ");
 
-  const { name, sort_order } = body as { name?: unknown; sort_order?: unknown };
+  const { name, sort_order, emoji } = body as { name?: unknown; sort_order?: unknown; emoji?: unknown };
   const updates: Record<string, unknown> = {};
 
   if (name !== undefined) {
@@ -44,6 +44,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     updates.sort_order = sort_order;
   }
 
+  if (emoji !== undefined) {
+    updates.emoji = typeof emoji === "string" && emoji.trim() ? emoji.trim() : null;
+  }
+
   if (Object.keys(updates).length === 0) return Errors.validation("Không có trường nào để cập nhật");
 
   const row = await db
@@ -51,7 +55,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     .set(updates)
     .where("id", "=", categoryId)
     .where("user_id", "=", userId)
-    .returning(["id", "name", "parent_id", "level", "sort_order", "created_at"])
+    .returning(["id", "name", "emoji", "parent_id", "level", "sort_order", "created_at"])
     .executeTakeFirst();
 
   return Response.json({ category: row });

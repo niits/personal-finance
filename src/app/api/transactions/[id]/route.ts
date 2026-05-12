@@ -19,12 +19,14 @@ type TxnRow = {
   amount: number;
   type: "expense" | "income";
   note: string | null;
+  emoji: string | null;
   date: string;
   monthly_budget_id: number | null;
   created_at: number;
   updated_at: number;
   cat_id: number;
   cat_name: string;
+  cat_emoji: string | null;
   cat_level: number;
   cat_parent_id: number | null;
   cat_p1_name: string | null;
@@ -50,12 +52,14 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
       "t.amount",
       "t.type",
       "t.note",
+      "t.emoji",
       "t.date",
       "t.monthly_budget_id",
       "t.created_at",
       "t.updated_at",
       "c.id as cat_id",
       "c.name as cat_name",
+      "c.emoji as cat_emoji",
       "c.level as cat_level",
       "c.parent_id as cat_parent_id",
       "p1.name as cat_p1_name",
@@ -77,7 +81,8 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
     id: txn.id,
     amount: txn.amount,
     type: txn.type,
-    category: { id: txn.cat_id, name: txn.cat_name, path: buildCategoryPath(txn) },
+    emoji: txn.emoji ?? null,
+    category: { id: txn.cat_id, name: txn.cat_name, emoji: txn.cat_emoji ?? null, path: buildCategoryPath(txn) },
     note: txn.note,
     date: txn.date,
     monthly_budget_id: txn.monthly_budget_id,
@@ -126,6 +131,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     return Errors.validation("Số tiền phải là số nguyên lớn hơn 0");
 
   const newNote = b.note !== undefined ? (typeof b.note === "string" ? b.note : null) : undefined;
+  const newEmoji = b.emoji !== undefined
+    ? (typeof b.emoji === "string" && b.emoji.trim() ? b.emoji.trim() : null)
+    : undefined;
   const newCustomBudgetIds: number[] | undefined =
     b.custom_budget_ids !== undefined
       ? Array.isArray(b.custom_budget_ids)
@@ -196,6 +204,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   if (b.type !== undefined) updateValues.type = newType;
   if (b.category_id !== undefined) updateValues.category_id = newCategoryId;
   if (b.note !== undefined) updateValues.note = newNote;
+  if (b.emoji !== undefined) updateValues.emoji = newEmoji;
   if (b.date !== undefined) updateValues.date = newDate;
   // Always sync monthly_budget_id when type or date changes
   if (b.type !== undefined || b.date !== undefined) updateValues.monthly_budget_id = newMonthlyBudgetId;

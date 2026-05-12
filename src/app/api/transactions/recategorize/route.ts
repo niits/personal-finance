@@ -1,10 +1,9 @@
 import type { NextRequest } from "next/server";
-import { generateObject } from "ai";
 import { z } from "zod";
 import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { getModel } from "@/lib/llm";
+import { runAIObject } from "@/lib/llm";
 
 type CategoryRow = { id: number; name: string; type: "income" | "expense" };
 type TransactionRow = { id: number; note: string; type: "income" | "expense"; category_id: number; cat_name: string };
@@ -105,14 +104,11 @@ Gợi ý đổi danh mục cho các giao dịch có danh mục chưa phù hợp.
 
   let output: z.infer<typeof RecategorizeSchema>;
   try {
-    const model = await getModel();
-    const { object } = await generateObject({
-      model,
+    output = await runAIObject({
       schema: RecategorizeSchema,
       system: SYSTEM_PROMPT,
       prompt: userContent,
     });
-    output = object;
   } catch (err) {
     console.error("AI recategorize error:", err);
     return Response.json({ error: "Không thể phân tích lúc này. Thử lại sau.", code: "AI_ERROR" }, { status: 502 });
