@@ -1,105 +1,70 @@
-import type { Generated, Insertable, Selectable, Updateable } from "kysely";
+// Firestore document type definitions (client SDK).
+// Stored shape uses camelCase + Firestore Timestamps. UI converts to display strings.
+import type { Timestamp } from "firebase/firestore";
 
-// ─── monthly_budget ──────────────────────────────────────────────────────────
-export interface MonthlyBudgetTable {
-  id: Generated<number>;
-  user_id: string;
+export type Type = "income" | "expense";
+export type RunStatus = "pending" | "available" | "done";
+
+export type CategoryDoc = {
+  name: string;
+  parentId: string | null;
+  level: number;
+  sortOrder: number;
+  type: Type;
+  createdAt: Timestamp;
+};
+
+export type MonthlyBudgetDoc = {
   month: string;
   amount: number;
-  start_date: string | null;
-  end_date: string | null;
-  created_at: Generated<number>;
-}
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: Timestamp;
+};
 
-export type MonthlyBudget = Selectable<MonthlyBudgetTable>;
-export type NewMonthlyBudget = Insertable<MonthlyBudgetTable>;
-export type MonthlyBudgetUpdate = Updateable<MonthlyBudgetTable>;
-
-// ─── budget_adjustment ───────────────────────────────────────────────────────
-export interface BudgetAdjustmentTable {
-  id: Generated<number>;
-  monthly_budget_id: number;
+export type AdjustmentDoc = {
   delta: number;
   note: string | null;
-  created_at: Generated<number>;
-}
+  createdAt: Timestamp;
+};
 
-export type BudgetAdjustment = Selectable<BudgetAdjustmentTable>;
-export type NewBudgetAdjustment = Insertable<BudgetAdjustmentTable>;
-
-// ─── custom_budget ───────────────────────────────────────────────────────────
-export interface CustomBudgetTable {
-  id: Generated<number>;
-  user_id: string;
+export type CustomBudgetDoc = {
   name: string;
   amount: number;
-  is_active: Generated<number>;
-  created_at: Generated<number>;
-}
+  isActive: boolean;
+  createdAt: Timestamp;
+};
 
-export type CustomBudget = Selectable<CustomBudgetTable>;
-export type NewCustomBudget = Insertable<CustomBudgetTable>;
-export type CustomBudgetUpdate = Updateable<CustomBudgetTable>;
-
-// ─── transaction ─────────────────────────────────────────────────────────────
-export interface TransactionTable {
-  id: Generated<number>;
-  user_id: string;
+export type TransactionDoc = {
   amount: number;
-  type: "expense" | "income";
-  category_id: number;
+  type: Type;
+  categoryId: string;
   note: string | null;
   date: string;
-  monthly_budget_id: number | null;
-  created_at: Generated<number>;
-  updated_at: Generated<number>;
-}
+  monthlyBudgetId: string | null;
+  customBudgetIds: string[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+};
 
-export type Transaction = Selectable<TransactionTable>;
-export type NewTransaction = Insertable<TransactionTable>;
-export type TransactionUpdate = Updateable<TransactionTable>;
+export type BudgetConfigDoc = {
+  defaultMonthlyAmount: number;
+  updatedAt: Timestamp;
+};
 
-// ─── transaction_custom_budget ────────────────────────────────────────────────
-export interface TransactionCustomBudgetTable {
-  transaction_id: number;
-  custom_budget_id: number;
-}
+export type AiSuggestionRunDoc = {
+  fromUpdatedAt: Timestamp | null;
+  upToUpdatedAt: Timestamp;
+  status: RunStatus;
+  createdAt: Timestamp;
+};
 
-export type TransactionCustomBudget = Selectable<TransactionCustomBudgetTable>;
+// Identity: each "WithId" attaches the Firestore doc id to the data shape.
+export type WithId<T> = T & { id: string };
 
-// ─── category ────────────────────────────────────────────────────────────────
-export interface CategoryTable {
-  id: Generated<number>;
-  user_id: string;
-  name: string;
-  parent_id: number | null;
-  level: number;
-  sort_order: number;
-  type: "income" | "expense";
-  created_at: Generated<number>;
-}
-
-export type Category = Selectable<CategoryTable>;
-export type NewCategory = Insertable<CategoryTable>;
-export type CategoryUpdate = Updateable<CategoryTable>;
-
-// ─── budget_config ───────────────────────────────────────────────────────────
-export interface BudgetConfigTable {
-  id: Generated<number>;
-  user_id: string;
-  default_monthly_amount: number;
-  updated_at: number;
-}
-
-export type BudgetConfig = Selectable<BudgetConfigTable>;
-
-// ─── Database interface ───────────────────────────────────────────────────────
-export interface Database {
-  monthly_budget: MonthlyBudgetTable;
-  budget_adjustment: BudgetAdjustmentTable;
-  custom_budget: CustomBudgetTable;
-  transaction: TransactionTable;
-  transaction_custom_budget: TransactionCustomBudgetTable;
-  category: CategoryTable;
-  budget_config: BudgetConfigTable;
-}
+export type Category = WithId<CategoryDoc>;
+export type MonthlyBudget = WithId<MonthlyBudgetDoc>;
+export type Adjustment = WithId<AdjustmentDoc>;
+export type CustomBudget = WithId<CustomBudgetDoc>;
+export type Transaction = WithId<TransactionDoc>;
+export type AiSuggestionRun = WithId<AiSuggestionRunDoc>;

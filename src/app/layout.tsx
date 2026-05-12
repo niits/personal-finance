@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
-import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 
 export const metadata: Metadata = {
   title: "Personal Finance",
@@ -11,6 +11,9 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Personal Finance",
+  },
+  icons: {
+    apple: "/icons/icon-192.png",
   },
 };
 
@@ -23,9 +26,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#0066cc" />
       </head>
       <body>
+        <ServiceWorkerRegistrar />
         <Navbar />
         {children}
-        <ServiceWorkerRegister />
       </body>
     </html>
   );

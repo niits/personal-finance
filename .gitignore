@@ -38,6 +38,14 @@ yarn-error.log*
 .wrangler/
 .open-next/
 
+# firebase
+firebase-debug.log
+firestore-debug.log
+database-debug.log
+pubsub-debug.log
+ui-debug.log
+.firebase/
+
 
 # vercel
 .vercel

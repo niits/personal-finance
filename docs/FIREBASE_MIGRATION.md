@@ -262,37 +262,93 @@ export const budgetConfigDoc = (uid: string) => userDoc(uid).collection("budgetC
 
 ---
 
-## 6. AI: Workers AI → Gemini
+## 6. AI: Workers AI → Firebase AI Logic (Gemini)
 
 ### 6.1 Provider
 
+**Implementation:** Uses **Firebase AI Logic** (`firebase/ai`) — included in the existing `firebase` package, no additional install needed.
+
 ```bash
-npm rm workers-ai-provider @anthropic-ai/sdk
-npm i @ai-sdk/google
+# Remove the old providers (already done):
+npm rm workers-ai-provider @anthropic-ai/sdk @ai-sdk/google ai
 ```
 
 ```ts
 // src/lib/llm.ts
-import { google } from "@ai-sdk/google";
-export function getModel() {
-  return google(process.env.GEMINI_MODEL ?? "gemini-2.5-flash");
+import { getApp, initializeApp } from "firebase/app";
+import { getAI, getGenerativeModel, GoogleAIBackend } from "firebase/ai";
+import type { Schema } from "firebase/ai";
+
+function getAIApp() {
+  try { return getApp("ai"); }
+  catch {
+    return initializeApp(
+      { apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!, projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID! },
+      "ai",
+    );
+  }
+}
+
+export function getModel(opts: { systemInstruction?: string; responseSchema?: Schema }) {
+  const ai = getAI(getAIApp(), { backend: new GoogleAIBackend() });
+  return getGenerativeModel(ai, {
+    model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+    ...(opts.systemInstruction ? { systemInstruction: opts.systemInstruction } : {}),
+    ...(opts.responseSchema
+      ? { generationConfig: { responseMimeType: "application/json", responseSchema: opts.responseSchema } }
+      : {}),
+  });
 }
 ```
 
-`GOOGLE_GENERATIVE_AI_API_KEY` is the env var the provider reads; supplied via Secret Manager (see §8.2).
+**No separate API key needed.** `GoogleAIBackend` authenticates via the Firebase project's public API key (`NEXT_PUBLIC_FIREBASE_API_KEY`). No Secret Manager secret is required for AI.
+
+**Named secondary app (`"ai"`):** The `firebase` client SDK has a global app registry. Using a named app avoids collision with the default app that might be initialised on the browser side, and allows the AI init to run safely in Next.js server route handlers without `"use client"`.
 
 ### 6.2 Route changes
 
-The two AI routes (`categories/suggest`, `transactions/recategorize`) already use the Vercel AI SDK's `generateObject({ model, schema, system, prompt })`. The only changes:
+Both AI routes (`categories/suggest`, `transactions/recategorize`) now:
 
-- `getModel()` becomes synchronous (no Cloudflare context fetch).
-- Drop the `await` at call sites.
+1. Declare a `Schema.object({...})` response schema using Firebase AI Logic's typed schema builder.
+2. Call `getModel({ systemInstruction, responseSchema })` to get a configured `GenerativeModel`.
+3. Call `model.generateContent(prompt)` — returns a `GenerateContentResult`.
+4. Parse `result.response.text()` as JSON and validate with Zod.
 
-`gemini-2.5-flash` supports structured output by default. If JSON validation fails on edge cases, set `providerOptions.google.structuredOutputs: false` and lean on Vercel AI SDK's built-in repair.
+Example pattern:
+
+```ts
+import { Schema } from "firebase/ai";
+import { getModel } from "@/lib/llm";
+
+const MySchema = Schema.object({
+  properties: {
+    items: Schema.array({
+      items: Schema.object({
+        properties: {
+          name: Schema.string({ description: "..." }),
+          type: Schema.enumString({ enum: ["income", "expense"] }),
+        },
+        required: ["name", "type"],
+      }),
+    }),
+  },
+  required: ["items"],
+});
+
+const model = getModel({ systemInstruction: SYSTEM_PROMPT, responseSchema: MySchema });
+const result = await model.generateContent(userContent);
+const data = MyZodSchema.parse(JSON.parse(result.response.text()));
+```
+
+`gemini-2.5-flash` with `responseMimeType: "application/json"` + `responseSchema` enforces structured output at the model level. Zod is used as a second validation gate after parsing.
 
 ### 6.3 Prompts
 
-Vietnamese prompts and Zod schemas (with Vietnamese `.describe()` text) are unchanged. Re-test both flows on a small sample after migration; Gemini Flash typically follows JSON schemas more reliably than `kimi-k2`, so accuracy should be at least as good.
+Vietnamese system prompts are unchanged. `Schema` descriptions (replacing Zod's `.describe()`) are passed inline in the schema builder and sent as part of the response schema to guide the model.
+
+### 6.4 `apphosting.yaml` change
+
+The `GOOGLE_GENERATIVE_AI_API_KEY` secret entry is removed. The `GEMINI_MODEL` env var is retained for model version pinning.
 
 ---
 
@@ -632,9 +688,10 @@ Single user, low-traffic — a 30-minute maintenance window is enough.
 - "kysely": "^0.28.16",
 - "kysely-d1": "^0.4.0",
 - "workers-ai-provider": "^3.1.13",
-+ "firebase": "^11.x",
+- "ai": "^6.x",
+- "@ai-sdk/google": "^2.x",
++ "firebase": "^11.x",          # includes firebase/ai — no extra install
 + "firebase-admin": "^13.x",
-+ "@ai-sdk/google": "^1.x",
 
 # devDependencies
 - "@cloudflare/vitest-pool-workers": "^0.8.71",
@@ -643,7 +700,7 @@ Single user, low-traffic — a 30-minute maintenance window is enough.
 + "firebase-tools": "^14.x",
 ```
 
-`ai`, `next`, `react`, `swr`, `zod`, Tailwind, TypeScript, Vitest stay.
+`next`, `react`, `zod`, Tailwind, TypeScript, Vitest stay. `ai` (Vercel AI SDK) and `@ai-sdk/google` are fully removed — replaced by `firebase/ai`.
 
 ---
 

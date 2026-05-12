@@ -7,17 +7,17 @@ runConfig:
 
 env:
   - variable: NEXT_PUBLIC_APP_URL
-    value: https://personal-finance.web.app
+    value: https://niits-personal-finance.web.app
     availability: [BUILD, RUNTIME]
   - variable: GEMINI_MODEL
     value: gemini-2.5-flash
     availability: [RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: REPLACE_WITH_WEB_API_KEY
+    value: AIzaSyCiXNAXjmPS1_1mqpHvppSxxeKial_xpX0
     availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: personal-finance.firebaseapp.com
+    value: niits-personal-finance.firebaseapp.com
     availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: personal-finance
+    value: niits-personal-finance
     availability: [BUILD, RUNTIME]

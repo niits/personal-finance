@@ -1,6 +1,18 @@
-import type { Kysely } from "kysely";
-import type { Database } from "@/lib/schema";
-import { sql } from "kysely";
+// Client-side idempotent seed run on first sign-in.
+import {
+  addDoc,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  type Firestore,
+  type Timestamp,
+} from "firebase/firestore";
+import { budgetConfigDoc, categoriesCol } from "@/lib/firestore-refs";
+import type { CategoryDoc } from "@/lib/schema";
 
 const SEED_CATEGORIES: {
   name: string;
@@ -79,54 +91,42 @@ const SEED_CATEGORIES: {
   },
 ];
 
-export async function seedNewUser(db: Kysely<Database>, userId: string): Promise<void> {
-  await db
-    .insertInto("budget_config")
-    .values({
-      user_id: userId,
-      default_monthly_amount: 10_000_000,
-      updated_at: sql<number>`unixepoch()`,
-    })
-    .onConflict((oc) => oc.column("user_id").doNothing())
-    .execute();
+export async function seedNewUser(db: Firestore, uid: string): Promise<void> {
+  const cfgRef = budgetConfigDoc(db, uid);
+  const cfgSnap = await getDoc(cfgRef);
+  if (!cfgSnap.exists()) {
+    await setDoc(cfgRef, {
+      defaultMonthlyAmount: 10_000_000,
+      updatedAt: serverTimestamp() as unknown as Timestamp,
+    });
+  }
+
+  const cats = categoriesCol(db, uid);
+  const existing = await getDocs(query(cats, limit(1)));
+  if (!existing.empty) return;
 
   for (const parent of SEED_CATEGORIES) {
-    await db
-      .insertInto("category")
-      .values({
-        user_id: userId,
-        name: parent.name,
-        parent_id: null,
-        level: 1,
-        sort_order: parent.sortOrder,
-        type: parent.type,
-      })
-      .onConflict((oc) => oc.doNothing())
-      .execute();
-
-    const parentRow = await db
-      .selectFrom("category")
-      .select("id")
-      .where("user_id", "=", userId)
-      .where("name", "=", parent.name)
-      .where("parent_id", "is", null)
-      .executeTakeFirst();
-
-    if (!parentRow) continue;
+    const parentRef = doc(cats);
+    const parentData: CategoryDoc = {
+      name: parent.name,
+      parentId: null,
+      level: 1,
+      sortOrder: parent.sortOrder,
+      type: parent.type,
+      createdAt: serverTimestamp() as unknown as Timestamp,
+    };
+    await setDoc(parentRef, parentData);
 
     for (const child of parent.children) {
-      await db
-        .insertInto("category")
-        .values({
-          user_id: userId,
-          name: child.name,
-          parent_id: parentRow.id,
-          level: 2,
-          sort_order: child.sortOrder,
-          type: parent.type,
-        })
-        .onConflict((oc) => oc.doNothing())
-        .execute();
+      const childData: CategoryDoc = {
+        name: child.name,
+        parentId: parentRef.id,
+        level: 2,
+        sortOrder: child.sortOrder,
+        type: parent.type,
+        createdAt: serverTimestamp() as unknown as Timestamp,
+      };
+      await addDoc(cats, childData);
     }
   }
 }

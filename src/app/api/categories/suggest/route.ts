@@ -1,24 +1,48 @@
 import type { NextRequest } from "next/server";
-import { generateText, Output } from "ai";
+import { Schema } from "firebase/ai";
 import { z } from "zod";
-import { getDB } from "@/lib/db";
-import { requireSession } from "@/lib/session";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { Errors } from "@/lib/errors";
 import { getModel } from "@/lib/llm";
+import { requireUid } from "@/lib/server-auth";
+import { aiRunCol, categoryCol, txCol } from "@/lib/firestore";
 
-type CategoryRow = { id: number; name: string; type: "income" | "expense"; level: number };
+type CategoryRow = { id: string; name: string; type: "income" | "expense"; level: number };
 type TransactionRow = { note: string; type: "income" | "expense"; cat_name: string };
-type RunRow = { up_to_updated_at: number | null };
-type MaxUpdatedAtRow = { max_val: number | null };
 
+const SuggestionResponseSchema = Schema.object({
+  properties: {
+    suggestions: Schema.array({
+      items: Schema.object({
+        properties: {
+          name: Schema.string({ description: "Tên danh mục bằng tiếng Việt, ngắn gọn 1-4 từ" }),
+          type: Schema.enumString({ enum: ["income", "expense"] }),
+          parent_category_id: Schema.string({
+            nullable: true,
+            description: "ID từ danh sách danh mục hiện tại, hoặc null nếu là danh mục gốc",
+          }),
+          example_notes: Schema.array({
+            items: Schema.string(),
+            description: "2-3 ghi chú thực từ danh sách giao dịch",
+          }),
+          transaction_count: Schema.integer({ description: "Số giao dịch tương tự" }),
+        },
+        required: ["name", "type", "parent_category_id", "example_notes", "transaction_count"],
+      }),
+    }),
+  },
+  required: ["suggestions"],
+});
+
+// Zod schema for post-parse validation.
 const SuggestionSchema = z.object({
   suggestions: z.array(
     z.object({
-      name: z.string().describe("Tên danh mục bằng tiếng Việt, ngắn gọn 1-4 từ"),
+      name: z.string(),
       type: z.enum(["income", "expense"]),
-      parent_category_id: z.number().nullable().describe("ID từ danh sách danh mục hiện tại, hoặc null nếu là danh mục gốc"),
-      example_notes: z.array(z.string()).max(3).describe("2-3 ghi chú thực từ danh sách giao dịch"),
-      transaction_count: z.number().int().describe("Số giao dịch tương tự"),
+      parent_category_id: z.string().nullable(),
+      example_notes: z.array(z.string()).max(3),
+      transaction_count: z.number().int(),
     }),
   ),
 });
@@ -26,7 +50,7 @@ const SuggestionSchema = z.object({
 type Suggestion = {
   name: string;
   type: "income" | "expense";
-  parent_category_id: number | null;
+  parent_category_id: string | null;
   parent_category_name: string | null;
   example_notes: string[];
   transaction_count: number;
@@ -47,60 +71,63 @@ Quy tắc:
 8. Trả về danh sách rỗng nếu không tìm thấy gợi ý phù hợp`;
 
 export async function POST(request: NextRequest) {
-  const session = await requireSession(request);
-  if (!session) return Errors.unauthorized();
+  const uid = await requireUid(request);
+  if (!uid) return Errors.unauthorized();
 
-  const db = await getDB();
-  const userId = session.user.id;
+  // Find the high-water mark from the last 'done' run.
+  const lastDoneSnap = await aiRunCol(uid)
+    .where("status", "==", "done")
+    .orderBy("upToUpdatedAt", "desc")
+    .limit(1)
+    .get();
+  const fromUpdatedAt: Timestamp | null = lastDoneSnap.empty
+    ? null
+    : (lastDoneSnap.docs[0].data().upToUpdatedAt as Timestamp);
 
-  const [lastDoneRun, maxUpdatedAtRow] = await Promise.all([
-    db
-      .prepare("SELECT up_to_updated_at FROM ai_suggestion_run WHERE user_id = ? AND status = 'done' AND up_to_updated_at IS NOT NULL ORDER BY id DESC LIMIT 1")
-      .bind(userId)
-      .first<RunRow>(),
-    db
-      .prepare(`SELECT MAX(updated_at) as max_val FROM "transaction" WHERE user_id = ?`)
-      .bind(userId)
-      .first<MaxUpdatedAtRow>(),
-  ]);
+  // Most recent transaction updatedAt → window upper bound.
+  const maxSnap = await txCol(uid).orderBy("updatedAt", "desc").limit(1).get();
+  const upToUpdatedAt: Timestamp = maxSnap.empty
+    ? Timestamp.fromMillis(0)
+    : (maxSnap.docs[0].data().updatedAt as Timestamp);
 
-  const fromUpdatedAt = lastDoneRun?.up_to_updated_at ?? null;
-  const upToUpdatedAt = maxUpdatedAtRow?.max_val ?? 0;
-
-  const { results: categories } = await db
-    .prepare("SELECT id, name, type, level FROM category WHERE user_id = ? ORDER BY level, id")
-    .bind(userId)
-    .all<CategoryRow>();
-
-  const txQuery =
-    fromUpdatedAt === null
-      ? `SELECT t.note, t.type, c.name as cat_name
-         FROM "transaction" t JOIN category c ON t.category_id = c.id
-         WHERE t.user_id = ? AND t.updated_at <= ? AND t.note IS NOT NULL AND t.note != ''
-         ORDER BY t.updated_at DESC`
-      : `SELECT t.note, t.type, c.name as cat_name
-         FROM "transaction" t JOIN category c ON t.category_id = c.id
-         WHERE t.user_id = ? AND t.updated_at > ? AND t.updated_at <= ? AND t.note IS NOT NULL AND t.note != ''
-         ORDER BY t.updated_at DESC`;
-
-  const txBinds = fromUpdatedAt === null ? [userId, upToUpdatedAt] : [userId, fromUpdatedAt, upToUpdatedAt];
-  const { results: transactions } = await db.prepare(txQuery).bind(...txBinds).all<TransactionRow>();
-
-  const { meta } = await db
-    .prepare("INSERT INTO ai_suggestion_run (user_id, from_updated_at, up_to_updated_at, status) VALUES (?, ?, ?, ?)")
-    .bind(userId, fromUpdatedAt, upToUpdatedAt, transactions.length === 0 ? "done" : "pending")
-    .run();
-  const runId = meta.last_row_id as number;
-
-  if (transactions.length === 0) {
-    return Response.json({ suggestions: [], run_id: runId });
-  }
-
-  const categoryList = categories.map((c) => ({ id: c.id, name: c.name, type: c.type, level: c.level }));
+  const catSnap = await categoryCol(uid).get();
+  const categories: CategoryRow[] = catSnap.docs.map((d) => {
+    const data = d.data();
+    return { id: d.id, name: data.name, type: data.type, level: data.level };
+  });
+  const catMap = new Map(categories.map((c) => [c.id, c.name]));
   const categoryIdSet = new Set(categories.map((c) => c.id));
 
+  // Read transactions in the window [fromUpdatedAt, upToUpdatedAt] with non-empty notes.
+  let txQuery = txCol(uid).where("updatedAt", "<=", upToUpdatedAt);
+  if (fromUpdatedAt) txQuery = txQuery.where("updatedAt", ">", fromUpdatedAt);
+  const txSnap = await txQuery.orderBy("updatedAt", "desc").get();
+  const transactions: TransactionRow[] = [];
+  for (const t of txSnap.docs) {
+    const data = t.data();
+    if (!data.note || data.note === "") continue;
+    transactions.push({
+      note: data.note,
+      type: data.type,
+      cat_name: catMap.get(data.categoryId) ?? "(unknown)",
+    });
+  }
+
+  // Record the run.
+  const runRef = aiRunCol(uid).doc();
+  await runRef.set({
+    fromUpdatedAt: fromUpdatedAt ?? null,
+    upToUpdatedAt,
+    status: transactions.length === 0 ? "done" : "pending",
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  if (transactions.length === 0) {
+    return Response.json({ suggestions: [], run_id: runRef.id });
+  }
+
   const userContent = `Danh mục hiện tại:
-${JSON.stringify(categoryList)}
+${JSON.stringify(categories.map((c) => ({ id: c.id, name: c.name, type: c.type, level: c.level })))}
 
 Giao dịch (ghi chú + danh mục hiện tại):
 ${JSON.stringify(transactions.map((t) => ({ note: t.note, type: t.type, category: t.cat_name })))}
@@ -109,37 +136,25 @@ Gợi ý các danh mục mới nên thêm để tổ chức tốt hơn.`;
 
   let parsedOutput: z.infer<typeof SuggestionSchema>;
   try {
-    const model = await getModel();
-    const { output } = await generateText({
-      model,
-      output: Output.object({
-        schema: SuggestionSchema
-      }),
-      system: SYSTEM_PROMPT,
-      prompt: userContent,
-    });
-    parsedOutput = SuggestionSchema.parse(output);
+    const model = getModel({ systemInstruction: SYSTEM_PROMPT, responseSchema: SuggestionResponseSchema });
+    const result = await model.generateContent(userContent);
+    parsedOutput = SuggestionSchema.parse(JSON.parse(result.response.text()));
   } catch (err) {
     console.error("AI suggest error:", err);
-    await db.prepare("DELETE FROM ai_suggestion_run WHERE id = ?").bind(runId).run();
-    return Response.json({ error: err, code: "AI_ERROR" }, { status: 502 });
+    await runRef.delete();
+    return Response.json({ error: String(err), code: "AI_ERROR" }, { status: 502 });
   }
 
-  const catMap = new Map(categories.map((c) => [c.id, c.name]));
-
   const suggestions: Suggestion[] = (parsedOutput.suggestions ?? [])
-    .filter((s) => {
-      if (s.parent_category_id !== null && !categoryIdSet.has(s.parent_category_id)) return false;
-      return true;
-    })
+    .filter((s) => s.parent_category_id === null || categoryIdSet.has(s.parent_category_id))
     .map((s) => ({
       name: s.name,
       type: s.type,
       parent_category_id: s.parent_category_id,
-      parent_category_name: s.parent_category_id !== null ? (catMap.get(s.parent_category_id) ?? null) : null,
+      parent_category_name: s.parent_category_id ? catMap.get(s.parent_category_id) ?? null : null,
       example_notes: s.example_notes.slice(0, 3),
       transaction_count: s.transaction_count,
     }));
 
-  return Response.json({ suggestions, run_id: runId });
+  return Response.json({ suggestions, run_id: runRef.id });
 }

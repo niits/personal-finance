@@ -1,6 +1,4 @@
 import { isHoliday } from "@/lib/holidays";
-import type { Kysely } from "kysely";
-import type { Database } from "@/lib/schema";
 
 export function parseAmount(val: unknown): number | null {
   const n = Number(val);
@@ -34,17 +32,14 @@ export function currentDate(): string {
   return new Date().toISOString().substring(0, 10);
 }
 
-// Returns the last working day (Mon-Fri, non-holiday per VN public calendar) of the given month.
 export function lastWorkingDay(year: number, month: number): string {
-  const d = new Date(Date.UTC(year, month, 0)); // last calendar day of month
+  const d = new Date(Date.UTC(year, month, 0));
   while (d.getUTCDay() === 0 || d.getUTCDay() === 6 || isHoliday(d.toISOString().substring(0, 10))) {
     d.setUTCDate(d.getUTCDate() - 1);
   }
   return d.toISOString().substring(0, 10);
 }
 
-// Maps a transaction date to its budget month (YYYY-MM).
-// If date >= lastWorkingDay(calendarMonth), it belongs to the NEXT budget month.
 export function getBudgetMonthForDate(dateStr: string): string {
   const [y, m] = dateStr.substring(0, 7).split("-").map(Number);
   if (dateStr >= lastWorkingDay(y, m)) {
@@ -53,8 +48,6 @@ export function getBudgetMonthForDate(dateStr: string): string {
   return dateStr.substring(0, 7);
 }
 
-// Returns the half-open date interval [start, end) for a budget month.
-// Transactions with start <= date < end belong to this budget month.
 export function getBudgetPeriod(budgetMonth: string): { start: string; end: string } {
   const [y, m] = budgetMonth.split("-").map(Number);
   const prevFirst = new Date(Date.UTC(y, m - 2, 1));
@@ -63,8 +56,6 @@ export function getBudgetPeriod(budgetMonth: string): { start: string; end: stri
   return { start, end };
 }
 
-// Returns the inclusive [start_date, end_date] for storing in monthly_budget.
-// end_date is the calendar day before the next period's start (i.e. lastWorkingDay(month) - 1 day).
 export function getBudgetPeriodInclusive(budgetMonth: string): { start_date: string; end_date: string } {
   const { start, end } = getBudgetPeriod(budgetMonth);
   const endDay = new Date(end + "T00:00:00Z");
@@ -76,16 +67,3 @@ export function currentBudgetMonth(): string {
   return getBudgetMonthForDate(currentDate());
 }
 
-export async function isLeafCategory(
-  db: Kysely<Database>,
-  categoryId: number,
-  userId: string,
-): Promise<boolean> {
-  const row = await db
-    .selectFrom("category")
-    .select((eb) => eb.fn.countAll<number>().as("cnt"))
-    .where("parent_id", "=", categoryId)
-    .where("user_id", "=", userId)
-    .executeTakeFirst();
-  return (row?.cnt ?? 0) === 0;
-}
