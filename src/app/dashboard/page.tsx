@@ -90,7 +90,7 @@ function TxnIcon({ txn }: { txn: Transaction }) {
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 17,
       }}>
-        {displayEmoji}
+        {displayEmoji + "️"}
       </div>
     );
   }
