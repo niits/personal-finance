@@ -1,148 +1,166 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { SELF } from "cloudflare:test";
-import { applyMigrations, seedUser, createTestSession, authHeaders } from "./helpers";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import type { RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { setupTestEnvironment, authenticatedDb, uid } from "./helpers";
+import {
+  createCustomBudget,
+  updateCustomBudget,
+  deleteCustomBudget,
+  listCustomBudgets,
+  CustomBudgetError,
+} from "@/lib/data/custom-budgets";
+import { createCategory } from "@/lib/data/categories";
+import { createMonthlyBudget } from "@/lib/data/monthly-budgets";
+import { createTransaction } from "@/lib/data/transactions";
+import { doc, getDoc } from "firebase/firestore";
+import { transactionsCol } from "@/lib/firestore-refs";
 
-let cookie: string;
+let env: RulesTestEnvironment;
 
-beforeAll(async () => {
-  await applyMigrations();
-  const userId = await seedUser({ id: "user-cb", email: "cb@example.com" });
-  cookie = await createTestSession(userId);
-});
+beforeAll(async () => { env = await setupTestEnvironment(); });
+afterAll(async () => { await env.cleanup(); });
 
-describe("POST /api/custom-budgets", () => {
-  it("creates a custom budget with is_active = 1", async () => {
-    const res = await SELF.fetch("http://localhost/api/custom-budgets", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Trip Đà Lạt", amount: 3_000_000 }),
-    });
-
-    expect(res.status).toBe(201);
-    const body = await res.json<{ custom_budget: { is_active: number; spent: number } }>();
-    expect(body.custom_budget.is_active).toBe(1);
-    expect(body.custom_budget.spent).toBe(0);
+describe("createCustomBudget", () => {
+  it("creates a custom budget and sets isActive=true", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cb = await createCustomBudget(db, u, { name: "Du lịch Đà Nẵng", amount: 5_000_000 });
+    expect(cb.id).toBeTruthy();
+    expect(cb.name).toBe("Du lịch Đà Nẵng");
+    expect(cb.amount).toBe(5_000_000);
+    expect(cb.isActive).toBe(true);
   });
 
-  it("returns 400 for amount = 0", async () => {
-    const res = await SELF.fetch("http://localhost/api/custom-budgets", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Bad budget", amount: 0 }),
-    });
-    expect(res.status).toBe(400);
+  it("trims whitespace from name", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cb = await createCustomBudget(db, u, { name: "  Giải trí  ", amount: 1_000_000 });
+    expect(cb.name).toBe("Giải trí");
   });
 
-  it("returns 400 for empty name", async () => {
-    const res = await SELF.fetch("http://localhost/api/custom-budgets", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "", amount: 1_000_000 }),
-    });
-    expect(res.status).toBe(400);
-  });
-});
-
-describe("PATCH /api/custom-budgets/:id — toggle active", () => {
-  it("toggles budget to inactive", async () => {
-    const createRes = await SELF.fetch("http://localhost/api/custom-budgets", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Toggleable", amount: 2_000_000 }),
-    });
-    const { custom_budget } = await createRes.json<{ custom_budget: { id: number } }>();
-
-    const patchRes = await SELF.fetch(`http://localhost/api/custom-budgets/${custom_budget.id}`, {
-      method: "PATCH",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ is_active: 0 }),
-    });
-
-    expect(patchRes.status).toBe(200);
-    const body = await patchRes.json<{ custom_budget: { is_active: number } }>();
-    expect(body.custom_budget.is_active).toBe(0);
+  it("rejects empty name", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    await expect(createCustomBudget(db, u, { name: "  ", amount: 1_000_000 })).rejects.toThrow(CustomBudgetError);
   });
 
-  it("updates name and amount", async () => {
-    const createRes = await SELF.fetch("http://localhost/api/custom-budgets", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Original", amount: 1_000_000 }),
-    });
-    const { custom_budget } = await createRes.json<{ custom_budget: { id: number } }>();
+  it("rejects name longer than 100 chars", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    await expect(createCustomBudget(db, u, { name: "x".repeat(101), amount: 1_000_000 })).rejects.toThrow(CustomBudgetError);
+  });
 
-    const patchRes = await SELF.fetch(`http://localhost/api/custom-budgets/${custom_budget.id}`, {
-      method: "PATCH",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Updated", amount: 2_000_000 }),
-    });
-
-    expect(patchRes.status).toBe(200);
-    const body = await patchRes.json<{ custom_budget: { name: string; amount: number } }>();
-    expect(body.custom_budget.name).toBe("Updated");
-    expect(body.custom_budget.amount).toBe(2_000_000);
+  it("rejects zero or negative amount", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    await expect(createCustomBudget(db, u, { name: "Bad", amount: 0 })).rejects.toThrow(CustomBudgetError);
+    await expect(createCustomBudget(db, u, { name: "Bad", amount: -1000 })).rejects.toThrow(CustomBudgetError);
   });
 });
 
-describe("DELETE /api/custom-budgets/:id", () => {
-  it("deletes the custom budget", async () => {
-    const createRes = await SELF.fetch("http://localhost/api/custom-budgets", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "To delete", amount: 500_000 }),
-    });
-    const { custom_budget } = await createRes.json<{ custom_budget: { id: number } }>();
-
-    const deleteRes = await SELF.fetch(`http://localhost/api/custom-budgets/${custom_budget.id}`, {
-      method: "DELETE",
-      headers: { Cookie: cookie },
-    });
-    expect(deleteRes.status).toBe(200);
+describe("updateCustomBudget", () => {
+  it("updates name", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cb = await createCustomBudget(db, u, { name: "Old", amount: 1_000_000 });
+    await updateCustomBudget(db, u, cb.id, { name: "New" });
+    const list = await listCustomBudgets(db, u);
+    expect(list.find((b) => b.id === cb.id)?.name).toBe("New");
   });
 
-  it("returns 404 for non-existent budget", async () => {
-    const res = await SELF.fetch("http://localhost/api/custom-budgets/99999", {
-      method: "DELETE",
-      headers: { Cookie: cookie },
-    });
-    expect(res.status).toBe(404);
+  it("updates amount", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cb = await createCustomBudget(db, u, { name: "Budget", amount: 1_000_000 });
+    await updateCustomBudget(db, u, cb.id, { amount: 3_000_000 });
+    const list = await listCustomBudgets(db, u);
+    expect(list.find((b) => b.id === cb.id)?.amount).toBe(3_000_000);
+  });
+
+  it("deactivates a budget", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cb = await createCustomBudget(db, u, { name: "Budget", amount: 1_000_000 });
+    await updateCustomBudget(db, u, cb.id, { isActive: false });
+    const list = await listCustomBudgets(db, u);
+    expect(list.find((b) => b.id === cb.id)?.isActive).toBe(false);
+  });
+
+  it("rejects update with no fields", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cb = await createCustomBudget(db, u, { name: "Budget", amount: 1_000_000 });
+    await expect(updateCustomBudget(db, u, cb.id, {})).rejects.toThrow(CustomBudgetError);
   });
 });
 
-describe("GET /api/custom-budgets", () => {
-  it("returns list with spent = 0 for new budgets", async () => {
-    await SELF.fetch("http://localhost/api/custom-budgets", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "New budget", amount: 4_000_000 }),
-    });
-
-    const res = await SELF.fetch("http://localhost/api/custom-budgets", {
-      headers: { Cookie: cookie },
-    });
-    expect(res.status).toBe(200);
-    const body = await res.json<{ custom_budgets: { spent: number }[] }>();
-    expect(Array.isArray(body.custom_budgets)).toBe(true);
+describe("deleteCustomBudget", () => {
+  it("deletes a budget with no associated transactions", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cb = await createCustomBudget(db, u, { name: "Budget", amount: 1_000_000 });
+    await deleteCustomBudget(db, u, cb.id);
+    const list = await listCustomBudgets(db, u);
+    expect(list.find((b) => b.id === cb.id)).toBeUndefined();
   });
 
-  it("active_only=true filters inactive budgets", async () => {
-    // Create and immediately deactivate one
-    const createRes = await SELF.fetch("http://localhost/api/custom-budgets", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Inactive budget", amount: 1_000_000 }),
-    });
-    const { custom_budget } = await createRes.json<{ custom_budget: { id: number } }>();
-    await SELF.fetch(`http://localhost/api/custom-budgets/${custom_budget.id}`, {
-      method: "PATCH",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ is_active: 0 }),
+  it("scrubs the budget id from associated transactions when deleted", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const parent = await createCategory(db, u, { name: "Cat", type: "expense", parentId: null });
+    const leaf = await createCategory(db, u, { name: "Sub", parentId: parent.id });
+    await createMonthlyBudget(db, u, { month: "2026-05", amount: 10_000_000 });
+    const cb = await createCustomBudget(db, u, { name: "Trip", amount: 5_000_000 });
+
+    const tx = await createTransaction(db, u, {
+      amount: 200_000,
+      type: "expense",
+      categoryId: leaf.id,
+      date: "2026-05-10",
+      note: null,
+      customBudgetIds: [cb.id],
     });
 
-    const res = await SELF.fetch("http://localhost/api/custom-budgets?active_only=true", {
-      headers: { Cookie: cookie },
-    });
-    const body = await res.json<{ custom_budgets: { is_active: number }[] }>();
-    expect(body.custom_budgets.every((b: { is_active: number }) => b.is_active === 1)).toBe(true);
+    await deleteCustomBudget(db, u, cb.id);
+
+    const txRef = doc(transactionsCol(db, u), tx.id);
+    const txSnap = await getDoc(txRef);
+    expect(txSnap.data()?.customBudgetIds).not.toContain(cb.id);
+  });
+});
+
+describe("listCustomBudgets", () => {
+  it("includes spent amount from associated expense transactions", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const parent = await createCategory(db, u, { name: "Cat", type: "expense", parentId: null });
+    const leaf = await createCategory(db, u, { name: "Sub", parentId: parent.id });
+    await createMonthlyBudget(db, u, { month: "2026-05", amount: 10_000_000 });
+    const cb = await createCustomBudget(db, u, { name: "Trip", amount: 5_000_000 });
+
+    await createTransaction(db, u, { amount: 300_000, type: "expense", categoryId: leaf.id, date: "2026-05-10", note: null, customBudgetIds: [cb.id] });
+    await createTransaction(db, u, { amount: 200_000, type: "expense", categoryId: leaf.id, date: "2026-05-11", note: null, customBudgetIds: [cb.id] });
+
+    const list = await listCustomBudgets(db, u);
+    expect(list.find((b) => b.id === cb.id)?.spent).toBe(500_000);
+  });
+
+  it("shows spent=0 for a budget with no transactions", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const cb = await createCustomBudget(db, u, { name: "Unused", amount: 2_000_000 });
+    const list = await listCustomBudgets(db, u);
+    expect(list.find((b) => b.id === cb.id)?.spent).toBe(0);
+  });
+
+  it("activeOnly filter returns only active budgets", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const active = await createCustomBudget(db, u, { name: "Active", amount: 1_000_000 });
+    const inactive = await createCustomBudget(db, u, { name: "Inactive", amount: 1_000_000 });
+    await updateCustomBudget(db, u, inactive.id, { isActive: false });
+
+    const list = await listCustomBudgets(db, u, { activeOnly: true });
+    expect(list.find((b) => b.id === active.id)).toBeTruthy();
+    expect(list.find((b) => b.id === inactive.id)).toBeUndefined();
   });
 });

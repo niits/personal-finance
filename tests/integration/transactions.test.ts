@@ -1,192 +1,319 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { SELF } from "cloudflare:test";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import type { RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { setupTestEnvironment, authenticatedDb, uid } from "./helpers";
 import {
-  applyMigrations,
-  seedUser,
-  createTestSession,
-  seedCategory,
-  seedMonthlyBudget,
-  seedCustomBudget,
-  authHeaders,
-} from "./helpers";
+  createTransaction,
+  updateTransaction,
+  deleteTransaction,
+  listTransactionsInRange,
+  summarize,
+  TransactionError,
+} from "@/lib/data/transactions";
+import { createCategory } from "@/lib/data/categories";
+import { createMonthlyBudget } from "@/lib/data/monthly-budgets";
+import { createCustomBudget } from "@/lib/data/custom-budgets";
 
-let cookie: string;
-let userId: string;
-let categoryId: number;
-let budgetId: number;
+let env: RulesTestEnvironment;
 
-beforeAll(async () => {
-  await applyMigrations();
-  userId = await seedUser();
-  cookie = await createTestSession(userId);
-  categoryId = await seedCategory(userId, "Ăn ngoài", null, 1);
-  const budget = await seedMonthlyBudget(userId, "2026-05", 5_000_000);
-  budgetId = budget.id;
-});
+beforeAll(async () => { env = await setupTestEnvironment(); });
+afterAll(async () => { await env.cleanup(); });
 
-describe("GET /api/transactions", () => {
-  it("returns 401 without auth", async () => {
-    const res = await SELF.fetch("http://localhost/api/transactions");
-    expect(res.status).toBe(401);
-  });
+// Build a test context: one leaf expense category + monthly budget for 2026-05.
+async function makeCtx(u: string) {
+  const db = authenticatedDb(env, u);
+  const parent = await createCategory(db, u, { name: "Ăn uống", type: "expense", parentId: null });
+  const leaf = await createCategory(db, u, { name: "Ăn ngoài", parentId: parent.id });
+  const incRoot = await createCategory(db, u, { name: "Thu nhập", type: "income", parentId: null });
+  const incLeaf = await createCategory(db, u, { name: "Lương", parentId: incRoot.id });
+  const budget = await createMonthlyBudget(db, u, { month: "2026-05", amount: 10_000_000 });
+  return { db, parent, leaf, incLeaf, budget };
+}
 
-  it("returns empty list for new user", async () => {
-    const res = await SELF.fetch("http://localhost/api/transactions?month=2026-05", {
-      headers: { Cookie: cookie },
+describe("createTransaction — expense", () => {
+  it("creates an expense linked to the monthly budget", async () => {
+    const u = uid();
+    const { db, leaf, budget } = await makeCtx(u);
+    const tx = await createTransaction(db, u, {
+      amount: 100_000,
+      type: "expense",
+      categoryId: leaf.id,
+      date: "2026-05-10",
+      note: "Bữa trưa",
     });
-    expect(res.status).toBe(200);
-    const body = await res.json<{ transactions: unknown[] }>();
-    expect(body.transactions).toEqual([]);
+    expect(tx.id).toBeTruthy();
+    expect(tx.amount).toBe(100_000);
+    expect(tx.type).toBe("expense");
+    expect(tx.monthlyBudgetId).toBe(budget.id);
+    expect(tx.note).toBe("Bữa trưa");
   });
-});
 
-describe("POST /api/transactions", () => {
-  it("returns 401 without auth", async () => {
-    const res = await SELF.fetch("http://localhost/api/transactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: 50000, type: "expense", category_id: categoryId, date: "2026-05-10" }),
+  it("creates an expense with custom budgets", async () => {
+    const u = uid();
+    const { db, leaf } = await makeCtx(u);
+    const cb = await createCustomBudget(db, u, { name: "Du lịch Đà Nẵng", amount: 5_000_000 });
+    const tx = await createTransaction(db, u, {
+      amount: 500_000,
+      type: "expense",
+      categoryId: leaf.id,
+      date: "2026-05-15",
+      note: null,
+      customBudgetIds: [cb.id],
     });
-    expect(res.status).toBe(401);
+    expect(tx.customBudgetIds).toContain(cb.id);
   });
 
-  it("creates expense and links to monthly budget", async () => {
-    const res = await SELF.fetch("http://localhost/api/transactions", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({
-        amount: 50_000,
-        type: "expense",
-        category_id: categoryId,
-        date: "2026-05-10",
-        note: "Phở bò",
-      }),
-    });
-
-    expect(res.status).toBe(201);
-    const body = await res.json<{ transaction: Record<string, unknown> }>();
-    expect(body.transaction.amount).toBe(50_000);
-    expect(body.transaction.monthly_budget_id).toBe(budgetId);
-    expect(body.transaction.type).toBe("expense");
-  });
-
-  it("creates income without monthly_budget_id", async () => {
-    const incomeCategory = await seedCategory(userId, "Lương", null, 1);
-    const res = await SELF.fetch("http://localhost/api/transactions", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({
-        amount: 20_000_000,
-        type: "income",
-        category_id: incomeCategory,
-        date: "2026-05-01",
-      }),
-    });
-
-    expect(res.status).toBe(201);
-    const body = await res.json<{ transaction: Record<string, unknown> }>();
-    expect(body.transaction.monthly_budget_id).toBeNull();
-  });
-
-  it("returns 400 when monthly budget does not exist for date", async () => {
-    const res = await SELF.fetch("http://localhost/api/transactions", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({
+  it("rejects expense when no monthly budget exists for the date", async () => {
+    const u = uid();
+    const db = authenticatedDb(env, u);
+    const parent = await createCategory(db, u, { name: "Cat", type: "expense", parentId: null });
+    const leaf = await createCategory(db, u, { name: "Sub", parentId: parent.id });
+    // No budget created for 2027-01
+    await expect(
+      createTransaction(db, u, {
         amount: 100_000,
         type: "expense",
-        category_id: categoryId,
-        date: "2026-06-01",
+        categoryId: leaf.id,
+        date: "2027-01-10",
+        note: null,
       }),
-    });
-
-    expect(res.status).toBe(400);
-    const body = await res.json<{ code: string }>();
-    expect(body.code).toBe("MONTHLY_BUDGET_MISSING");
+    ).rejects.toThrow(TransactionError);
   });
 
-  it("returns 400 for amount = 0", async () => {
-    const res = await SELF.fetch("http://localhost/api/transactions", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ amount: 0, type: "expense", category_id: categoryId, date: "2026-05-10" }),
-    });
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 400 for negative amount", async () => {
-    const res = await SELF.fetch("http://localhost/api/transactions", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({ amount: -500, type: "expense", category_id: categoryId, date: "2026-05-10" }),
-    });
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 400 when assigning income to custom budget", async () => {
-    const cbId = await seedCustomBudget(userId, "Trip", 1_000_000);
-    const incomeCategory = await seedCategory(userId, "Thu nhập khác", null, 1);
-    const res = await SELF.fetch("http://localhost/api/transactions", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({
-        amount: 500_000,
-        type: "income",
-        category_id: incomeCategory,
-        date: "2026-05-01",
-        custom_budget_ids: [cbId],
-      }),
-    });
-    expect(res.status).toBe(400);
-  });
-
-  it("links expense to custom budget", async () => {
-    const cbId = await seedCustomBudget(userId, "Trip Đà Lạt", 3_000_000);
-    const res = await SELF.fetch("http://localhost/api/transactions", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({
-        amount: 150_000,
+  it("rejects expense linked to a non-leaf (parent) category", async () => {
+    const u = uid();
+    const { db, parent } = await makeCtx(u);
+    await expect(
+      createTransaction(db, u, {
+        amount: 100_000,
         type: "expense",
-        category_id: categoryId,
-        date: "2026-05-15",
-        custom_budget_ids: [cbId],
+        categoryId: parent.id,
+        date: "2026-05-10",
+        note: null,
       }),
-    });
+    ).rejects.toThrow(TransactionError);
+  });
 
-    expect(res.status).toBe(201);
-    const body = await res.json<{ transaction: { custom_budgets: { id: number }[] } }>();
-    expect(body.transaction.custom_budgets).toHaveLength(1);
-    expect(body.transaction.custom_budgets[0].id).toBe(cbId);
+  it("rejects non-existent category", async () => {
+    const u = uid();
+    const { db } = await makeCtx(u);
+    await expect(
+      createTransaction(db, u, {
+        amount: 100_000,
+        type: "expense",
+        categoryId: "no-such-cat",
+        date: "2026-05-10",
+        note: null,
+      }),
+    ).rejects.toThrow(TransactionError);
+  });
+
+  it("rejects zero or negative amount", async () => {
+    const u = uid();
+    const { db, leaf } = await makeCtx(u);
+    await expect(
+      createTransaction(db, u, { amount: 0, type: "expense", categoryId: leaf.id, date: "2026-05-10", note: null }),
+    ).rejects.toThrow(TransactionError);
   });
 });
 
-describe("DELETE /api/transactions/:id", () => {
-  it("deletes a transaction", async () => {
-    const createRes = await SELF.fetch("http://localhost/api/transactions", {
-      method: "POST",
-      headers: authHeaders(cookie),
-      body: JSON.stringify({
-        amount: 30_000,
-        type: "expense",
-        category_id: categoryId,
-        date: "2026-05-20",
-      }),
+describe("createTransaction — income", () => {
+  it("creates an income with no monthly budget link", async () => {
+    const u = uid();
+    const { db, incLeaf } = await makeCtx(u);
+    const tx = await createTransaction(db, u, {
+      amount: 15_000_000,
+      type: "income",
+      categoryId: incLeaf.id,
+      date: "2026-05-01",
+      note: "Lương tháng 5",
     });
-    const { transaction } = await createRes.json<{ transaction: { id: number } }>();
-
-    const deleteRes = await SELF.fetch(`http://localhost/api/transactions/${transaction.id}`, {
-      method: "DELETE",
-      headers: { Cookie: cookie },
-    });
-    expect(deleteRes.status).toBe(200);
+    expect(tx.type).toBe("income");
+    expect(tx.monthlyBudgetId).toBeNull();
+    expect(tx.customBudgetIds).toHaveLength(0);
   });
 
-  it("returns 404 for non-existent transaction", async () => {
-    const res = await SELF.fetch("http://localhost/api/transactions/99999", {
-      method: "DELETE",
-      headers: { Cookie: cookie },
+  it("rejects income with custom budget ids", async () => {
+    const u = uid();
+    const { db, incLeaf } = await makeCtx(u);
+    const cb = await createCustomBudget(db, u, { name: "Custom", amount: 1_000_000 });
+    await expect(
+      createTransaction(db, u, {
+        amount: 500_000,
+        type: "income",
+        categoryId: incLeaf.id,
+        date: "2026-05-01",
+        note: null,
+        customBudgetIds: [cb.id],
+      }),
+    ).rejects.toThrow(TransactionError);
+  });
+});
+
+describe("updateTransaction", () => {
+  it("updates the amount", async () => {
+    const u = uid();
+    const { db, leaf } = await makeCtx(u);
+    const tx = await createTransaction(db, u, {
+      amount: 100_000,
+      type: "expense",
+      categoryId: leaf.id,
+      date: "2026-05-10",
+      note: null,
     });
-    expect(res.status).toBe(404);
+    const updated = await updateTransaction(db, u, tx.id, { amount: 200_000 });
+    expect(updated.amount).toBe(200_000);
+  });
+
+  it("updates the note", async () => {
+    const u = uid();
+    const { db, leaf } = await makeCtx(u);
+    const tx = await createTransaction(db, u, {
+      amount: 100_000,
+      type: "expense",
+      categoryId: leaf.id,
+      date: "2026-05-10",
+      note: null,
+    });
+    const updated = await updateTransaction(db, u, tx.id, { note: "Bữa tối" });
+    expect(updated.note).toBe("Bữa tối");
+  });
+
+  it("re-links to a new monthly budget when the date changes to a different month", async () => {
+    const u = uid();
+    const { db, leaf } = await makeCtx(u);
+    // Create a second budget for 2026-06.
+    const budget2 = await createMonthlyBudget(db, u, { month: "2026-06", amount: 10_000_000 });
+    const tx = await createTransaction(db, u, {
+      amount: 100_000,
+      type: "expense",
+      categoryId: leaf.id,
+      date: "2026-05-10",
+      note: null,
+    });
+    const updated = await updateTransaction(db, u, tx.id, { date: "2026-06-10" });
+    expect(updated.monthlyBudgetId).toBe(budget2.id);
+  });
+
+  it("clears monthly budget link when changing type expense→income", async () => {
+    const u = uid();
+    const { db, leaf, incLeaf } = await makeCtx(u);
+    const tx = await createTransaction(db, u, {
+      amount: 100_000,
+      type: "expense",
+      categoryId: leaf.id,
+      date: "2026-05-10",
+      note: null,
+    });
+    const updated = await updateTransaction(db, u, tx.id, { type: "income", categoryId: incLeaf.id });
+    expect(updated.monthlyBudgetId).toBeNull();
+  });
+
+  it("rejects update on non-existent transaction", async () => {
+    const u = uid();
+    const { db } = await makeCtx(u);
+    await expect(updateTransaction(db, u, "no-such-id", { amount: 500_000 })).rejects.toThrow(TransactionError);
+  });
+});
+
+describe("deleteTransaction", () => {
+  it("deletes an existing transaction", async () => {
+    const u = uid();
+    const { db, leaf } = await makeCtx(u);
+    const tx = await createTransaction(db, u, {
+      amount: 100_000,
+      type: "expense",
+      categoryId: leaf.id,
+      date: "2026-05-10",
+      note: null,
+    });
+    await deleteTransaction(db, u, tx.id);
+    const list = await listTransactionsInRange(db, u, "2026-05-01", "2026-05-31");
+    expect(list.find((t) => t.id === tx.id)).toBeUndefined();
+  });
+
+  it("rejects deleting a non-existent transaction", async () => {
+    const u = uid();
+    const { db } = await makeCtx(u);
+    await expect(deleteTransaction(db, u, "no-such-id")).rejects.toThrow(TransactionError);
+  });
+});
+
+describe("listTransactionsInRange", () => {
+  it("returns transactions in the given date range, sorted descending", async () => {
+    const u = uid();
+    const { db, leaf, incLeaf } = await makeCtx(u);
+    await createMonthlyBudget(db, u, { month: "2026-06", amount: 10_000_000 });
+
+    const t1 = await createTransaction(db, u, { amount: 100_000, type: "expense", categoryId: leaf.id, date: "2026-05-03", note: null });
+    const t2 = await createTransaction(db, u, { amount: 200_000, type: "expense", categoryId: leaf.id, date: "2026-05-15", note: null });
+    const t3 = await createTransaction(db, u, { amount: 300_000, type: "expense", categoryId: leaf.id, date: "2026-06-01", note: null });
+
+    const may = await listTransactionsInRange(db, u, "2026-05-01", "2026-05-31");
+    const ids = may.map((t) => t.id);
+    expect(ids).toContain(t1.id);
+    expect(ids).toContain(t2.id);
+    expect(ids).not.toContain(t3.id);
+  });
+
+  it("filters by type", async () => {
+    const u = uid();
+    const { db, leaf, incLeaf } = await makeCtx(u);
+    await createTransaction(db, u, { amount: 100_000, type: "expense", categoryId: leaf.id, date: "2026-05-10", note: null });
+    await createTransaction(db, u, { amount: 15_000_000, type: "income", categoryId: incLeaf.id, date: "2026-05-01", note: null });
+
+    const expenses = await listTransactionsInRange(db, u, "2026-05-01", "2026-05-31", { type: "expense" });
+    expect(expenses.every((t) => t.type === "expense")).toBe(true);
+    expect(expenses).toHaveLength(1);
+  });
+
+  it("filters by categoryId", async () => {
+    const u = uid();
+    const { db, leaf, incLeaf } = await makeCtx(u);
+    await createTransaction(db, u, { amount: 100_000, type: "expense", categoryId: leaf.id, date: "2026-05-10", note: null });
+    const incTx = await createTransaction(db, u, { amount: 15_000_000, type: "income", categoryId: incLeaf.id, date: "2026-05-01", note: null });
+
+    const byCat = await listTransactionsInRange(db, u, "2026-05-01", "2026-05-31", { categoryId: incLeaf.id });
+    expect(byCat.every((t) => t.id === incTx.id)).toBe(true);
+  });
+
+  it("returns empty when no transactions in range", async () => {
+    const u = uid();
+    const { db } = await makeCtx(u);
+    const list = await listTransactionsInRange(db, u, "2020-01-01", "2020-01-31");
+    expect(list).toHaveLength(0);
+  });
+});
+
+describe("summarize", () => {
+  it("sums expenses and incomes correctly", () => {
+    const fakeTx = (type: "expense" | "income", amount: number) => ({
+      id: "x",
+      amount,
+      type,
+      categoryId: "c",
+      note: null,
+      date: "2026-05-01",
+      monthlyBudgetId: null,
+      customBudgetIds: [],
+      createdAt: {} as any,
+      updatedAt: {} as any,
+    });
+
+    const result = summarize([
+      fakeTx("expense", 100_000),
+      fakeTx("expense", 200_000),
+      fakeTx("income", 500_000),
+    ]);
+
+    expect(result.total_expense).toBe(300_000);
+    expect(result.total_income).toBe(500_000);
+    expect(result.savings).toBe(200_000);
+  });
+
+  it("returns zeros for empty list", () => {
+    const result = summarize([]);
+    expect(result.total_expense).toBe(0);
+    expect(result.total_income).toBe(0);
+    expect(result.savings).toBe(0);
   });
 });

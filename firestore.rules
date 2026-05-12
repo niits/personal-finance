@@ -1,0 +1,107 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedInAs(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function isString(x) { return x is string; }
+    function isInt(x) { return x is int; }
+    function isPosInt(x) { return x is int && x > 0; }
+    function isBool(x) { return x is bool; }
+    function isTs(x) { return x is timestamp; }
+    function isStringOrNull(x) { return x == null || x is string; }
+    function isType(x) { return x in ['expense', 'income']; }
+
+    match /users/{uid} {
+      allow read, write: if signedInAs(uid);
+
+      match /budgetConfig/default {
+        allow read: if signedInAs(uid);
+        allow write: if signedInAs(uid)
+          && isPosInt(request.resource.data.defaultMonthlyAmount)
+          && isTs(request.resource.data.updatedAt);
+      }
+
+      match /categories/{categoryId} {
+        allow read: if signedInAs(uid);
+        allow create, update: if signedInAs(uid)
+          && isString(request.resource.data.name)
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 100
+          && isStringOrNull(request.resource.data.parentId)
+          && isInt(request.resource.data.level)
+          && request.resource.data.level >= 1
+          && request.resource.data.level <= 3
+          && isInt(request.resource.data.sortOrder)
+          && isType(request.resource.data.type)
+          && isTs(request.resource.data.createdAt);
+        allow delete: if signedInAs(uid);
+      }
+
+      match /monthlyBudgets/{budgetId} {
+        allow read: if signedInAs(uid);
+        allow create, update: if signedInAs(uid)
+          && isString(request.resource.data.month)
+          && request.resource.data.month.matches('^\\d{4}-\\d{2}$')
+          && isPosInt(request.resource.data.amount)
+          && isStringOrNull(request.resource.data.startDate)
+          && isStringOrNull(request.resource.data.endDate)
+          && isTs(request.resource.data.createdAt);
+        allow delete: if signedInAs(uid);
+
+        match /adjustments/{adjId} {
+          allow read: if signedInAs(uid);
+          allow create: if signedInAs(uid)
+            && isInt(request.resource.data.delta)
+            && request.resource.data.delta != 0
+            && isStringOrNull(request.resource.data.note)
+            && isTs(request.resource.data.createdAt);
+          allow update, delete: if false;
+        }
+      }
+
+      match /customBudgets/{budgetId} {
+        allow read: if signedInAs(uid);
+        allow create, update: if signedInAs(uid)
+          && isString(request.resource.data.name)
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 100
+          && isPosInt(request.resource.data.amount)
+          && isBool(request.resource.data.isActive)
+          && isTs(request.resource.data.createdAt);
+        allow delete: if signedInAs(uid);
+      }
+
+      match /transactions/{txId} {
+        allow read: if signedInAs(uid);
+        allow create, update: if signedInAs(uid)
+          && isPosInt(request.resource.data.amount)
+          && isType(request.resource.data.type)
+          && isString(request.resource.data.categoryId)
+          && isStringOrNull(request.resource.data.note)
+          && isString(request.resource.data.date)
+          && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+          && isStringOrNull(request.resource.data.monthlyBudgetId)
+          && request.resource.data.customBudgetIds is list
+          // Income MUST NOT be linked to a monthly budget; expense MUST be.
+          && (request.resource.data.type == 'income'
+                ? request.resource.data.monthlyBudgetId == null
+                  && request.resource.data.customBudgetIds.size() == 0
+                : request.resource.data.monthlyBudgetId != null)
+          && isTs(request.resource.data.createdAt)
+          && isTs(request.resource.data.updatedAt);
+        allow delete: if signedInAs(uid);
+      }
+
+      match /aiSuggestionRuns/{runId} {
+        allow read: if signedInAs(uid);
+        // Writes to runs come from AI routes (admin SDK bypasses rules).
+        // Block client writes to keep state machine consistent.
+        allow write: if false;
+      }
+    }
+  }
+}
