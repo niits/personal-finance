@@ -208,7 +208,7 @@ export default function CategoriesPage() {
             gap: 8,
           }}>
             {depth > 0 && <span style={{ color: "var(--ink-muted-48)" }}>└</span>}
-            {cat.emoji && <span style={{ fontSize: 18 }}>{cat.emoji}</span>}
+            {cat.emoji && <span style={{ fontSize: 18 }}>{cat.emoji + "️"}</span>}
             {cat.name}
           </span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
