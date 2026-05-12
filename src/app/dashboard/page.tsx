@@ -23,7 +23,8 @@ type Transaction = {
   id: number;
   amount: number;
   type: "expense" | "income";
-  category: { id: number; name: string; path: string };
+  emoji: string | null;
+  category: { id: number; name: string; emoji: string | null; path: string };
   root_category_name: string;
   note: string | null;
   date: string;
@@ -80,6 +81,19 @@ function groupByDate(txns: Transaction[]) {
 
 function TxnIcon({ txn }: { txn: Transaction }) {
   const isExp = txn.type === "expense";
+  const displayEmoji = txn.emoji ?? txn.category.emoji;
+  if (displayEmoji) {
+    return (
+      <div style={{
+        width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+        background: isExp ? "rgba(255,69,58,0.08)" : "rgba(48,209,88,0.08)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 17,
+      }}>
+        {displayEmoji}
+      </div>
+    );
+  }
   return (
     <div style={{
       width: 32, height: 32, borderRadius: "50%", flexShrink: 0,

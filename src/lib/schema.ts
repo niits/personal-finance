@@ -49,6 +49,7 @@ export interface TransactionTable {
   type: "expense" | "income";
   category_id: number;
   note: string | null;
+  emoji: string | null;
   date: string;
   monthly_budget_id: number | null;
   created_at: Generated<number>;
@@ -72,6 +73,7 @@ export interface CategoryTable {
   id: Generated<number>;
   user_id: string;
   name: string;
+  emoji: string | null;
   parent_id: number | null;
   level: number;
   sort_order: number;

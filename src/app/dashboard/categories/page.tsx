@@ -3,10 +3,12 @@
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { fetcher } from "@/lib/fetcher";
+import EmojiPicker from "@/components/EmojiPicker";
 
 type Category = {
   id: number;
   name: string;
+  emoji: string | null;
   level: number;
   type: "income" | "expense";
   parent_id: number | null;
@@ -49,6 +51,7 @@ export default function CategoriesPage() {
   const { data, isLoading } = useSWR<{ categories: Category[] }>(CATS_KEY, fetcher);
   const cats = data?.categories ?? [];
   const [newName, setNewName] = useState("");
+  const [newEmoji, setNewEmoji] = useState<string | null>(null);
   const [parentId, setParentId] = useState<number | null>(null);
   const [newType, setNewType] = useState<"income" | "expense">("expense");
   const [saving, setSaving] = useState(false);
@@ -79,11 +82,12 @@ export default function CategoriesPage() {
     const r = await fetch("/api/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim(), parent_id: parentId, type: resolvedType }),
+      body: JSON.stringify({ name: newName.trim(), parent_id: parentId, type: resolvedType, emoji: newEmoji }),
     });
     const d = await r.json() as { category?: Category; error?: string };
     if (!r.ok) { setError(d.error ?? "Lỗi"); setSaving(false); return; }
     setNewName("");
+    setNewEmoji(null);
     setParentId(null);
     setShowForm(false);
     setSaving(false);
@@ -199,8 +203,12 @@ export default function CategoriesPage() {
             fontSize: 17,
             color: "var(--ink)",
             letterSpacing: -0.374,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}>
-            {depth > 0 && <span style={{ color: "var(--ink-muted-48)", marginRight: 8 }}>└</span>}
+            {depth > 0 && <span style={{ color: "var(--ink-muted-48)" }}>└</span>}
+            {cat.emoji && <span style={{ fontSize: 18 }}>{cat.emoji}</span>}
             {cat.name}
           </span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
@@ -555,25 +563,28 @@ export default function CategoriesPage() {
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input
-              placeholder="Tên danh mục"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && save()}
-              autoFocus
-              style={{
-                width: "100%",
-                padding: "11px 16px",
-                borderRadius: 11,
-                border: "1px solid var(--hairline)",
-                fontFamily: "var(--font-body)",
-                fontSize: 17,
-                color: "var(--ink)",
-                background: "var(--canvas-parchment)",
-                outline: "none",
-                letterSpacing: -0.374,
-              }}
-            />
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <EmojiPicker value={newEmoji} onChange={setNewEmoji} />
+              <input
+                placeholder="Tên danh mục"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && save()}
+                autoFocus
+                style={{
+                  flex: 1,
+                  padding: "11px 16px",
+                  borderRadius: 11,
+                  border: "1px solid var(--hairline)",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 17,
+                  color: "var(--ink)",
+                  background: "var(--canvas-parchment)",
+                  outline: "none",
+                  letterSpacing: -0.374,
+                }}
+              />
+            </div>
 
             <select
               value={parentId ?? ""}

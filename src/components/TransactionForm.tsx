@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
+import EmojiPicker from "@/components/EmojiPicker";
 
 type Category = {
   id: number;
@@ -17,6 +18,7 @@ type EditTransaction = {
   id: number;
   amount: number;
   type: "expense" | "income";
+  emoji: string | null;
   category: { id: number; name: string; path: string };
   note: string | null;
   date: string;
@@ -364,6 +366,7 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
   const [categoryId, setCategoryId] = useState<number | null>(transaction?.category.id ?? null);
   const [date, setDate] = useState(transaction?.date ?? todayStr());
   const [note, setNote] = useState(transaction?.note ?? "");
+  const [emoji, setEmoji] = useState<string | null>(transaction?.emoji ?? null);
   const [selectedCbIds, setSelectedCbIds] = useState<number[]>(
     transaction?.custom_budgets.map((cb) => cb.id) ?? []
   );
@@ -403,6 +406,7 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
       setCategoryId(transaction.category.id);
       setDate(transaction.date);
       setNote(transaction.note ?? "");
+      setEmoji(transaction.emoji ?? null);
       setSelectedCbIds(transaction.custom_budgets.map((cb) => cb.id));
     }
   }, [transaction]);
@@ -434,6 +438,7 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
     setCategoryId(null);
     setDate(todayStr());
     setNote("");
+    setEmoji(null);
     setSelectedCbIds([]);
     setError("");
   }
@@ -450,7 +455,7 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
     if (!categoryId) { setError("Chọn danh mục"); return; }
     setSaving(true);
     setError("");
-    const body: Record<string, unknown> = { amount, type, category_id: categoryId, note: note || null, date };
+    const body: Record<string, unknown> = { amount, type, category_id: categoryId, note: note || null, date, emoji: emoji || null };
     if (type === "expense") body.custom_budget_ids = selectedCbIds;
     const url = isEdit ? `/api/transactions/${transaction!.id}` : "/api/transactions";
     const method = isEdit ? "PATCH" : "POST";
@@ -714,25 +719,27 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
               </div>
             )}
 
-            {/* Note */}
-            <input
-              type="text"
-              placeholder="Ghi chú (tuỳ chọn)"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "12px 16px",
-                borderRadius: 11,
-                border: "1px solid var(--hairline)",
-                fontFamily: "var(--font-body)",
-                fontSize: 16,
-                color: "var(--ink)",
-                background: "var(--canvas-parchment)",
-                outline: "none",
-                marginBottom: error ? 10 : 18,
-              }}
-            />
+            {/* Note + Emoji */}
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: error ? 10 : 18 }}>
+              <EmojiPicker value={emoji} onChange={setEmoji} />
+              <input
+                type="text"
+                placeholder="Ghi chú (tuỳ chọn)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: "12px 16px",
+                  borderRadius: 11,
+                  border: "1px solid var(--hairline)",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 15,
+                  color: "var(--ink)",
+                  background: "var(--canvas-parchment)",
+                  outline: "none",
+                }}
+              />
+            </div>
 
             {error && (
               <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 12 }}>
