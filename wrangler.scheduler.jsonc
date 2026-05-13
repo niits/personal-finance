@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "personal-finance-scheduler",
+  "main": "src/workers/scheduler.ts",
+  "compatibility_date": "2026-04-01",
+  "triggers": {
+    "crons": ["0 1 * * *"]
+  },
+  "vars": {
+    // Set this to your deployed app URL
+    "APP_URL": "https://personal-finance.pages.dev"
+  }
+  // Secrets (set via CLI, not stored here):
+  //   wrangler secret put CRON_SECRET --config wrangler.scheduler.jsonc --env production
+}

@@ -7,6 +7,7 @@ import { useSession } from "@/lib/auth-client";
 
 const tabs = [
   { href: "/dashboard", label: "Tổng quan", icon: "◎" },
+  { href: "/dashboard/statistics", label: "Thống kê", icon: "◑" },
   { href: "/dashboard/categories", label: "Danh mục", icon: "⊞" },
   { href: "/dashboard/budget", label: "Ngân sách", icon: "◈" },
 ];

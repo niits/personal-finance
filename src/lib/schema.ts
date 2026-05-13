@@ -95,6 +95,20 @@ export interface BudgetConfigTable {
 
 export type BudgetConfig = Selectable<BudgetConfigTable>;
 
+// ─── statistics_report ───────────────────────────────────────────────────────
+export interface StatisticsReportTable {
+  id: Generated<number>;
+  user_id: string;
+  period_type: "monthly";
+  period_key: string;
+  insights: string; // JSON: Insight[]
+  is_dirty: Generated<number>;
+  generated_at: Generated<number>;
+}
+
+export type StatisticsReport = Selectable<StatisticsReportTable>;
+export type NewStatisticsReport = Insertable<StatisticsReportTable>;
+
 // ─── Database interface ───────────────────────────────────────────────────────
 export interface Database {
   monthly_budget: MonthlyBudgetTable;
@@ -104,4 +118,5 @@ export interface Database {
   transaction_custom_budget: TransactionCustomBudgetTable;
   category: CategoryTable;
   budget_config: BudgetConfigTable;
+  statistics_report: StatisticsReportTable;
 }
