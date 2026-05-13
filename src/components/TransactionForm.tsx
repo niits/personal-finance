@@ -142,7 +142,7 @@ function CategoryDrillDown({
           return (
             <div key={cat.id} style={{ borderTop: i > 0 ? "1px solid var(--hairline)" : "none" }}>
               <button
-                onClick={() => isLeaf ? onSelect(cat.id) : setPath([...path, cat.id])}
+                onClick={() => isLeaf ? onSelect(cat.id) : setPath(prev => [...prev, cat.id])}
                 style={{
                   width: "100%",
                   display: "flex",
@@ -553,7 +553,7 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
           touchAction: "pan-y",
           transform: `translateY(${sheetTranslateY}${typeof sheetTranslateY === "number" ? "px" : ""})`,
           transition: isDragging ? "none" : `transform 0.4s ${SPRING}`,
-          willChange: "transform",
+          willChange: isDragging ? "transform" : "auto",
         }}
       >
         {/* Drag handle — touch target for swipe-to-close */}
@@ -612,7 +612,7 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
                   fontSize: 15,
                   fontWeight: type === t ? 600 : 400,
                   cursor: "pointer",
-                  transition: "all 0.15s",
+                  transition: "background 0.15s, color 0.15s",
                 }}>
                   {t === "expense" ? "Chi tiêu" : "Thu nhập"}
                 </button>
@@ -712,11 +712,11 @@ export default function TransactionForm({ open, onClose, onSaved, transaction }:
                           fontWeight: on ? 600 : 400,
                           cursor: inactive ? "default" : "pointer",
                           opacity: inactive ? 0.55 : 1,
-                          transition: "all 0.12s",
+                          transition: "background 0.12s, color 0.12s, border-color 0.12s",
                         }}
                       >
                         {on && <span style={{ marginRight: 5 }}>✓</span>}{cb.name}
-                        {inactive && <span style={{ marginLeft: 5, fontSize: 10, opacity: 0.8 }}>· đã tắt</span>}
+                        {inactive && <span style={{ marginLeft: 5, fontSize: 12, opacity: 0.8 }}>· đã tắt</span>}
                       </button>
                     );
                   })}

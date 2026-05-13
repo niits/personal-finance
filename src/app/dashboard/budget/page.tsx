@@ -24,8 +24,9 @@ type CustomBudget = {
   spent: number;
 };
 
+const _fmtVND = new Intl.NumberFormat("vi-VN");
 function fmt(n: number) {
-  return new Intl.NumberFormat("vi-VN").format(n);
+  return _fmtVND.format(n);
 }
 function parseVND(s: string): number | null {
   const n = parseInt(s.replace(/[^\d]/g, ""), 10);
@@ -216,7 +217,7 @@ export default function BudgetPage() {
           {monthLabel}
         </p>
         {period && (
-          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-body)", marginBottom: 6 }}>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-body)", marginBottom: 6 }}>
             {fmtPeriodDate(period.start)} – {fmtPeriodDate(period.end)}
           </p>
         )}
@@ -235,7 +236,7 @@ export default function BudgetPage() {
                 Ngân sách tháng
               </p>
               {period && (
-                <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)" }}>
+                <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
                   {fmtPeriodDate(period.start)} – {fmtPeriodDate(period.end)}
                 </p>
               )}
@@ -292,7 +293,7 @@ export default function BudgetPage() {
                       padding: "5px 12px", borderRadius: 999, border: "1px solid var(--hairline)",
                       background: createStr === fmt(n) ? "var(--primary)" : "var(--canvas-parchment)",
                       color: createStr === fmt(n) ? "#fff" : "var(--ink-muted-80)",
-                      fontFamily: "var(--font-body)", fontSize: 13, cursor: "pointer", transition: "all 0.12s",
+                      fontFamily: "var(--font-body)", fontSize: 13, cursor: "pointer", transition: "background 0.12s, color 0.12s",
                     }}>
                     {n / 1000000}tr
                   </button>
@@ -304,7 +305,7 @@ export default function BudgetPage() {
                   width: "100%", padding: "12px", borderRadius: 999, border: "none",
                   background: createStr ? "var(--primary)" : "var(--hairline)",
                   color: createStr ? "#fff" : "var(--ink-muted-48)",
-                  fontFamily: "var(--font-body)", fontSize: 15, cursor: createStr ? "pointer" : "default", transition: "all 0.15s",
+                  fontFamily: "var(--font-body)", fontSize: 15, cursor: createStr ? "pointer" : "default", transition: "background 0.15s, opacity 0.15s",
                 }}>
                 {createSaving ? "Đang lưu…" : "Xác nhận ngân sách"}
               </button>
@@ -339,7 +340,7 @@ export default function BudgetPage() {
                       background: adjSign === s ? (s === 1 ? "#30d158" : "#ff453a") : "transparent",
                       color: adjSign === s ? "#fff" : "var(--ink-muted-48)",
                       fontFamily: "var(--font-body)", fontSize: 15, fontWeight: adjSign === s ? 600 : 400,
-                      cursor: "pointer", transition: "all 0.15s",
+                      cursor: "pointer", transition: "background 0.15s, color 0.15s",
                     }}>
                     {s === 1 ? "+ Tăng" : "− Giảm"}
                   </button>
@@ -390,7 +391,7 @@ export default function BudgetPage() {
                     flex: 2, padding: "11px", borderRadius: 999, border: "none",
                     background: adjDeltaStr ? (adjSign === 1 ? "#30d158" : "#ff453a") : "var(--hairline)",
                     color: adjDeltaStr ? "#fff" : "var(--ink-muted-48)",
-                    fontFamily: "var(--font-body)", fontSize: 14, cursor: adjDeltaStr ? "pointer" : "default", transition: "all 0.15s",
+                    fontFamily: "var(--font-body)", fontSize: 14, cursor: adjDeltaStr ? "pointer" : "default", transition: "background 0.15s, opacity 0.15s",
                   }}>
                   {adjSaving ? "Đang lưu…" : `${adjSign === 1 ? "Tăng" : "Giảm"} ${adjDeltaStr || "0"}₫`}
                 </button>
@@ -602,7 +603,7 @@ export default function BudgetPage() {
                           <div style={{ height: "100%", width: `${pct}%`, background: over ? "#ff453a" : "var(--primary)", borderRadius: 2, transition: "width 0.4s ease" }} />
                         </div>
                         {over && (
-                          <p style={{ fontSize: 11, color: "#ff453a", fontFamily: "var(--font-body)", marginTop: 4 }}>
+                          <p style={{ fontSize: 12, color: "#ff453a", fontFamily: "var(--font-body)", marginTop: 4 }}>
                             Vượt {fmt(cb.spent - cb.amount)}₫
                           </p>
                         )}

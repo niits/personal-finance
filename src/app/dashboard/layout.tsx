@@ -39,8 +39,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         right: 0,
         height: 72,
         background: "rgba(255,255,255,0.92)",
-        backdropFilter: "saturate(180%) blur(20px)",
-        WebkitBackdropFilter: "saturate(180%) blur(20px)",
+        backdropFilter: "saturate(180%) blur(8px)",
+        WebkitBackdropFilter: "saturate(180%) blur(8px)",
         borderTop: "1px solid var(--hairline)",
         display: "flex",
         alignItems: "flex-start",
@@ -69,7 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>
               <span style={{
                 fontFamily: "var(--font-body)",
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: active ? 600 : 400,
                 letterSpacing: -0.12,
               }}>

@@ -25,7 +25,7 @@ function buildEChartsOption(insight: Insight) {
     return {
       color: CHART_COLORS,
       tooltip: { trigger: "axis" },
-      xAxis: { type: "category", data: data.map((d) => d.name), axisLabel: { fontSize: 11 } },
+      xAxis: { type: "category", data: data.map((d) => d.name), axisLabel: { fontSize: 12 } },
       yAxis: { type: "value" },
       series: [{ type: "bar", data: data.map((d) => d.value) }],
     };
@@ -275,7 +275,7 @@ export default function StatisticsPage() {
                   </div>
                 ))}
                 <div style={{ display: "flex", gap: 8, marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--hairline)", alignItems: "center", color: "var(--ink-muted-48)", fontSize: 13 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", animation: "stats-pulse 1.2s ease-in-out infinite" }} />
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", animation: "stats-pulse 0.9s ease-in-out infinite" }} />
                   <span>AI đang xử lý…</span>
                   <style>{`@keyframes stats-pulse { 0%,100%{opacity:.25} 50%{opacity:1} }`}</style>
                 </div>
@@ -299,7 +299,7 @@ export default function StatisticsPage() {
         {status === "ready" && report && report.insights.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, opacity: refreshing ? 0.6 : 1, transition: "opacity 0.2s" }}>
             {report.insights.map((insight, i) => (
-              <InsightCard key={i} insight={insight} />
+              <InsightCard key={`${i}-${insight.title.slice(0, 8)}`} insight={insight} />
             ))}
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 8 }}>

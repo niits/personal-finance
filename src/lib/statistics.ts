@@ -242,7 +242,7 @@ Rules:
   const result = await runAIObject({
     schema: insightSchema,
     system,
-    maxOutputTokens: 2048,
+    maxOutputTokens: 20480,
     prompt: JSON.stringify({
       period: { key: periodKey, start: periodStart, end: effectiveEnd },
       budget_status: budgetStatus,

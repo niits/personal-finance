@@ -76,18 +76,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
       .execute();
   }
 
-  const updatedBudget = await db
-    .selectFrom("monthly_budget")
-    .select(["id", "month", "amount", "objective", "created_at"])
-    .where("id", "=", budgetId)
-    .executeTakeFirst();
-
-  const adjustments = await db
-    .selectFrom("budget_adjustment")
-    .select(["id", "delta", "note", "created_at"])
-    .where("monthly_budget_id", "=", budgetId)
-    .orderBy("created_at", "asc")
-    .execute();
+  const [updatedBudget, adjustments] = await Promise.all([
+    db
+      .selectFrom("monthly_budget")
+      .select(["id", "month", "amount", "objective", "created_at"])
+      .where("id", "=", budgetId)
+      .executeTakeFirst(),
+    db
+      .selectFrom("budget_adjustment")
+      .select(["id", "delta", "note", "created_at"])
+      .where("monthly_budget_id", "=", budgetId)
+      .orderBy("created_at", "asc")
+      .execute(),
+  ]);
 
   const latestAdj = adjustments[adjustments.length - 1];
 

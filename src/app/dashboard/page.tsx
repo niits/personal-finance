@@ -33,8 +33,9 @@ type Transaction = {
   updated_at: number;
 };
 
+const _fmtVND = new Intl.NumberFormat("vi-VN");
 function fmt(n: number) {
-  return new Intl.NumberFormat("vi-VN").format(n);
+  return _fmtVND.format(n);
 }
 
 function fmtPeriodDate(s: string) {
@@ -202,7 +203,7 @@ export default function DashboardPage() {
         </div>
 
         {data && (
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: -0.1, marginBottom: 8 }}>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.3)", letterSpacing: -0.1, marginBottom: 8 }}>
             {fmtPeriodDate(data.period_start)} – {fmtPeriodDate(data.period_end)}
           </p>
         )}
@@ -251,11 +252,11 @@ export default function DashboardPage() {
         {data && data.total_income > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, marginTop: 16, borderRadius: 10, overflow: "hidden" }}>
             <div style={{ background: "rgba(255,255,255,0.07)", padding: "10px 14px" }}>
-              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 3 }}>Thu nhập</p>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 3 }}>Thu nhập</p>
               <p style={{ fontSize: 16, fontWeight: 600, fontFamily: "var(--font-display)", color: "#30d158", letterSpacing: -0.3 }}>+{fmt(data.total_income)}₫</p>
             </div>
             <div style={{ background: "rgba(255,255,255,0.07)", padding: "10px 14px" }}>
-              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 3 }}>Tiết kiệm</p>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 3 }}>Tiết kiệm</p>
               <p style={{ fontSize: 16, fontWeight: 600, fontFamily: "var(--font-display)", color: data.savings >= 0 ? "#fff" : "#ff453a", letterSpacing: -0.3 }}>
                 {data.savings >= 0 ? "+" : ""}{fmt(data.savings)}₫
               </p>
@@ -340,12 +341,12 @@ export default function DashboardPage() {
                       {txn.custom_budgets.length > 0 && (
                         <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center" }}>
                           {txn.custom_budgets.slice(0, 2).map((cb) => (
-                            <span key={cb.id} style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 500, padding: "2px 7px", borderRadius: 10, background: "rgba(0,102,204,0.08)", color: "var(--primary)", whiteSpace: "nowrap", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            <span key={cb.id} style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, padding: "2px 7px", borderRadius: 10, background: "rgba(0,102,204,0.08)", color: "var(--primary)", whiteSpace: "nowrap", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis" }}>
                               {cb.name}
                             </span>
                           ))}
                           {txn.custom_budgets.length > 2 && (
-                            <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 500, padding: "2px 6px", borderRadius: 10, background: "var(--canvas-parchment)", color: "var(--ink-muted-48)", whiteSpace: "nowrap" }}>
+                            <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, padding: "2px 6px", borderRadius: 10, background: "var(--canvas-parchment)", color: "var(--ink-muted-48)", whiteSpace: "nowrap" }}>
                               +{txn.custom_budgets.length - 2}
                             </span>
                           )}
@@ -397,7 +398,7 @@ export default function DashboardPage() {
                 </div>
               )}
               {actionTxn.updated_at !== actionTxn.created_at && (
-                <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)", marginTop: 8 }}>
+                <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 8 }}>
                   Cập nhật {new Date(actionTxn.updated_at * 1000).toLocaleString("vi-VN", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                 </p>
               )}
