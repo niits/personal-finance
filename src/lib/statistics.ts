@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sql } from "kysely";
-import { tool, stepCountIs } from "ai";
+import { tool } from "ai";
 import { getKysely } from "@/lib/db";
 import { getWorkersAIModel, generateText } from "@/lib/llm";
 import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate } from "@/lib/validators";
@@ -136,173 +136,119 @@ export async function generateStatisticsReport(
     }),
   );
 
+  // ── Step 1: Pre-fetch all data (emit live events so UI shows progress) ──────
+  emit?.({ type: "tool_call", tool: "get_expense_by_category", label: "Tổng hợp chi tiêu theo danh mục" });
+  const allTxRows = await db
+    .selectFrom("transaction")
+    .select(["amount", "category_id", "type", "date", "note"])
+    .where("user_id", "=", userId)
+    .where("date", ">=", periodStart)
+    .where("date", "<=", effectiveEnd)
+    .orderBy("date", "asc")
+    .execute();
+
+  const expenseTotals = new Map<string, number>();
+  const byDate = new Map<string, { expense: number; income: number }>();
+  let grandExpense = 0;
+  let grandIncome = 0;
+  for (const r of allTxRows) {
+    const d = byDate.get(r.date) ?? { expense: 0, income: 0 };
+    if (r.type === "expense") {
+      d.expense += r.amount;
+      grandExpense += r.amount;
+      const cat = resolveCategoryPath(r.category_id, catMap);
+      expenseTotals.set(cat, (expenseTotals.get(cat) ?? 0) + r.amount);
+    } else {
+      d.income += r.amount;
+      grandIncome += r.amount;
+    }
+    byDate.set(r.date, d);
+  }
+
+  const grandTotal = grandExpense || 1;
+  const expenseByCategory = [...expenseTotals.entries()]
+    .map(([category, total]) => ({ category, total, pct: Math.round((total / grandTotal) * 100) }))
+    .sort((a, b) => b.total - a.total);
+  emit?.({ type: "tool_result", tool: "get_expense_by_category", rows: expenseByCategory.length });
+
+  emit?.({ type: "tool_call", tool: "get_notable_transactions", label: "Giao dịch đáng chú ý" });
+  const notableTransactions = allTxRows
+    .filter((r) => r.note || r.type === "expense")
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 20)
+    .map((r) => ({
+      date: r.date,
+      amount: r.amount,
+      type: r.type,
+      category: resolveCategoryPath(r.category_id, catMap),
+      note: r.note ?? null,
+    }));
+  emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: notableTransactions.length });
+
+  // Budget status
+  const startD = new Date(periodStart + "T00:00:00Z");
+  const endD = new Date(effectiveEnd + "T00:00:00Z");
+  const todayD = new Date(currentDate() + "T00:00:00Z");
+  const totalDays = Math.round((endD.getTime() - startD.getTime()) / 86400000) + 1;
+  const elapsedDays = Math.min(totalDays, Math.round((todayD.getTime() - startD.getTime()) / 86400000) + 1);
+  const dailyPace = elapsedDays > 0 ? Math.round(grandExpense / elapsedDays) : 0;
+  const budgetStatus = {
+    total_expense: grandExpense,
+    total_income: grandIncome,
+    tx_count: allTxRows.length,
+    budget_amount: budget?.amount ?? null,
+    budget_used_pct: budget?.amount ? Math.round((grandExpense / budget.amount) * 100) : null,
+    days_elapsed: elapsedDays,
+    days_total: totalDays,
+    daily_pace: dailyPace,
+    projected_total: dailyPace * totalDays,
+  };
+
+  const dailyTrend = [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
+
+  // ── Step 2: Single model call — model has all data, only needs to call submit_insights ──
+  emit?.({ type: "tool_call", tool: "analyze", label: "AI đang phân tích và tổng hợp" });
+
   const objectiveLine = budget?.objective
-    ? `\n\nUser's financial goal this period: "${budget.objective}" — frame recommendations around achieving it.`
+    ? `\n\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
     : "";
 
-  const system = `You are a trusted personal finance manager — the user's financial butler. You know their spending intimately and give honest, specific advice.${objectiveLine}
+  const system = `You are a trusted personal finance manager — the user's financial butler. You have been given all the spending data for this period. Your job is to call submit_insights with 3–5 genuinely useful insights.${objectiveLine}
 
-Use the tools to gather data, then call submit_insights with 3–5 insights. Mix insight types:
-- "analysis": spending breakdown or trend, always include chart_type + chart_data
-- "recommendation": a specific action the user should take (chart optional)
-- "alert": anomaly, overspend, or pattern worth flagging (chart optional)
+Insight types (mix them):
+- "analysis": data-backed spending breakdown or trend — MUST include chart_type + chart_data
+- "recommendation": specific action the user should take — chart optional
+- "alert": overspending, anomaly, or behavior worth flagging — chart optional
 
 Each insight must have:
 - type: "analysis" | "recommendation" | "alert"
-- title: concise Vietnamese title
-- summary: 1–3 sentences in Vietnamese, cite real numbers and ₫, be direct and specific
-- chart_type + chart_data: required for "analysis", optional for others
-- evidence: one sentence with the key data point
+- title: concise Vietnamese title (max 40 chars)
+- summary: 1–3 Vietnamese sentences, cite real ₫ amounts, be direct and specific
+- evidence: one key data sentence
+- chart_type (if "analysis"): "pie" = category breakdown, "bar" = comparison, "line" = daily trend
+- chart_data (if chart_type set): [{name: string, value: number}] — use the exact numbers from the data
 
-Chart types: pie = category breakdown, bar = comparison/ranking, line = daily trend
-
-Workflow:
-1. Call get_expense_by_category (always)
-2. Call get_budget_status if there's a budget set
-3. Call get_notable_transactions to find spending with context (notes, large items)
-4. Call other tools if needed
-5. Call submit_insights — do NOT generate any text response, only call tools`;
+IMPORTANT: Call submit_insights exactly once. Do not output any text response.`;
 
   const chartDataSchema = z.array(z.object({ name: z.string(), value: z.number() }));
   let capturedInsights: Insight[] = [];
 
   const model = await getWorkersAIModel();
   await generateText({
-    onStepFinish({ finishReason }) {
-      // If the model returns text instead of a tool call, log for debugging
-      if (finishReason === "stop" && capturedInsights.length === 0) {
-        console.warn("[stats] model stopped without calling submit_insights");
-      }
-    },
     model,
-    stopWhen: stepCountIs(5),
     maxOutputTokens: 2048,
     system,
     prompt: JSON.stringify({
-      period: { key: periodKey, start: periodStart, end: effectiveEnd, budget_amount: budget?.amount ?? null },
+      period: { key: periodKey, start: periodStart, end: effectiveEnd },
+      budget_status: budgetStatus,
+      expense_by_category: expenseByCategory,
+      notable_transactions: notableTransactions.slice(0, 15),
+      daily_trend: dailyTrend,
       prior_periods: priorSummaries,
     }),
     tools: {
-      get_expense_by_category: tool({
-        description: "Aggregate expenses by category for the period. Returns [{category, total, pct}] sorted by total desc.",
-        inputSchema: z.object({}),
-        execute: async (_input) => {
-          emit?.({ type: "tool_call", tool: "get_expense_by_category", label: "Tổng hợp theo danh mục" });
-          const rows = await db
-            .selectFrom("transaction")
-            .select(["amount", "category_id"])
-            .where("user_id", "=", userId)
-            .where("date", ">=", periodStart)
-            .where("date", "<=", effectiveEnd)
-            .where("type", "=", "expense")
-            .execute();
-          const totals = new Map<string, number>();
-          for (const r of rows) {
-            const cat = resolveCategoryPath(r.category_id, catMap);
-            totals.set(cat, (totals.get(cat) ?? 0) + r.amount);
-          }
-          const grandTotal = [...totals.values()].reduce((a, b) => a + b, 0) || 1;
-          const result = [...totals.entries()]
-            .map(([category, total]) => ({ category, total, pct: Math.round((total / grandTotal) * 100) }))
-            .sort((a, b) => b.total - a.total);
-          emit?.({ type: "tool_result", tool: "get_expense_by_category", rows: result.length });
-          return result;
-        },
-      }),
-      get_daily_totals: tool({
-        description: "Get daily expense and income totals for the period. Returns [{date, expense, income}].",
-        inputSchema: z.object({}),
-        execute: async (_input) => {
-          emit?.({ type: "tool_call", tool: "get_daily_totals", label: "Xu hướng theo ngày" });
-          const rows = await db
-            .selectFrom("transaction")
-            .select(["date", "amount", "type"])
-            .where("user_id", "=", userId)
-            .where("date", ">=", periodStart)
-            .where("date", "<=", effectiveEnd)
-            .orderBy("date", "asc")
-            .execute();
-          const byDate = new Map<string, { expense: number; income: number }>();
-          for (const r of rows) {
-            const d = byDate.get(r.date) ?? { expense: 0, income: 0 };
-            if (r.type === "expense") d.expense += r.amount;
-            else d.income += r.amount;
-            byDate.set(r.date, d);
-          }
-          const result = [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
-          emit?.({ type: "tool_result", tool: "get_daily_totals", rows: result.length });
-          return result;
-        },
-      }),
-      get_notable_transactions: tool({
-        description: "Get transactions with notes or large individual amounts. Useful for citing specific purchases and understanding context behind spending. Returns [{date, amount, category, note, type}].",
-        inputSchema: z.object({
-          filter: z.enum(["has_note", "large", "all"]).describe("has_note: only with notes, large: top 10 by amount, all: both"),
-          limit: z.number().int().min(1).max(30).default(15),
-        }),
-        execute: async (input) => {
-          const { filter, limit } = input;
-          emit?.({ type: "tool_call", tool: "get_notable_transactions", label: `Giao dịch đáng chú ý (${filter})` });
-          let query = db
-            .selectFrom("transaction")
-            .select(["date", "amount", "category_id", "note", "type"])
-            .where("user_id", "=", userId)
-            .where("date", ">=", periodStart)
-            .where("date", "<=", effectiveEnd);
-          if (filter === "has_note") query = query.where("note", "is not", null);
-          const rows = await query.orderBy("amount", "desc").limit(limit).execute();
-          const result = rows.map((r) => ({
-            date: r.date,
-            amount: r.amount,
-            category: resolveCategoryPath(r.category_id, catMap),
-            note: r.note ?? null,
-            type: r.type,
-          }));
-          emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: result.length });
-          return result;
-        },
-      }),
-      get_budget_status: tool({
-        description: "Get current budget usage: total expense, total income, budget amount, days elapsed vs total, and daily pace.",
-        inputSchema: z.object({}),
-        execute: async (_input) => {
-          emit?.({ type: "tool_call", tool: "get_budget_status", label: "Trạng thái ngân sách" });
-          const agg = await db
-            .selectFrom("transaction")
-            .select([
-              sql<number>`COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0)`.as("total_expense"),
-              sql<number>`COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0)`.as("total_income"),
-              sql<number>`COUNT(*)`.as("tx_count"),
-            ])
-            .where("user_id", "=", userId)
-            .where("date", ">=", periodStart)
-            .where("date", "<=", effectiveEnd)
-            .executeTakeFirst();
-          const start = new Date(periodStart + "T00:00:00Z");
-          const end = new Date(effectiveEnd + "T00:00:00Z");
-          const today = new Date(currentDate() + "T00:00:00Z");
-          const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
-          const elapsedDays = Math.min(totalDays, Math.round((today.getTime() - start.getTime()) / 86400000) + 1);
-          const totalExpense = agg?.total_expense ?? 0;
-          const dailyPace = elapsedDays > 0 ? Math.round(totalExpense / elapsedDays) : 0;
-          const projectedTotal = dailyPace * totalDays;
-          const result = {
-            total_expense: totalExpense,
-            total_income: agg?.total_income ?? 0,
-            tx_count: agg?.tx_count ?? 0,
-            budget_amount: budget?.amount ?? null,
-            budget_used_pct: budget?.amount ? Math.round((totalExpense / budget.amount) * 100) : null,
-            days_elapsed: elapsedDays,
-            days_total: totalDays,
-            daily_pace: dailyPace,
-            projected_total: projectedTotal,
-          };
-          emit?.({ type: "tool_result", tool: "get_budget_status", rows: 1 });
-          return result;
-        },
-      }),
       submit_insights: tool({
-        description: "Submit the final insights. Call exactly once. Do NOT output any text — only call this tool.",
+        description: "Submit the final structured insights. Call this exactly once.",
         inputSchema: z.object({
           insights: z.array(
             z.object({
@@ -316,16 +262,15 @@ Workflow:
           ).min(1).max(5),
         }),
         execute: async (input) => {
-          emit?.({ type: "tool_call", tool: "submit_insights", label: `Tổng hợp ${input.insights.length} nhận xét` });
           capturedInsights = input.insights;
-          emit?.({ type: "tool_result", tool: "submit_insights", rows: capturedInsights.length });
+          emit?.({ type: "tool_result", tool: "analyze", rows: capturedInsights.length });
           return { ok: true };
         },
       }),
     },
   });
 
-  if (capturedInsights.length === 0) throw new Error("Agent did not call submit_insights");
+  if (capturedInsights.length === 0) throw new Error("Model did not call submit_insights — try regenerating");
 
   await saveReport(db, userId, periodType, periodKey, capturedInsights, now);
 }

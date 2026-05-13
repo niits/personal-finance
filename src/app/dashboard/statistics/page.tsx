@@ -257,27 +257,27 @@ export default function StatisticsPage() {
         )}
 
         {status === "generating" && (
-          <div style={{ padding: "32px 0" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <GeneratingSpinner />
-              <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)" }}>
-                Đang phân tích…
-              </p>
-            </div>
+          <div style={{ padding: "40px 0 32px" }}>
+            <GeneratingSpinner />
+            <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", textAlign: "center", marginBottom: agentSteps.length > 0 ? 20 : 0 }}>
+              Đang phân tích…
+            </p>
             {agentSteps.length > 0 && (
-              <div style={{ background: "var(--canvas)", borderRadius: 12, padding: "14px 16px", border: "1px solid var(--hairline)", fontFamily: "var(--font-body)", fontSize: 13 }}>
+              <div style={{ background: "var(--canvas)", borderRadius: 14, padding: "14px 16px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", fontFamily: "var(--font-body)", fontSize: 14 }}>
                 {agentSteps.map((step) => (
-                  <div key={step.id} style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "3px 0", color: step.type === "tool_result" ? "var(--ink-muted-48)" : "var(--ink)" }}>
-                    <span style={{ flexShrink: 0, fontSize: 11 }}>{step.type === "tool_call" ? "⚙️" : "✓"}</span>
-                    <span>
-                      {step.type === "tool_call" ? step.label : step.type === "tool_result" ? `${step.rows} kết quả` : null}
+                  <div key={step.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", color: step.type === "tool_result" ? "var(--ink-muted-48)" : "var(--ink)" }}>
+                    <span style={{ flexShrink: 0, width: 16, textAlign: "center", fontSize: 12, color: step.type === "tool_result" ? "var(--primary)" : "var(--ink-muted-48)" }}>
+                      {step.type === "tool_call" ? "○" : "●"}
+                    </span>
+                    <span style={{ flex: 1 }}>
+                      {step.type === "tool_call" ? step.label : step.type === "tool_result" ? `↳ ${step.rows} mục` : null}
                     </span>
                   </div>
                 ))}
-                <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center", color: "var(--ink-muted-48)" }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--primary)", animation: "pulse 1s ease-in-out infinite" }} />
-                  <span>Đang xử lý…</span>
-                  <style>{`@keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }`}</style>
+                <div style={{ display: "flex", gap: 8, marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--hairline)", alignItems: "center", color: "var(--ink-muted-48)", fontSize: 13 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", animation: "stats-pulse 1.2s ease-in-out infinite" }} />
+                  <span>AI đang xử lý…</span>
+                  <style>{`@keyframes stats-pulse { 0%,100%{opacity:.25} 50%{opacity:1} }`}</style>
                 </div>
               </div>
             )}
@@ -303,7 +303,7 @@ export default function StatisticsPage() {
             ))}
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 8 }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)" }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
                 {refreshing ? "Đang cập nhật…" : `Phân tích lúc ${new Date(report.generated_at * 1000).toLocaleString("vi-VN", {
                   day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit",
                 })}`}
@@ -346,7 +346,7 @@ function ErrorState({ error, onRetry }: { error: ApiError | null; onRetry: () =>
           </summary>
           <pre style={{
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-            fontSize: 11, lineHeight: 1.45, color: "var(--ink-muted-48)",
+            fontSize: 12, lineHeight: 1.45, color: "var(--ink-muted-48)",
             background: "var(--canvas)", border: "1px solid var(--hairline)", borderRadius: 8,
             padding: 12, margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word",
             maxHeight: 320, overflow: "auto",
@@ -405,20 +405,14 @@ function InsightCard({ insight }: { insight: AnyInsight }) {
     : (insight as { option: Record<string, unknown> }).option;
 
   const badge = newInsight?.type ? INSIGHT_TYPE_STYLE[newInsight.type] ?? null : null;
-  const borderColor = newInsight?.type === "alert"
-    ? "rgba(255,69,58,0.25)"
-    : newInsight?.type === "recommendation"
-    ? "rgba(48,209,88,0.25)"
-    : "var(--hairline)";
-
   return (
-    <div style={{ background: "var(--canvas)", borderRadius: 16, padding: "20px", border: `1px solid ${borderColor}` }}>
+    <div style={{ background: "var(--canvas)", borderRadius: 18, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
         <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.374, margin: 0, flex: 1 }}>
           {insight.title}
         </p>
         {badge && (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 600, color: badge.color, background: badge.bg, borderRadius: 6, padding: "2px 7px", flexShrink: 0, marginTop: 2 }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: badge.color, background: badge.bg, borderRadius: 8, padding: "3px 8px", flexShrink: 0, marginTop: 1 }}>
             {badge.label}
           </span>
         )}
@@ -435,10 +429,10 @@ function InsightCard({ insight }: { insight: AnyInsight }) {
       )}
       {newInsight?.evidence && (
         <details style={{ marginTop: chartOption ? 12 : 16 }}>
-          <summary style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", cursor: "pointer" }}>
+          <summary style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", cursor: "pointer", userSelect: "none" }}>
             Dữ liệu
           </summary>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 4, lineHeight: 1.5 }}>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginTop: 6, lineHeight: 1.5 }}>
             {newInsight.evidence}
           </p>
         </details>
@@ -449,14 +443,14 @@ function InsightCard({ insight }: { insight: AnyInsight }) {
 
 function GeneratingSpinner() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+    <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
       <div style={{
-        width: 40, height: 40, borderRadius: "50%",
-        border: "3px solid var(--hairline)",
+        width: 36, height: 36, borderRadius: "50%",
+        border: "2.5px solid var(--hairline)",
         borderTopColor: "var(--primary)",
-        animation: "spin 0.8s linear infinite",
+        animation: "stats-spin 0.75s linear infinite",
       }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`@keyframes stats-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
