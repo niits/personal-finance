@@ -14,14 +14,14 @@ const tabs = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { replace } = useRouter();
   const { data: session, isPending } = useSession();
 
   useEffect(() => {
     if (!isPending && !session) {
-      router.replace("/");
+      replace("/");
     }
-  }, [session, isPending, router]);
+  }, [session, isPending, replace]);
 
   if (isPending || !session) return null;
 

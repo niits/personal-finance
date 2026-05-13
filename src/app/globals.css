@@ -38,6 +38,10 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Accessible focus: hide outline for mouse, show ring for keyboard navigation */
+:focus:not(:focus-visible) { outline: none; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
 html, body {
   overflow-x: hidden;
   max-width: 100%;

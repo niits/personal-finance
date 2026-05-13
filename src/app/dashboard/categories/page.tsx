@@ -164,13 +164,13 @@ export default function CategoriesPage() {
     if (toApply.length === 0) { closeSheet(); return; }
     setApplyingRecat(true);
 
-    for (const s of toApply) {
-      await fetch(`/api/transactions/${s.transaction_id}`, {
+    await Promise.all(toApply.map((s) =>
+      fetch(`/api/transactions/${s.transaction_id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ category_id: s.suggested_category_id }),
-      });
-    }
+      })
+    ));
     setApplyingRecat(false);
     closeSheet();
   }
@@ -317,7 +317,7 @@ export default function CategoriesPage() {
           <div style={{ overflowY: "auto", maxHeight: 340 }}>
             {recatSuggestions.map((s, i) => (
               <div
-                key={i}
+                key={`${s.transaction_id}-${s.suggested_category_id}`}
                 onClick={() => {
                   const next = new Set(recatSelected);
                   if (next.has(i)) next.delete(i); else next.add(i);
@@ -410,7 +410,7 @@ export default function CategoriesPage() {
         <div style={{ overflowY: "auto", maxHeight: 340 }}>
           {suggestions.map((s, i) => (
             <div
-              key={i}
+              key={`${s.name}-${s.parent_category_id ?? 'root'}`}
               onClick={() => {
                 const next = new Set(selected);
                 if (next.has(i)) next.delete(i); else next.add(i);
@@ -577,7 +577,6 @@ export default function CategoriesPage() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && save()}
-                autoFocus
                 style={{
                   flex: 1,
                   padding: "11px 16px",

@@ -298,12 +298,12 @@ export default function StatisticsPage() {
 
         {status === "ready" && report && report.insights.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, opacity: refreshing ? 0.6 : 1, transition: "opacity 0.2s" }}>
-            {report.insights.map((insight, i) => (
-              <InsightCard key={`${i}-${insight.title.slice(0, 8)}`} insight={insight} />
+            {report.insights.map((insight) => (
+              <InsightCard key={insight.title} insight={insight} />
             ))}
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 8 }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
+              <p suppressHydrationWarning style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
                 {refreshing ? "Đang cập nhật…" : `Phân tích lúc ${new Date(report.generated_at * 1000).toLocaleString("vi-VN", {
                   day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit",
                 })}`}

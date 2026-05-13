@@ -119,7 +119,7 @@ export default function DashboardPage() {
   const [editTxn, setEditTxn] = useState<Transaction | undefined>(undefined);
   const [actionTxn, setActionTxn] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const router = useRouter();
+  const { replace } = useRouter();
 
   const load = useCallback(async (month?: string) => {
     const q = month ? `?month=${month}` : "";
@@ -128,7 +128,7 @@ export default function DashboardPage() {
       fetch(`/api/transactions${q}`),
     ]);
     if (dashRes.status === 401 || txnRes.status === 401) {
-      router.replace("/");
+      replace("/");
       return;
     }
     const [dr, tr] = await Promise.all([
@@ -140,7 +140,7 @@ export default function DashboardPage() {
     if (!currentMonthRef.current) currentMonthRef.current = dr.month;
     setSelectedMonth(dr.month);
     setLoading(false);
-  }, [router]);
+  }, [replace]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -172,7 +172,7 @@ export default function DashboardPage() {
     if (t.type === "expense")
       rootCounts.set(t.root_category_name, (rootCounts.get(t.root_category_name) ?? 0) + 1);
   }
-  const topRoots = [...rootCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n]) => n);
+  const topRoots = [...rootCounts.entries()].toSorted((a, b) => b[1] - a[1]).slice(0, 3).map(([n]) => n);
 
   const filteredTxns = selectedRoot ? txns.filter((t) => t.root_category_name === selectedRoot) : txns;
   const groups = groupByDate(filteredTxns);
@@ -398,7 +398,7 @@ export default function DashboardPage() {
                 </div>
               )}
               {actionTxn.updated_at !== actionTxn.created_at && (
-                <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 8 }}>
+                <p suppressHydrationWarning style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 8 }}>
                   Cập nhật {new Date(actionTxn.updated_at * 1000).toLocaleString("vi-VN", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                 </p>
               )}

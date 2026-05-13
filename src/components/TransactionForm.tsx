@@ -32,8 +32,9 @@ type Props = {
   transaction?: EditTransaction;
 };
 
+const _fmtVN = new Intl.NumberFormat("vi-VN");
 function fmt(n: number) {
-  return new Intl.NumberFormat("vi-VN").format(n);
+  return _fmtVN.format(n);
 }
 
 function todayStr() {
@@ -115,7 +116,7 @@ function CategoryDrillDown({
             Tất cả
           </button>
           {pathNames.map((name, i) => (
-            <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span key={`${i}-${name}`} style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ color: "var(--ink-muted-48)", fontSize: 12 }}>›</span>
               <button onClick={() => setPath(path.slice(0, i + 1))} style={{ background: "none", border: "none", color: i === pathNames.length - 1 ? "var(--ink)" : "var(--primary)", fontSize: 13, cursor: "pointer", padding: "2px 0", fontFamily: "var(--font-body)", fontWeight: i === pathNames.length - 1 ? 600 : 400 }}>
                 {name}

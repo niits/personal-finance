@@ -44,7 +44,7 @@ export default function BudgetPage() {
   const [period, setPeriod] = useState<{ start: string; end: string } | null>(null);
   const [customBudgets, setCustomBudgets] = useState<CustomBudget[]>([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const { replace } = useRouter();
 
   const monthLabel = month
     ? (() => { const [y, m] = month.split("-"); return `Tháng ${parseInt(m)}/${y}`; })()
@@ -86,7 +86,7 @@ export default function BudgetPage() {
       fetch("/api/custom-budgets"),
     ]);
     if (mRes.status === 401 || cRes.status === 401) {
-      router.replace("/");
+      replace("/");
       return;
     }
     const mData = await mRes.json() as BudgetPageData;
@@ -96,7 +96,7 @@ export default function BudgetPage() {
     setPeriod(mData.start && mData.end ? { start: mData.start, end: mData.end } : null);
     setCustomBudgets(cData.custom_budgets ?? []);
     setLoading(false);
-  }, [router]);
+  }, [replace]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -356,7 +356,6 @@ export default function BudgetPage() {
                     setAdjDeltaStr(raw ? fmt(n) : "");
                     setAdjErr("");
                   }}
-                  autoFocus
                   style={{
                     width: "100%", padding: "11px 44px 11px 16px", borderRadius: 11,
                     border: adjErr ? "1px solid #ff453a" : "1px solid var(--hairline)",
@@ -426,7 +425,7 @@ export default function BudgetPage() {
                 Ngân sách riêng mới
               </p>
               <input type="text" placeholder="Tên (vd: Du lịch, Mua laptop…)" value={cbName}
-                onChange={(e) => { setCbName(e.target.value); setCbErr(""); }} autoFocus
+                onChange={(e) => { setCbName(e.target.value); setCbErr(""); }}
                 style={{
                   width: "100%", padding: "11px 14px", borderRadius: 11,
                   border: "1px solid var(--hairline)", fontFamily: "var(--font-body)", fontSize: 15,
@@ -481,7 +480,7 @@ export default function BudgetPage() {
                 Chưa có ngân sách riêng
               </p>
               <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 4, lineHeight: 1.5 }}>
-                Tạo quỹ riêng cho từng mục tiêu — du lịch, mua sắm, khẩn cấp…
+                Tạo quỹ riêng cho từng mục tiêu: du lịch, mua sắm, khẩn cấp…
               </p>
             </div>
           ) : (
@@ -505,7 +504,7 @@ export default function BudgetPage() {
                         <p style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
                           Sửa ngân sách
                         </p>
-                        <input type="text" placeholder="Tên" value={editName} autoFocus
+                        <input type="text" placeholder="Tên" value={editName}
                           onChange={(e) => { setEditName(e.target.value); setEditErr(""); }}
                           style={{ width: "100%", padding: "11px 14px", borderRadius: 11, border: "1px solid var(--hairline)", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none", marginBottom: 8 }}
                         />
@@ -541,7 +540,7 @@ export default function BudgetPage() {
                           Xoá &ldquo;{cb.name}&rdquo;?
                         </p>
                         <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginBottom: 16, lineHeight: 1.5 }}>
-                          Quỹ này đang có giao dịch liên kết. Xoá sẽ gỡ liên kết các giao dịch khỏi quỹ — giao dịch không bị xoá.
+                          Quỹ này đang có giao dịch liên kết. Xoá sẽ gỡ liên kết các giao dịch khỏi quỹ, giao dịch không bị xoá.
                         </p>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={() => setConfirmDeleteId(null)}

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession, signIn } from "@/lib/auth-client";
 
 const GitHubIcon = () => (
@@ -12,13 +13,13 @@ const GitHubIcon = () => (
 
 export default function Home() {
   const { data: session, isPending } = useSession();
-  const router = useRouter();
+  const { replace } = useRouter();
 
   useEffect(() => {
     if (!isPending && session) {
-      router.replace("/dashboard");
+      replace("/dashboard");
     }
-  }, [session, isPending, router]);
+  }, [session, isPending, replace]);
 
   return (
     <main>
@@ -92,9 +93,9 @@ export default function Home() {
             <p style={{ color: "var(--ink-muted-48)", fontSize: 14 }}>
               Xin chào, {session.user.name || session.user.email} 👋
             </p>
-            <a href="/dashboard" className="btn-primary">
+            <Link href="/dashboard" className="btn-primary">
               Vào Dashboard →
-            </a>
+            </Link>
           </div>
         )}
       </section>
@@ -194,7 +195,7 @@ export default function Home() {
           </button>
         )}
         {!isPending && session && (
-          <a href="/dashboard" className="btn-primary">Vào Dashboard →</a>
+          <Link href="/dashboard" className="btn-primary">Vào Dashboard →</Link>
         )}
       </section>
     </main>

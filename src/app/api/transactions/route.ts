@@ -46,6 +46,16 @@ function getRootCategoryName(row: TxnRow): string {
   return row.cat_p2_name ?? row.cat_p1_name ?? row.cat_name;
 }
 
+function buildCbMap(cbRows: CbRow[]): Map<number, { id: number; name: string }[]> {
+  const map = new Map<number, { id: number; name: string }[]>();
+  for (const row of cbRows) {
+    const list = map.get(row.transaction_id) ?? [];
+    list.push({ id: row.id, name: row.name });
+    map.set(row.transaction_id, list);
+  }
+  return map;
+}
+
 function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: string }[]>) {
   return {
     id: row.id,
@@ -147,7 +157,7 @@ export async function GET(request: NextRequest) {
   const results = (await query.execute()) as TxnRow[];
 
   // Fetch custom budgets for all transactions
-  const cbMap = new Map<number, { id: number; name: string }[]>();
+  let cbMap = new Map<number, { id: number; name: string }[]>();
   if (results.length > 0) {
     const ids = results.map((r) => r.id);
     const cbRows = (await db
@@ -156,11 +166,7 @@ export async function GET(request: NextRequest) {
       .select(["tcb.transaction_id", "cb.id", "cb.name"])
       .where("tcb.transaction_id", "in", ids)
       .execute()) as CbRow[];
-    for (const row of cbRows) {
-      const list = cbMap.get(row.transaction_id) ?? [];
-      list.push({ id: row.id, name: row.name });
-      cbMap.set(row.transaction_id, list);
-    }
+    cbMap = buildCbMap(cbRows);
   }
 
   // Summary always for the full budget period regardless of filters

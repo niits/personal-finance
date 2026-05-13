@@ -9,8 +9,10 @@ let authInstance: any;
 export async function getAuth() {
   if (authInstance) return authInstance;
 
-  const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-  const { betterAuth } = await import("better-auth");
+  const [{ getCloudflareContext }, { betterAuth }] = await Promise.all([
+    import("@opennextjs/cloudflare"),
+    import("better-auth"),
+  ]);
 
   const { env } = await getCloudflareContext({ async: true });
   const cfEnv = env as unknown as Cloudflare.Env & {
