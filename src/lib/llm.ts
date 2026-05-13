@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { generateText, Output, type LanguageModel } from "ai";
+import { generateText, Output, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
 import type { ZodType } from "zod";
 
@@ -25,23 +25,14 @@ export async function runAIObject<T>(opts: {
     });
     return result as T;
   } catch (structuredErr) {
-    // Structured-output parsing failed — re-run without schema to capture the
-    // raw model response, then surface it so the caller (and logs) can see what
-    // the model actually returned.
-    let rawText = "(could not retrieve raw response)";
-    try {
-      const { text } = await generateText({
-        model,
-        system: opts.system,
-        prompt: opts.prompt,
-        maxOutputTokens: opts.maxOutputTokens ?? 4096,
-      });
-      rawText = text;
-    } catch {
-      // ignore secondary failure
+    // NoObjectGeneratedError already carries the raw text the model returned.
+    // Surface it so the caller (and logs) can see what the model actually sent.
+    if (NoObjectGeneratedError.isInstance(structuredErr) && structuredErr.text != null) {
+      throw new Error(
+        `${structuredErr.message}\n\nRaw model response:\n${structuredErr.text}`,
+      );
     }
-    const original = structuredErr instanceof Error ? structuredErr.message : String(structuredErr);
-    throw new Error(`${original}\n\nRaw model response:\n${rawText}`);
+    throw structuredErr;
   }
 }
 
