@@ -64,6 +64,7 @@ export default function CategoriesPage() {
   // AI suggest state
   const [showSuggest, setShowSuggest] = useState(false);
   const [suggestState, setSuggestState] = useState<"loading" | "done" | "error">("loading");
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [applying, setApplying] = useState(false);
@@ -104,15 +105,16 @@ export default function CategoriesPage() {
   async function analyze() {
     setShowSuggest(true);
     setSuggestState("loading");
+    setSuggestError(null);
     setSuggestions([]);
     setSelected(new Set());
     setRecatState("idle");
     setRecatSuggestions([]);
 
     const r = await fetch("/api/categories/suggest", { method: "POST" }).catch(() => null);
-    if (!r?.ok) { setSuggestState("error"); return; }
-
-    const d = await r.json() as { suggestions: Suggestion[]; run_id: number };
+    if (!r) { setSuggestError("Không thể kết nối server."); setSuggestState("error"); return; }
+    const d = await r.json() as { suggestions: Suggestion[]; run_id: number; error?: string };
+    if (!r.ok) { setSuggestError(d.error ?? "Lỗi không xác định."); setSuggestState("error"); return; }
     setSuggestions(d.suggestions ?? []);
     setSelected(new Set((d.suggestions ?? []).map((_, i) => i)));
     setRunId(d.run_id ?? null);
@@ -259,6 +261,11 @@ export default function CategoriesPage() {
           <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "#ff453a" }}>
             Không thể phân tích lúc này. Thử lại sau.
           </p>
+          {suggestError && (
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginTop: 8, wordBreak: "break-word" }}>
+              {suggestError}
+            </p>
+          )}
         </div>
       );
     }
