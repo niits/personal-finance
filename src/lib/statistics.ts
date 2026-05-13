@@ -13,7 +13,11 @@ export type Insight = {
 const InsightSchema = z.object({
   title: z.string(),
   summary: z.string(),
-  option: z.record(z.string(), z.unknown()),
+  // z.any() → JSON Schema {} (unconstrained) — required for Llama-4-scout
+  // constrained-generation to emit arbitrary ECharts option objects.
+  // z.record(z.string(), z.unknown()) incorrectly produces additionalProperties:false.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  option: z.any() as z.ZodType<Record<string, unknown>>,
 });
 
 const ReportSchema = z.object({
