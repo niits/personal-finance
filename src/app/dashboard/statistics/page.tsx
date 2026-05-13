@@ -15,7 +15,23 @@ type Report = {
   generated_at: number;
 };
 
+type ApiError = {
+  status: number;
+  error: string;
+  code?: string;
+  details?: { name?: string; message?: string; stack?: string; value?: string; cause?: unknown };
+};
+
 type PageStatus = "loading" | "generating" | "ready" | "error";
+
+async function readError(res: Response): Promise<ApiError> {
+  try {
+    const body = (await res.json()) as Omit<ApiError, "status">;
+    return { status: res.status, ...body };
+  } catch {
+    return { status: res.status, error: `HTTP ${res.status} ${res.statusText || "(no body)"}` };
+  }
+}
 
 function toMonthLabel(m: string) {
   const [y, mo] = m.split("-");
@@ -48,21 +64,23 @@ export default function StatisticsPage() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [report, setReport] = useState<Report | null>(null);
   const [status, setStatus] = useState<PageStatus>("loading");
+  const [error, setError] = useState<ApiError | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [upperBound] = useState(currentMonth);
   // Latch month requests so a slow background refresh on month A doesn't overwrite month B.
   const activeMonth = useRef(selectedMonth);
 
-  const generate = useCallback(async (month: string): Promise<Report | null> => {
+  const generate = useCallback(async (month: string): Promise<{ report: Report } | { error: ApiError }> => {
     const res = await fetch(`/api/statistics?period_key=${month}`, { method: "POST" });
-    if (!res.ok) return null;
-    return (await res.json()) as Report;
+    if (!res.ok) return { error: await readError(res) };
+    return { report: (await res.json()) as Report };
   }, []);
 
   const load = useCallback(async (month: string) => {
     activeMonth.current = month;
     setStatus("loading");
     setReport(null);
+    setError(null);
     setRefreshing(false);
 
     const res = await fetch(`/api/statistics?period_key=${month}`);
@@ -70,16 +88,18 @@ export default function StatisticsPage() {
     if (res.status === 404) {
       if (activeMonth.current !== month) return;
       setStatus("generating");
-      const fresh = await generate(month);
+      const result = await generate(month);
       if (activeMonth.current !== month) return;
-      if (!fresh) { setStatus("error"); return; }
-      setReport(fresh);
+      if ("error" in result) { setError(result.error); setStatus("error"); return; }
+      setReport(result.report);
       setStatus("ready");
       return;
     }
 
     if (!res.ok) {
+      const apiError = await readError(res);
       if (activeMonth.current !== month) return;
+      setError(apiError);
       setStatus("error");
       return;
     }
@@ -95,21 +115,30 @@ export default function StatisticsPage() {
     if (!stale) return;
 
     setRefreshing(true);
-    const fresh = await generate(month);
+    const result = await generate(month);
     if (activeMonth.current !== month) return;
     setRefreshing(false);
-    if (fresh) setReport(fresh);
+    if ("report" in result) setReport(result.report);
+    // Background refresh failure: keep stale report visible, log to console for inspection.
+    else console.error("[stats] background refresh failed", result.error);
   }, [generate]);
 
   const regenerate = useCallback(async (month: string) => {
     activeMonth.current = month;
     setStatus("generating");
-    const fresh = await generate(month);
+    setError(null);
+    const result = await generate(month);
     if (activeMonth.current !== month) return;
-    if (!fresh) { setStatus("ready"); return; } // keep old report visible on failure
-    setReport(fresh);
+    if ("error" in result) {
+      // No prior report → show full error. Prior report exists → keep it visible
+      // but still log so the user can see the failure in console.
+      if (!report) { setError(result.error); setStatus("error"); }
+      else { console.error("[stats] regenerate failed", result.error); setStatus("ready"); }
+      return;
+    }
+    setReport(result.report);
     setStatus("ready");
-  }, [generate]);
+  }, [generate, report]);
 
   useEffect(() => { load(selectedMonth); }, [load, selectedMonth]);
 
@@ -160,20 +189,7 @@ export default function StatisticsPage() {
         )}
 
         {status === "error" && (
-          <div style={{ padding: "40px 20px", textAlign: "center" }}>
-            <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>
-              Không thể tạo thống kê
-            </p>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 20, lineHeight: 1.5 }}>
-              Đã có lỗi xảy ra. Vui lòng thử lại.
-            </p>
-            <button
-              onClick={() => load(selectedMonth)}
-              style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, cursor: "pointer" }}
-            >
-              Thử lại
-            </button>
-          </div>
+          <ErrorState error={error} onRetry={() => load(selectedMonth)} />
         )}
 
         {status === "ready" && report && report.insights.length === 0 && (
@@ -207,6 +223,49 @@ export default function StatisticsPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ErrorState({ error, onRetry }: { error: ApiError | null; onRetry: () => void }) {
+  const headline = error
+    ? `Lỗi ${error.status}${error.code ? ` · ${error.code}` : ""}`
+    : "Không thể tạo thống kê";
+  const message = error?.details?.message ?? error?.error ?? "Đã có lỗi xảy ra.";
+  const stack = error?.details?.stack;
+  const causeText = error?.details?.cause ? JSON.stringify(error.details.cause, null, 2) : null;
+
+  return (
+    <div style={{ padding: "24px 20px" }}>
+      <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>
+        {headline}
+      </p>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", marginBottom: 16, lineHeight: 1.5, wordBreak: "break-word" }}>
+        {message}
+      </p>
+      {(stack || causeText) && (
+        <details style={{ marginBottom: 20 }}>
+          <summary style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", cursor: "pointer", marginBottom: 8 }}>
+            Chi tiết
+          </summary>
+          <pre style={{
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 11, lineHeight: 1.45, color: "var(--ink-muted-48)",
+            background: "var(--canvas)", border: "1px solid var(--hairline)", borderRadius: 8,
+            padding: 12, margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word",
+            maxHeight: 320, overflow: "auto",
+          }}>
+            {stack ?? ""}
+            {causeText ? `\n\nCause:\n${causeText}` : ""}
+          </pre>
+        </details>
+      )}
+      <button
+        onClick={onRetry}
+        style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, cursor: "pointer" }}
+      >
+        Thử lại
+      </button>
     </div>
   );
 }
