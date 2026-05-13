@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { sql } from "kysely";
-import { tool } from "ai";
 import { getKysely } from "@/lib/db";
-import { getWorkersAIModel, generateText } from "@/lib/llm";
+import { runAIObject } from "@/lib/llm";
 import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate } from "@/lib/validators";
 
 export type InsightType = "analysis" | "recommendation" | "alert";
@@ -206,71 +205,58 @@ export async function generateStatisticsReport(
 
   const dailyTrend = [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
 
-  // ── Step 2: Single model call — model has all data, only needs to call submit_insights ──
+  // ── Step 2: Single model call using structured output (no tool calling needed) ──
   emit?.({ type: "tool_call", tool: "analyze", label: "AI đang phân tích và tổng hợp" });
 
   const objectiveLine = budget?.objective
     ? `\n\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
     : "";
 
-  const system = `You are a trusted personal finance manager — the user's financial butler. You have been given all the spending data for this period. Your job is to call submit_insights with 3–5 genuinely useful insights.${objectiveLine}
+  const system = `You are a trusted personal finance manager. You have been given all spending data for a period. Respond with 3–5 genuinely useful insights in valid JSON.${objectiveLine}
 
 Insight types (mix them):
 - "analysis": data-backed spending breakdown or trend — MUST include chart_type + chart_data
 - "recommendation": specific action the user should take — chart optional
 - "alert": overspending, anomaly, or behavior worth flagging — chart optional
 
-Each insight must have:
-- type: "analysis" | "recommendation" | "alert"
-- title: concise Vietnamese title (max 40 chars)
-- summary: 1–3 Vietnamese sentences, cite real ₫ amounts, be direct and specific
-- evidence: one key data sentence
-- chart_type (if "analysis"): "pie" = category breakdown, "bar" = comparison, "line" = daily trend
-- chart_data (if chart_type set): [{name: string, value: number}] — use the exact numbers from the data
+Rules:
+- title: concise Vietnamese (max 40 chars)
+- summary: 1–3 Vietnamese sentences, cite real ₫ amounts, be direct
+- evidence: one key data sentence in Vietnamese
+- chart_type: "pie" = category share, "bar" = comparison, "line" = daily trend
+- chart_data: [{name, value}] using exact numbers from the input data`;
 
-IMPORTANT: Call submit_insights exactly once. Do not output any text response.`;
+  const insightSchema = z.object({
+    insights: z.array(
+      z.object({
+        type: z.enum(["analysis", "recommendation", "alert"]),
+        title: z.string(),
+        summary: z.string(),
+        chart_type: z.enum(["pie", "bar", "line"]).optional(),
+        chart_data: z.array(z.object({ name: z.string(), value: z.number() })).optional(),
+        evidence: z.string(),
+      }),
+    ).min(1).max(5),
+  });
 
-  const chartDataSchema = z.array(z.object({ name: z.string(), value: z.number() }));
-  let capturedInsights: Insight[] = [];
-
-  const model = await getWorkersAIModel();
-  await generateText({
-    model,
-    maxOutputTokens: 2048,
+  const result = await runAIObject({
+    schema: insightSchema,
     system,
+    maxOutputTokens: 2048,
     prompt: JSON.stringify({
       period: { key: periodKey, start: periodStart, end: effectiveEnd },
       budget_status: budgetStatus,
-      expense_by_category: expenseByCategory,
-      notable_transactions: notableTransactions.slice(0, 15),
-      daily_trend: dailyTrend,
+      expense_by_category: expenseByCategory.slice(0, 12),
+      notable_transactions: notableTransactions.slice(0, 12),
+      daily_trend: dailyTrend.slice(-20),
       prior_periods: priorSummaries,
     }),
-    tools: {
-      submit_insights: tool({
-        description: "Submit the final structured insights. Call this exactly once.",
-        inputSchema: z.object({
-          insights: z.array(
-            z.object({
-              type: z.enum(["analysis", "recommendation", "alert"]).default("analysis"),
-              title: z.string(),
-              summary: z.string(),
-              chart_type: z.enum(["pie", "bar", "line"]).optional(),
-              chart_data: chartDataSchema.optional(),
-              evidence: z.string(),
-            }),
-          ).min(1).max(5),
-        }),
-        execute: async (input) => {
-          capturedInsights = input.insights;
-          emit?.({ type: "tool_result", tool: "analyze", rows: capturedInsights.length });
-          return { ok: true };
-        },
-      }),
-    },
   });
 
-  if (capturedInsights.length === 0) throw new Error("Model did not call submit_insights — try regenerating");
+  const capturedInsights: Insight[] = result.insights;
+  emit?.({ type: "tool_result", tool: "analyze", rows: capturedInsights.length });
+
+  if (capturedInsights.length === 0) throw new Error("AI không tạo được nhận xét — thử lại sau");
 
   await saveReport(db, userId, periodType, periodKey, capturedInsights, now);
 }
