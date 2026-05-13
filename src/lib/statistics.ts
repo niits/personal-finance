@@ -2,7 +2,7 @@ import { z } from "zod";
 import { sql } from "kysely";
 import { getKysely } from "@/lib/db";
 import { runAIObject } from "@/lib/llm";
-import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth } from "@/lib/validators";
+import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate } from "@/lib/validators";
 
 export type Insight = {
   title: string;
@@ -63,6 +63,39 @@ export async function generateStatisticsReport(
     return d.toISOString().substring(0, 10);
   })();
 
+  // Clip to yesterday for any period whose window includes today — reports
+  // describe completed days only, so the in-progress day is never analysed.
+  const today = currentDate();
+  const yesterday = (() => {
+    const d = new Date(today + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().substring(0, 10);
+  })();
+  const effectiveEnd = periodEnd < today ? periodEnd : yesterday;
+  const now = Math.floor(Date.now() / 1000);
+
+  // Period hasn't started yet (e.g. viewing this month on its first day) — store
+  // an empty report so the UI can render an empty state without re-triggering AI.
+  if (effectiveEnd < periodStart) {
+    await saveReport(db, userId, periodType, periodKey, [], now);
+    return;
+  }
+
+  const txns = await db
+    .selectFrom("transaction")
+    .select(["amount", "type", "category_id", "note", "date"])
+    .where("user_id", "=", userId)
+    .where("date", ">=", periodStart)
+    .where("date", "<=", effectiveEnd)
+    .orderBy("date", "asc")
+    .execute();
+
+  // No data to analyse — skip the LLM call entirely and persist an empty report.
+  if (txns.length === 0) {
+    await saveReport(db, userId, periodType, periodKey, [], now);
+    return;
+  }
+
   const rawCats = await db
     .selectFrom("category")
     .select(["id", "name", "level", "parent_id", "type"])
@@ -70,15 +103,6 @@ export async function generateStatisticsReport(
     .execute();
 
   const catMap = new Map(rawCats.map((c) => [c.id, c]));
-
-  const txns = await db
-    .selectFrom("transaction")
-    .select(["amount", "type", "category_id", "note", "date"])
-    .where("user_id", "=", userId)
-    .where("date", ">=", periodStart)
-    .where("date", "<=", periodEnd)
-    .orderBy("date", "asc")
-    .execute();
 
   const priorSummaries = await Promise.all(
     [prevMonthKey(periodKey), prevMonthKey(prevMonthKey(periodKey))].map(async (priorKey) => {
@@ -114,7 +138,7 @@ export async function generateStatisticsReport(
       type: periodType,
       key: periodKey,
       start: periodStart,
-      end: periodEnd,
+      end: effectiveEnd,
       budget_amount: budget?.amount ?? null,
     },
     transactions: txns.map((t) => ({
@@ -151,20 +175,31 @@ Chỉ sinh insight có giá trị thực. Nếu data ít (<5 giao dịch), sinh 
     prompt: JSON.stringify(input),
   });
 
-  const now = Math.floor(Date.now() / 1000);
+  await saveReport(db, userId, periodType, periodKey, result.insights, now);
+}
+
+async function saveReport(
+  db: Awaited<ReturnType<typeof getKysely>>,
+  userId: string,
+  periodType: "monthly",
+  periodKey: string,
+  insights: Insight[],
+  now: number,
+): Promise<void> {
+  const payload = JSON.stringify(insights);
   await db
     .insertInto("statistics_report")
     .values({
       user_id: userId,
       period_type: periodType,
       period_key: periodKey,
-      insights: JSON.stringify(result.insights),
+      insights: payload,
       is_dirty: 0,
       generated_at: now,
     })
     .onConflict((oc) =>
       oc.columns(["user_id", "period_type", "period_key"]).doUpdateSet({
-        insights: JSON.stringify(result.insights),
+        insights: payload,
         is_dirty: 0,
         generated_at: now,
       }),
