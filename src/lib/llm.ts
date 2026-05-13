@@ -9,6 +9,7 @@ export async function runAIObject<T>(opts: {
   schema: ZodType<T>;
   system?: string;
   prompt: string;
+  maxTokens?: number;
 }): Promise<T> {
   const { env } = await getCloudflareContext({ async: true });
   const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
@@ -18,6 +19,7 @@ export async function runAIObject<T>(opts: {
     schema: opts.schema,
     system: opts.system,
     prompt: opts.prompt,
+    maxTokens: opts.maxTokens ?? 4096,
   });
 
   return object;

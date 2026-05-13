@@ -8,6 +8,7 @@ export interface MonthlyBudgetTable {
   amount: number;
   start_date: string | null;
   end_date: string | null;
+  objective: string | null;
   created_at: Generated<number>;
 }
 

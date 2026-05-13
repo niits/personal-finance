@@ -54,7 +54,7 @@ export async function generateStatisticsReport(
 
   const budget = await db
     .selectFrom("monthly_budget")
-    .select(["amount", "start_date", "end_date"])
+    .select(["amount", "start_date", "end_date", "objective"])
     .where("user_id", "=", userId)
     .where("month", "=", periodKey)
     .executeTakeFirst();
@@ -155,28 +155,34 @@ export async function generateStatisticsReport(
     prior_periods: priorSummaries,
   };
 
-  const system = `Bạn là chuyên gia phân tích tài chính cá nhân. Phân tích dữ liệu chi tiêu và tạo 2–4 insights quan trọng nhất.
+  const objectiveLine = budget?.objective
+    ? `\nUser's financial objective for this period: "${budget.objective}" — prioritise insights that help them achieve this goal.`
+    : "";
 
-Với mỗi insight:
-- title: tiêu đề ngắn gọn bằng tiếng Việt
-- summary: nhận xét 1–2 câu thực tế bằng tiếng Việt, có con số cụ thể
-- option: Apache ECharts 5 option object hoàn chỉnh
+  const system = `You are a personal finance analyst. Analyse the spending data and generate 2–4 of the most valuable insights.
 
-Quy tắc ECharts option:
-- Chọn chart type tốt nhất cho insight: "pie" (phân bổ danh mục), "bar" (so sánh, ranking), "line" (trend theo ngày/tháng)
-- Màu: ["#0066cc","#30d158","#ff453a","#ff9f0a","#bf5af2","#32ade6","#ac8e68"]
-- Không set title bên trong option (đã có ở field title bên ngoài)
-- Không set width/height cố định
-- tooltip.formatter nên hiển thị số tiền kèm ký hiệu ₫ và dùng Intl.NumberFormat vi-VN
-- Với pie chart: dùng radius ["35%","65%"] để tạo donut, label.formatter hiển thị tên + %
-- Số tiền đơn vị VND (đồng Việt Nam), thường hàng trăm nghìn đến hàng triệu
+For each insight:
+- title: short title in Vietnamese
+- summary: 1–2 practical sentences in Vietnamese with specific numbers and the ₫ symbol
+- option: a compact Apache ECharts 5 option object${objectiveLine}
 
-Chỉ sinh insight có giá trị thực. Nếu data ít (<5 giao dịch), sinh 1–2 insight.`;
+ECharts rules (keep option objects small to fit in context):
+- Pick the best chart type: "pie" (category breakdown), "bar" (comparison/ranking), "line" (daily/monthly trend)
+- Colors: ["#0066cc","#30d158","#ff453a","#ff9f0a","#bf5af2","#32ade6","#ac8e68"]
+- Do NOT set title inside option (already shown externally)
+- Do NOT set fixed width/height
+- tooltip: use plain string formatter, e.g. "{b}: {c} ₫ ({d}%)"
+- Pie chart: radius ["35%","65%"] for donut style
+- Amounts are in VND (Vietnamese dong), typically hundreds of thousands to millions
+- Omit any optional ECharts fields that are not strictly needed
+
+Only generate insights with real value. If data is sparse (<5 transactions), generate 1–2 insights.`;
 
   const result = await runAIObject({
     schema: ReportSchema,
     system,
     prompt: JSON.stringify(input),
+    maxTokens: 4096,
   });
 
   await saveReport(db, userId, periodType, periodKey, result.insights, now);

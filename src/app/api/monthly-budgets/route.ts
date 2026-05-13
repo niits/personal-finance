@@ -60,6 +60,8 @@ export async function POST(request: NextRequest) {
   const amount = parseAmount(b.amount);
   if (!amount) return Errors.validation("Số tiền phải là số nguyên lớn hơn 0");
 
+  const objective = typeof b.objective === "string" ? b.objective.trim().substring(0, 500) || null : null;
+
   const db = await getKysely();
   const userId = session.user.id;
 
@@ -75,7 +77,7 @@ export async function POST(request: NextRequest) {
   const { start_date, end_date } = getBudgetPeriodInclusive(month);
   const result = await db
     .insertInto("monthly_budget")
-    .values({ user_id: userId, month, amount, start_date, end_date })
+    .values({ user_id: userId, month, amount, start_date, end_date, objective })
     .returning("id")
     .executeTakeFirst();
 
