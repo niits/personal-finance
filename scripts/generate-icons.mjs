@@ -14,7 +14,8 @@ const MASKABLE_BG = { r: 5, g: 12, b: 20, alpha: 1 };
 const renderAny = (src, size) =>
   sharp(src)
     .resize(size, size, { fit: "cover", kernel: sharp.kernel.lanczos3 })
-    .png({ compressionLevel: 9 })
+    .ensureAlpha()
+    .png({ compressionLevel: 9, palette: false })
     .toBuffer();
 
 async function renderMaskable(src, size) {
@@ -24,7 +25,8 @@ async function renderMaskable(src, size) {
     create: { width: size, height: size, channels: 4, background: MASKABLE_BG },
   })
     .composite([{ input: inner, gravity: "center" }])
-    .png({ compressionLevel: 9 })
+    .ensureAlpha()
+    .png({ compressionLevel: 9, palette: false })
     .toBuffer();
 }
 
