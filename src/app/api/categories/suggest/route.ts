@@ -116,7 +116,8 @@ Gợi ý các danh mục mới nên thêm để tổ chức tốt hơn.`;
   } catch (err) {
     console.error("AI suggest error:", err);
     await db.prepare("DELETE FROM ai_suggestion_run WHERE id = ?").bind(runId).run();
-    return Response.json({ error: err, code: "AI_ERROR" }, { status: 502 });
+    const message = err instanceof Error ? err.message : String(err);
+    return Response.json({ error: message, code: "AI_ERROR" }, { status: 502 });
   }
 
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
