@@ -182,7 +182,7 @@ Only generate insights with real value. If data is sparse (<5 transactions), gen
     schema: ReportSchema,
     system,
     prompt: JSON.stringify(input),
-    maxTokens: 4096,
+    maxOutputTokens: 4096,
   });
 
   await saveReport(db, userId, periodType, periodKey, result.insights, now);

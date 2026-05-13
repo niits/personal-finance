@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { generateObject } from "ai";
+import { generateText, Output, type LanguageModel } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
 import type { ZodType } from "zod";
 
@@ -9,18 +9,26 @@ export async function runAIObject<T>(opts: {
   schema: ZodType<T>;
   system?: string;
   prompt: string;
-  maxTokens?: number;
+  maxOutputTokens?: number;
 }): Promise<T> {
   const { env } = await getCloudflareContext({ async: true });
   const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
 
-  const { object } = await generateObject({
+  const { output: result } = await generateText({
     model: workersai(MODEL),
-    schema: opts.schema,
+    output: Output.object({ schema: opts.schema }),
     system: opts.system,
     prompt: opts.prompt,
-    maxTokens: opts.maxTokens ?? 4096,
+    maxOutputTokens: opts.maxOutputTokens ?? 4096,
   });
 
-  return object;
+  return result as T;
 }
+
+export async function getWorkersAIModel(): Promise<LanguageModel> {
+  const { env } = await getCloudflareContext({ async: true });
+  const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
+  return workersai(MODEL);
+}
+
+export { generateText };
