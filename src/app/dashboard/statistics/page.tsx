@@ -4,12 +4,44 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { Insight } from "@/lib/statistics";
 
+const CHART_COLORS = ["#0066cc", "#30d158", "#ff453a", "#ff9f0a", "#bf5af2", "#32ade6", "#ac8e68"];
+
+// Handles both new format (chart_type + chart_data) and legacy DB format (option)
+type AnyInsight = Insight | { title: string; summary: string; option: Record<string, unknown> };
+
+function buildEChartsOption(insight: Insight) {
+  const data = insight.chart_data;
+  if (insight.chart_type === "pie") {
+    return {
+      color: CHART_COLORS,
+      tooltip: { trigger: "item", formatter: "{b}: {c} ₫ ({d}%)" },
+      series: [{ type: "pie", radius: ["35%", "65%"], data }],
+    };
+  }
+  if (insight.chart_type === "bar") {
+    return {
+      color: CHART_COLORS,
+      tooltip: { trigger: "axis" },
+      xAxis: { type: "category", data: data.map((d) => d.name), axisLabel: { fontSize: 11 } },
+      yAxis: { type: "value" },
+      series: [{ type: "bar", data: data.map((d) => d.value) }],
+    };
+  }
+  return {
+    color: CHART_COLORS,
+    tooltip: { trigger: "axis" },
+    xAxis: { type: "category", data: data.map((d) => d.name) },
+    yAxis: { type: "value" },
+    series: [{ type: "line", smooth: true, data: data.map((d) => d.value), areaStyle: { opacity: 0.15 } }],
+  };
+}
+
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
 
 type Report = {
   found: true;
   period_key: string;
-  insights: Insight[];
+  insights: AnyInsight[];
   is_dirty: boolean;
   is_current_period: boolean;
   generated_at: number;
@@ -295,7 +327,9 @@ function EmptyState({ monthLabel, showJumpToCurrent, onJumpToCurrent }: {
   );
 }
 
-function InsightCard({ insight }: { insight: Insight }) {
+function InsightCard({ insight }: { insight: AnyInsight }) {
+  const isNew = "chart_type" in insight;
+  const chartOption = isNew ? buildEChartsOption(insight) : insight.option;
   return (
     <div style={{ background: "var(--canvas)", borderRadius: 16, padding: "20px", border: "1px solid var(--hairline)" }}>
       <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.374, marginBottom: 6 }}>
@@ -305,10 +339,20 @@ function InsightCard({ insight }: { insight: Insight }) {
         {insight.summary}
       </p>
       <ReactECharts
-        option={insight.option}
+        option={chartOption as Record<string, unknown>}
         style={{ height: 220 }}
         opts={{ renderer: "canvas" }}
       />
+      {isNew && insight.evidence && (
+        <details style={{ marginTop: 12 }}>
+          <summary style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", cursor: "pointer" }}>
+            Dữ liệu
+          </summary>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 4, lineHeight: 1.5 }}>
+            {insight.evidence}
+          </p>
+        </details>
+      )}
     </div>
   );
 }

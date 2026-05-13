@@ -1,28 +1,17 @@
 import { z } from "zod";
 import { sql } from "kysely";
+import { tool, stepCountIs } from "ai";
 import { getKysely } from "@/lib/db";
-import { runAIObject } from "@/lib/llm";
+import { getWorkersAIModel, generateText } from "@/lib/llm";
 import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate } from "@/lib/validators";
 
 export type Insight = {
   title: string;
   summary: string;
-  option: Record<string, unknown>;
+  chart_type: "pie" | "bar" | "line";
+  chart_data: { name: string; value: number }[];
+  evidence?: string;
 };
-
-const InsightSchema = z.object({
-  title: z.string(),
-  summary: z.string(),
-  // z.any() → JSON Schema {} (unconstrained) — required for Llama-4-scout
-  // constrained-generation to emit arbitrary ECharts option objects.
-  // z.record(z.string(), z.unknown()) incorrectly produces additionalProperties:false.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  option: z.any() as z.ZodType<Record<string, unknown>>,
-});
-
-const ReportSchema = z.object({
-  insights: z.array(InsightSchema).min(1).max(5),
-});
 
 function prevMonthKey(key: string): string {
   const [y, m] = key.split("-").map(Number);
@@ -137,55 +126,128 @@ export async function generateStatisticsReport(
     }),
   );
 
-  const input = {
-    period: {
-      type: periodType,
-      key: periodKey,
-      start: periodStart,
-      end: effectiveEnd,
-      budget_amount: budget?.amount ?? null,
-    },
-    transactions: txns.map((t) => ({
-      date: t.date,
-      amount: t.amount,
-      type: t.type,
-      category: resolveCategoryPath(t.category_id, catMap),
-      note: t.note,
-    })),
-    prior_periods: priorSummaries,
-  };
-
   const objectiveLine = budget?.objective
-    ? `\nUser's financial objective for this period: "${budget.objective}" — prioritise insights that help them achieve this goal.`
+    ? `\nUser's financial objective: "${budget.objective}" — align insights to help achieve this.`
     : "";
 
-  const system = `You are a personal finance analyst. Analyse the spending data and generate 2–4 of the most valuable insights.
+  const system = `You are a personal finance analyst. Use the tools to query spending data, then call submit_insights with 2–4 of the most valuable insights.${objectiveLine}
 
-For each insight:
-- title: short title in Vietnamese
-- summary: 1–2 practical sentences in Vietnamese with specific numbers and the ₫ symbol
-- option: a compact Apache ECharts 5 option object${objectiveLine}
+Each insight must have:
+- title: short Vietnamese title
+- summary: 1–2 sentences in Vietnamese with specific numbers and ₫
+- chart_type: "pie" (category breakdown) | "bar" (comparison/ranking) | "line" (daily trend)
+- chart_data: [{name, value}] — the actual data points
+- evidence: one sentence citing the key numbers behind this insight
 
-ECharts rules (keep option objects small to fit in context):
-- Pick the best chart type: "pie" (category breakdown), "bar" (comparison/ranking), "line" (daily/monthly trend)
-- Colors: ["#0066cc","#30d158","#ff453a","#ff9f0a","#bf5af2","#32ade6","#ac8e68"]
-- Do NOT set title inside option (already shown externally)
-- Do NOT set fixed width/height
-- tooltip: use plain string formatter, e.g. "{b}: {c} ₫ ({d}%)"
-- Pie chart: radius ["35%","65%"] for donut style
-- Amounts are in VND (Vietnamese dong), typically hundreds of thousands to millions
-- Omit any optional ECharts fields that are not strictly needed
+Workflow: call get_expense_by_category first, then other tools if useful, then call submit_insights once.`;
 
-Only generate insights with real value. If data is sparse (<5 transactions), generate 1–2 insights.`;
+  const chartDataSchema = z.array(z.object({ name: z.string(), value: z.number() }));
+  let capturedInsights: Insight[] = [];
 
-  const result = await runAIObject({
-    schema: ReportSchema,
+  const model = await getWorkersAIModel();
+  await generateText({
+    model,
+    stopWhen: stepCountIs(5),
+    maxOutputTokens: 2048,
     system,
-    prompt: JSON.stringify(input),
-    maxOutputTokens: 4096,
+    prompt: JSON.stringify({
+      period: { key: periodKey, start: periodStart, end: effectiveEnd, budget_amount: budget?.amount ?? null },
+      prior_periods: priorSummaries,
+    }),
+    tools: {
+      get_expense_by_category: tool({
+        description: "Aggregate expenses by category for the period. Returns [{category, total, pct}] sorted by total desc.",
+        inputSchema: z.object({}),
+        execute: async (_input) => {
+          const rows = await db
+            .selectFrom("transaction")
+            .select(["amount", "category_id"])
+            .where("user_id", "=", userId)
+            .where("date", ">=", periodStart)
+            .where("date", "<=", effectiveEnd)
+            .where("type", "=", "expense")
+            .execute();
+          const totals = new Map<string, number>();
+          for (const r of rows) {
+            const cat = resolveCategoryPath(r.category_id, catMap);
+            totals.set(cat, (totals.get(cat) ?? 0) + r.amount);
+          }
+          const grandTotal = [...totals.values()].reduce((a, b) => a + b, 0) || 1;
+          return [...totals.entries()]
+            .map(([category, total]) => ({ category, total, pct: Math.round((total / grandTotal) * 100) }))
+            .sort((a, b) => b.total - a.total);
+        },
+      }),
+      get_daily_totals: tool({
+        description: "Get daily expense and income totals for the period. Returns [{date, expense, income}].",
+        inputSchema: z.object({}),
+        execute: async (_input) => {
+          const rows = await db
+            .selectFrom("transaction")
+            .select(["date", "amount", "type"])
+            .where("user_id", "=", userId)
+            .where("date", ">=", periodStart)
+            .where("date", "<=", effectiveEnd)
+            .orderBy("date", "asc")
+            .execute();
+          const byDate = new Map<string, { expense: number; income: number }>();
+          for (const r of rows) {
+            const d = byDate.get(r.date) ?? { expense: 0, income: 0 };
+            if (r.type === "expense") d.expense += r.amount;
+            else d.income += r.amount;
+            byDate.set(r.date, d);
+          }
+          return [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
+        },
+      }),
+      get_top_expenses: tool({
+        description: "Get top N individual expense transactions by amount.",
+        inputSchema: z.object({ limit: z.number().int().min(1).max(20) }),
+        execute: async (input) => {
+          const { limit } = input;
+          const rows = await db
+            .selectFrom("transaction")
+            .select(["date", "amount", "category_id", "note"])
+            .where("user_id", "=", userId)
+            .where("date", ">=", periodStart)
+            .where("date", "<=", effectiveEnd)
+            .where("type", "=", "expense")
+            .orderBy("amount", "desc")
+            .limit(limit)
+            .execute();
+          return rows.map((r) => ({
+            date: r.date,
+            amount: r.amount,
+            category: resolveCategoryPath(r.category_id, catMap),
+            note: r.note,
+          }));
+        },
+      }),
+      submit_insights: tool({
+        description: "Submit the final insights. Call exactly once when you have enough data.",
+        inputSchema: z.object({
+          insights: z.array(
+            z.object({
+              title: z.string(),
+              summary: z.string(),
+              chart_type: z.enum(["pie", "bar", "line"]),
+              chart_data: chartDataSchema,
+              evidence: z.string(),
+            }),
+          ).min(1).max(4),
+        }),
+        execute: async (input) => {
+          const { insights } = input;
+          capturedInsights = insights;
+          return { ok: true };
+        },
+      }),
+    },
   });
 
-  await saveReport(db, userId, periodType, periodKey, result.insights, now);
+  if (capturedInsights.length === 0) throw new Error("Agent did not call submit_insights");
+
+  await saveReport(db, userId, periodType, periodKey, capturedInsights, now);
 }
 
 async function saveReport(
