@@ -5,13 +5,22 @@ import { getKysely } from "@/lib/db";
 import { getWorkersAIModel, generateText } from "@/lib/llm";
 import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate } from "@/lib/validators";
 
+export type InsightType = "analysis" | "recommendation" | "alert";
+
 export type Insight = {
+  type?: InsightType;
   title: string;
   summary: string;
-  chart_type: "pie" | "bar" | "line";
-  chart_data: { name: string; value: number }[];
+  chart_type?: "pie" | "bar" | "line";
+  chart_data?: { name: string; value: number }[];
   evidence?: string;
 };
+
+export type AgentEvent =
+  | { type: "tool_call"; tool: string; label: string }
+  | { type: "tool_result"; tool: string; rows: number }
+  | { type: "done" }
+  | { type: "error"; message: string };
 
 function prevMonthKey(key: string): string {
   const [y, m] = key.split("-").map(Number);
@@ -38,6 +47,7 @@ export async function generateStatisticsReport(
   userId: string,
   periodType: "monthly",
   periodKey: string,
+  emit?: (event: AgentEvent) => void,
 ): Promise<void> {
   const db = await getKysely();
 
@@ -127,25 +137,43 @@ export async function generateStatisticsReport(
   );
 
   const objectiveLine = budget?.objective
-    ? `\nUser's financial objective: "${budget.objective}" — align insights to help achieve this.`
+    ? `\n\nUser's financial goal this period: "${budget.objective}" — frame recommendations around achieving it.`
     : "";
 
-  const system = `You are a personal finance analyst. Use the tools to query spending data, then call submit_insights with 2–4 of the most valuable insights.${objectiveLine}
+  const system = `You are a trusted personal finance manager — the user's financial butler. You know their spending intimately and give honest, specific advice.${objectiveLine}
+
+Use the tools to gather data, then call submit_insights with 3–5 insights. Mix insight types:
+- "analysis": spending breakdown or trend, always include chart_type + chart_data
+- "recommendation": a specific action the user should take (chart optional)
+- "alert": anomaly, overspend, or pattern worth flagging (chart optional)
 
 Each insight must have:
-- title: short Vietnamese title
-- summary: 1–2 sentences in Vietnamese with specific numbers and ₫
-- chart_type: "pie" (category breakdown) | "bar" (comparison/ranking) | "line" (daily trend)
-- chart_data: [{name, value}] — the actual data points
-- evidence: one sentence citing the key numbers behind this insight
+- type: "analysis" | "recommendation" | "alert"
+- title: concise Vietnamese title
+- summary: 1–3 sentences in Vietnamese, cite real numbers and ₫, be direct and specific
+- chart_type + chart_data: required for "analysis", optional for others
+- evidence: one sentence with the key data point
 
-Workflow: call get_expense_by_category first, then other tools if useful, then call submit_insights once.`;
+Chart types: pie = category breakdown, bar = comparison/ranking, line = daily trend
+
+Workflow:
+1. Call get_expense_by_category (always)
+2. Call get_budget_status if there's a budget set
+3. Call get_notable_transactions to find spending with context (notes, large items)
+4. Call other tools if needed
+5. Call submit_insights — do NOT generate any text response, only call tools`;
 
   const chartDataSchema = z.array(z.object({ name: z.string(), value: z.number() }));
   let capturedInsights: Insight[] = [];
 
   const model = await getWorkersAIModel();
   await generateText({
+    onStepFinish({ finishReason }) {
+      // If the model returns text instead of a tool call, log for debugging
+      if (finishReason === "stop" && capturedInsights.length === 0) {
+        console.warn("[stats] model stopped without calling submit_insights");
+      }
+    },
     model,
     stopWhen: stepCountIs(5),
     maxOutputTokens: 2048,
@@ -159,6 +187,7 @@ Workflow: call get_expense_by_category first, then other tools if useful, then c
         description: "Aggregate expenses by category for the period. Returns [{category, total, pct}] sorted by total desc.",
         inputSchema: z.object({}),
         execute: async (_input) => {
+          emit?.({ type: "tool_call", tool: "get_expense_by_category", label: "Tổng hợp theo danh mục" });
           const rows = await db
             .selectFrom("transaction")
             .select(["amount", "category_id"])
@@ -173,15 +202,18 @@ Workflow: call get_expense_by_category first, then other tools if useful, then c
             totals.set(cat, (totals.get(cat) ?? 0) + r.amount);
           }
           const grandTotal = [...totals.values()].reduce((a, b) => a + b, 0) || 1;
-          return [...totals.entries()]
+          const result = [...totals.entries()]
             .map(([category, total]) => ({ category, total, pct: Math.round((total / grandTotal) * 100) }))
             .sort((a, b) => b.total - a.total);
+          emit?.({ type: "tool_result", tool: "get_expense_by_category", rows: result.length });
+          return result;
         },
       }),
       get_daily_totals: tool({
         description: "Get daily expense and income totals for the period. Returns [{date, expense, income}].",
         inputSchema: z.object({}),
         execute: async (_input) => {
+          emit?.({ type: "tool_call", tool: "get_daily_totals", label: "Xu hướng theo ngày" });
           const rows = await db
             .selectFrom("transaction")
             .select(["date", "amount", "type"])
@@ -197,48 +229,96 @@ Workflow: call get_expense_by_category first, then other tools if useful, then c
             else d.income += r.amount;
             byDate.set(r.date, d);
           }
-          return [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
+          const result = [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
+          emit?.({ type: "tool_result", tool: "get_daily_totals", rows: result.length });
+          return result;
         },
       }),
-      get_top_expenses: tool({
-        description: "Get top N individual expense transactions by amount.",
-        inputSchema: z.object({ limit: z.number().int().min(1).max(20) }),
+      get_notable_transactions: tool({
+        description: "Get transactions with notes or large individual amounts. Useful for citing specific purchases and understanding context behind spending. Returns [{date, amount, category, note, type}].",
+        inputSchema: z.object({
+          filter: z.enum(["has_note", "large", "all"]).describe("has_note: only with notes, large: top 10 by amount, all: both"),
+          limit: z.number().int().min(1).max(30).default(15),
+        }),
         execute: async (input) => {
-          const { limit } = input;
-          const rows = await db
+          const { filter, limit } = input;
+          emit?.({ type: "tool_call", tool: "get_notable_transactions", label: `Giao dịch đáng chú ý (${filter})` });
+          let query = db
             .selectFrom("transaction")
-            .select(["date", "amount", "category_id", "note"])
+            .select(["date", "amount", "category_id", "note", "type"])
             .where("user_id", "=", userId)
             .where("date", ">=", periodStart)
-            .where("date", "<=", effectiveEnd)
-            .where("type", "=", "expense")
-            .orderBy("amount", "desc")
-            .limit(limit)
-            .execute();
-          return rows.map((r) => ({
+            .where("date", "<=", effectiveEnd);
+          if (filter === "has_note") query = query.where("note", "is not", null);
+          const rows = await query.orderBy("amount", "desc").limit(limit).execute();
+          const result = rows.map((r) => ({
             date: r.date,
             amount: r.amount,
             category: resolveCategoryPath(r.category_id, catMap),
-            note: r.note,
+            note: r.note ?? null,
+            type: r.type,
           }));
+          emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: result.length });
+          return result;
+        },
+      }),
+      get_budget_status: tool({
+        description: "Get current budget usage: total expense, total income, budget amount, days elapsed vs total, and daily pace.",
+        inputSchema: z.object({}),
+        execute: async (_input) => {
+          emit?.({ type: "tool_call", tool: "get_budget_status", label: "Trạng thái ngân sách" });
+          const agg = await db
+            .selectFrom("transaction")
+            .select([
+              sql<number>`COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0)`.as("total_expense"),
+              sql<number>`COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0)`.as("total_income"),
+              sql<number>`COUNT(*)`.as("tx_count"),
+            ])
+            .where("user_id", "=", userId)
+            .where("date", ">=", periodStart)
+            .where("date", "<=", effectiveEnd)
+            .executeTakeFirst();
+          const start = new Date(periodStart + "T00:00:00Z");
+          const end = new Date(effectiveEnd + "T00:00:00Z");
+          const today = new Date(currentDate() + "T00:00:00Z");
+          const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+          const elapsedDays = Math.min(totalDays, Math.round((today.getTime() - start.getTime()) / 86400000) + 1);
+          const totalExpense = agg?.total_expense ?? 0;
+          const dailyPace = elapsedDays > 0 ? Math.round(totalExpense / elapsedDays) : 0;
+          const projectedTotal = dailyPace * totalDays;
+          const result = {
+            total_expense: totalExpense,
+            total_income: agg?.total_income ?? 0,
+            tx_count: agg?.tx_count ?? 0,
+            budget_amount: budget?.amount ?? null,
+            budget_used_pct: budget?.amount ? Math.round((totalExpense / budget.amount) * 100) : null,
+            days_elapsed: elapsedDays,
+            days_total: totalDays,
+            daily_pace: dailyPace,
+            projected_total: projectedTotal,
+          };
+          emit?.({ type: "tool_result", tool: "get_budget_status", rows: 1 });
+          return result;
         },
       }),
       submit_insights: tool({
-        description: "Submit the final insights. Call exactly once when you have enough data.",
+        description: "Submit the final insights. Call exactly once. Do NOT output any text — only call this tool.",
         inputSchema: z.object({
           insights: z.array(
             z.object({
+              type: z.enum(["analysis", "recommendation", "alert"]).default("analysis"),
               title: z.string(),
               summary: z.string(),
-              chart_type: z.enum(["pie", "bar", "line"]),
-              chart_data: chartDataSchema,
+              chart_type: z.enum(["pie", "bar", "line"]).optional(),
+              chart_data: chartDataSchema.optional(),
               evidence: z.string(),
             }),
-          ).min(1).max(4),
+          ).min(1).max(5),
         }),
         execute: async (input) => {
-          const { insights } = input;
-          capturedInsights = insights;
+          emit?.({ type: "tool_call", tool: "submit_insights", label: `Tổng hợp ${input.insights.length} nhận xét` });
+          capturedInsights = input.insights;
+          emit?.({ type: "tool_result", tool: "submit_insights", rows: capturedInsights.length });
           return { ok: true };
         },
       }),

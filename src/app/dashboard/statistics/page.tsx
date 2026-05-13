@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import type { Insight } from "@/lib/statistics";
+import type { Insight, AgentEvent } from "@/lib/statistics";
+
+type AgentStep = AgentEvent & { id: number };
 
 const CHART_COLORS = ["#0066cc", "#30d158", "#ff453a", "#ff9f0a", "#bf5af2", "#32ade6", "#ac8e68"];
 
@@ -11,6 +13,7 @@ type AnyInsight = Insight | { title: string; summary: string; option: Record<str
 
 function buildEChartsOption(insight: Insight) {
   const data = insight.chart_data;
+  if (!data || !insight.chart_type) return null;
   if (insight.chart_type === "pie") {
     return {
       color: CHART_COLORS,
@@ -99,13 +102,52 @@ export default function StatisticsPage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [upperBound] = useState(currentMonth);
+  const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
+  const stepCounter = useRef(0);
   // Latch month requests so a slow background refresh on month A doesn't overwrite month B.
   const activeMonth = useRef(selectedMonth);
 
-  const generate = useCallback(async (month: string): Promise<{ report: Report } | { error: ApiError }> => {
+  const generate = useCallback(async (
+    month: string,
+    onStep?: (step: AgentStep) => void,
+  ): Promise<{ report: Report } | { error: ApiError }> => {
     const res = await fetch(`/api/statistics?period_key=${month}`, { method: "POST" });
     if (!res.ok) return { error: await readError(res) };
-    return { report: (await res.json()) as Report };
+
+    // Read SSE stream
+    const reader = res.body?.getReader();
+    if (!reader) return { error: { status: 500, error: "No response body" } };
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let finalReport: Report | null = null;
+    let streamError: ApiError | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() ?? "";
+      for (const part of parts) {
+        if (!part.startsWith("data: ")) continue;
+        try {
+          const event = JSON.parse(part.slice(6)) as AgentEvent | { type: "report"; report: Report };
+          if (event.type === "report") {
+            finalReport = event.report;
+          } else if (event.type === "error") {
+            streamError = { status: 500, error: event.message };
+          } else {
+            const step: AgentStep = { ...event, id: ++stepCounter.current };
+            onStep?.(step);
+          }
+        } catch { /* malformed event, skip */ }
+      }
+    }
+
+    if (streamError) return { error: streamError };
+    if (!finalReport) return { error: { status: 500, error: "Stream ended without report" } };
+    return { report: finalReport };
   }, []);
 
   const load = useCallback(async (month: string) => {
@@ -120,7 +162,10 @@ export default function StatisticsPage() {
     if (res.status === 404) {
       if (activeMonth.current !== month) return;
       setStatus("generating");
-      const result = await generate(month);
+      setAgentSteps([]);
+      const result = await generate(month, (step) => {
+        if (activeMonth.current === month) setAgentSteps((prev) => [...prev, step]);
+      });
       if (activeMonth.current !== month) return;
       if ("error" in result) { setError(result.error); setStatus("error"); return; }
       setReport(result.report);
@@ -158,8 +203,11 @@ export default function StatisticsPage() {
   const regenerate = useCallback(async (month: string) => {
     activeMonth.current = month;
     setStatus("generating");
+    setAgentSteps([]);
     setError(null);
-    const result = await generate(month);
+    const result = await generate(month, (step) => {
+      if (activeMonth.current === month) setAgentSteps((prev) => [...prev, step]);
+    });
     if (activeMonth.current !== month) return;
     if ("error" in result) {
       // No prior report → show full error. Prior report exists → keep it visible
@@ -209,14 +257,30 @@ export default function StatisticsPage() {
         )}
 
         {status === "generating" && (
-          <div style={{ padding: "48px 20px", textAlign: "center" }}>
-            <GeneratingSpinner />
-            <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>
-              Đang phân tích…
-            </p>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", lineHeight: 1.5 }}>
-              AI đang đọc dữ liệu và tạo báo cáo cho {toMonthLabel(selectedMonth)}
-            </p>
+          <div style={{ padding: "32px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <GeneratingSpinner />
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)" }}>
+                Đang phân tích…
+              </p>
+            </div>
+            {agentSteps.length > 0 && (
+              <div style={{ background: "var(--canvas)", borderRadius: 12, padding: "14px 16px", border: "1px solid var(--hairline)", fontFamily: "var(--font-body)", fontSize: 13 }}>
+                {agentSteps.map((step) => (
+                  <div key={step.id} style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "3px 0", color: step.type === "tool_result" ? "var(--ink-muted-48)" : "var(--ink)" }}>
+                    <span style={{ flexShrink: 0, fontSize: 11 }}>{step.type === "tool_call" ? "⚙️" : "✓"}</span>
+                    <span>
+                      {step.type === "tool_call" ? step.label : step.type === "tool_result" ? `${step.rows} kết quả` : null}
+                    </span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center", color: "var(--ink-muted-48)" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--primary)", animation: "pulse 1s ease-in-out infinite" }} />
+                  <span>Đang xử lý…</span>
+                  <style>{`@keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }`}</style>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -327,29 +391,55 @@ function EmptyState({ monthLabel, showJumpToCurrent, onJumpToCurrent }: {
   );
 }
 
+const INSIGHT_TYPE_STYLE: Record<string, { label: string; color: string; bg: string }> = {
+  analysis:       { label: "Phân tích",     color: "#0066cc", bg: "rgba(0,102,204,0.08)" },
+  recommendation: { label: "Gợi ý",         color: "#1c7c34", bg: "rgba(48,209,88,0.1)"  },
+  alert:          { label: "Cảnh báo",      color: "#b94a05", bg: "rgba(255,69,58,0.08)" },
+};
+
 function InsightCard({ insight }: { insight: AnyInsight }) {
-  const isNew = "chart_type" in insight;
-  const chartOption = isNew ? buildEChartsOption(insight) : insight.option;
+  const isNew = "chart_type" in insight || "type" in insight;
+  const newInsight = isNew ? (insight as Insight) : null;
+  const chartOption = newInsight
+    ? buildEChartsOption(newInsight)
+    : (insight as { option: Record<string, unknown> }).option;
+
+  const badge = newInsight?.type ? INSIGHT_TYPE_STYLE[newInsight.type] ?? null : null;
+  const borderColor = newInsight?.type === "alert"
+    ? "rgba(255,69,58,0.25)"
+    : newInsight?.type === "recommendation"
+    ? "rgba(48,209,88,0.25)"
+    : "var(--hairline)";
+
   return (
-    <div style={{ background: "var(--canvas)", borderRadius: 16, padding: "20px", border: "1px solid var(--hairline)" }}>
-      <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.374, marginBottom: 6 }}>
-        {insight.title}
-      </p>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", lineHeight: 1.5, marginBottom: 16 }}>
+    <div style={{ background: "var(--canvas)", borderRadius: 16, padding: "20px", border: `1px solid ${borderColor}` }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+        <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.374, margin: 0, flex: 1 }}>
+          {insight.title}
+        </p>
+        {badge && (
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 600, color: badge.color, background: badge.bg, borderRadius: 6, padding: "2px 7px", flexShrink: 0, marginTop: 2 }}>
+            {badge.label}
+          </span>
+        )}
+      </div>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", lineHeight: 1.5, marginBottom: chartOption ? 16 : 0 }}>
         {insight.summary}
       </p>
-      <ReactECharts
-        option={chartOption as Record<string, unknown>}
-        style={{ height: 220 }}
-        opts={{ renderer: "canvas" }}
-      />
-      {isNew && insight.evidence && (
-        <details style={{ marginTop: 12 }}>
+      {chartOption && (
+        <ReactECharts
+          option={chartOption as Record<string, unknown>}
+          style={{ height: 220 }}
+          opts={{ renderer: "canvas" }}
+        />
+      )}
+      {newInsight?.evidence && (
+        <details style={{ marginTop: chartOption ? 12 : 16 }}>
           <summary style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", cursor: "pointer" }}>
             Dữ liệu
           </summary>
           <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 4, lineHeight: 1.5 }}>
-            {insight.evidence}
+            {newInsight.evidence}
           </p>
         </details>
       )}
