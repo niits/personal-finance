@@ -17,7 +17,6 @@ export type Insight = {
   chart_type?: ChartType;
   chart_data?: ChartDatum[];
   value_unit?: "currency" | "percent" | "count";
-  evidence?: string;
 };
 
 export type AgentEvent =
@@ -217,9 +216,9 @@ export async function generateStatisticsReport(
     ? `\n\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
     : "";
 
-  const system = `You are a trusted personal finance manager. You have been given all spending data for a period. Respond with 3–5 genuinely useful insights in valid JSON.${objectiveLine}
+  const system = `You are a trusted personal finance manager. You have been given all spending data for a period. Respond with 3–5 genuinely useful insights as a JSON object matching the provided schema.${objectiveLine}
 
-**Visualization-first**: Every insight MUST include a chart whenever the underlying data supports it. Charts carry the message; summary text is a one-line caption.
+**Visualization-first**: every "analysis" insight and every numeric "alert" MUST set \`chart_type\` AND populate \`chart_data\` with structured rows. The chart carries the data; the summary is a one-line caption.
 
 Insight types:
 - "analysis": data-backed breakdown or trend — chart REQUIRED
@@ -229,11 +228,12 @@ Insight types:
 Chart selection guide:
 - "pie": share of a whole (categories of expense)
 - "bar": top-N comparison (largest categories, expense vs income totals)
-- "bar_grouped": two series side-by-side per name — use \`series\` field on each datum (e.g. {name:"Ăn uống", value:3016320, series:"Tháng này"}, {name:"Ăn uống", value:2400000, series:"Tháng trước"})
+- "bar_grouped": two series side-by-side per name — use \`series\` field on each datum
 - "line": daily trend over time — name = ISO date, value = amount per day
 
 Data rules:
 - chart_data values are RAW numbers from the input (no formatting, no units in the value)
+- Each chart_data row uses fields { "name": string, "value": number, "series"?: string } — never "category" or other keys
 - value_unit: "currency" for ₫ amounts, "percent" for 0–100 percentages, "count" for tx counts
 - Use exact numbers from the input data (no rounding, no fabrication)
 - For pie/bar, sort by value descending; cap at 8 entries (group small ones as "Khác")
@@ -242,30 +242,47 @@ Data rules:
 Text rules (Vietnamese):
 - title: max 40 chars, specific (e.g. "Ăn uống chiếm 24% chi tiêu" not "Phân bổ chi tiêu")
 - summary: 1 short sentence — the chart shows the rest. Format numbers as Vietnamese: thousand separator "." and decimal "," (e.g. "3.016.320 ₫", "23,45%"). Round decimals to max 2 places.
-- evidence: one factual sentence with the key numbers, same formatting`;
+
+Example of a well-formed insight (follow this shape exactly):
+{
+  "type": "analysis",
+  "title": "Ăn uống chiếm 24% chi tiêu",
+  "summary": "Ăn uống là khoản lớn nhất, kế đến là Cho tặng và Hoá đơn & dịch vụ.",
+  "chart_type": "pie",
+  "chart_data": [
+    { "name": "Ăn uống", "value": 3016320 },
+    { "name": "Cho tặng", "value": 2250000 },
+    { "name": "Hoá đơn & dịch vụ", "value": 1751000 },
+    { "name": "Khác", "value": 1321328 }
+  ],
+  "value_unit": "currency"
+}`;
 
   const chartDatumSchema = z.object({
-    name: z.string(),
-    value: z.number(),
-    series: z.string().optional(),
+    name: z.string().describe("Category label or ISO date — never the key 'category'"),
+    value: z.number().describe("Raw numeric amount (no formatting, no units)"),
+    series: z.string().optional().describe("Group label, only for bar_grouped"),
   });
 
   const insightSchema = z.object({
     insights: z.array(
       z.object({
         type: z.enum(["analysis", "recommendation", "alert"]),
-        title: z.string(),
-        summary: z.string(),
-        chart_type: z.enum(["pie", "bar", "bar_grouped", "line"]).optional(),
-        chart_data: z.array(chartDatumSchema).optional(),
+        title: z.string().max(60).describe("Specific Vietnamese headline, max 40 chars"),
+        summary: z.string().max(220).describe("One-sentence Vietnamese caption, ≤220 chars"),
+        chart_type: z.enum(["pie", "bar", "bar_grouped", "line"]).optional()
+          .describe("Required for 'analysis' and numeric 'alert'. Omit only if chart truly does not apply."),
+        chart_data: z.array(chartDatumSchema).optional()
+          .describe("Structured rows for the chart. Required whenever chart_type is set."),
         value_unit: z.enum(["currency", "percent", "count"]).optional(),
-        evidence: z.string(),
       }),
     ).min(1).max(5),
   });
 
   const result = await runAIObject({
     schema: insightSchema,
+    schemaName: "FinanceInsightsReport",
+    schemaDescription: "A structured personal finance report with 3–5 insights, each pairing a Vietnamese caption with a chart spec.",
     system,
     traceName: "statistics-insights",
     userId,

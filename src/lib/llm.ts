@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { generateText, Output, NoObjectGeneratedError, type LanguageModel } from "ai";
+import { generateText, generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
 import type { ZodType } from "zod";
 
@@ -10,6 +10,8 @@ const MAX_OUTPUT_TOKENS = 131000;
 
 export async function runAIObject<T>(opts: {
   schema: ZodType<T>;
+  schemaName?: string;
+  schemaDescription?: string;
   system?: string;
   prompt: string;
   maxOutputTokens?: number;
@@ -23,14 +25,16 @@ export async function runAIObject<T>(opts: {
   const cappedTokens = Math.min(opts.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS);
 
   try {
-    const { output: result } = await generateText({
+    const { object } = await generateObject({
       model,
-      output: Output.object({ schema: opts.schema }),
+      schema: opts.schema,
+      schemaName: opts.schemaName,
+      schemaDescription: opts.schemaDescription,
       system: opts.system,
       prompt: opts.prompt,
       maxOutputTokens: cappedTokens,
     });
-    return result as T;
+    return object;
   } catch (structuredErr) {
     if (NoObjectGeneratedError.isInstance(structuredErr) && structuredErr.text != null) {
       throw new Error(

@@ -608,16 +608,6 @@ function InsightCard({ insight }: { insight: Insight }) {
           />
         </div>
       )}
-      {insight.evidence && (
-        <details style={{ marginTop: spec ? 12 : 16 }}>
-          <summary style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", cursor: "pointer", userSelect: "none" }}>
-            Dữ liệu
-          </summary>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginTop: 6, lineHeight: 1.5 }}>
-            {insight.evidence}
-          </p>
-        </details>
-      )}
     </div>
   );
 }
