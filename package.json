@@ -18,12 +18,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.93.0",
     "@better-auth/cli": "^1.4.21",
-    "@opentelemetry/sdk-trace-base": "^2.7.1",
     "ai": "^6.0.175",
     "better-auth": "^1.6.9",
     "kysely": "^0.28.16",
     "kysely-d1": "^0.4.0",
-    "langfuse-vercel": "^3.38.20",
+    "langfuse": "^3.38.20",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
