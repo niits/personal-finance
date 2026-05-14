@@ -195,6 +195,7 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
 type VegaEmbedProps = {
   spec: TopLevelSpec;
   options?: Record<string, unknown>;
+  onError?: (error: unknown) => void;
   className?: string;
 };
 
@@ -394,6 +395,7 @@ export default function StatisticsPage() {
 
   return (
     <div style={{ minHeight: "calc(100svh - 44px - 72px)", background: "var(--canvas-parchment)" }}>
+      <style>{`.vega-embed { display: block !important; width: 100% !important; }`}</style>
 
       {/* ── Header ── */}
       <div style={{ background: "var(--surface-black)", color: "var(--on-dark)", padding: "28px 20px 24px" }}>
@@ -581,6 +583,7 @@ const INSIGHT_TYPE_STYLE: Record<string, { label: string; color: string; bg: str
 function InsightCard({ insight }: { insight: Insight }) {
   const spec = buildVegaLiteSpec(insight);
   const badge = insight.type ? INSIGHT_TYPE_STYLE[insight.type] ?? null : null;
+  const [vegaError, setVegaError] = useState<string | null>(null);
   return (
     <div style={{ background: "var(--canvas)", borderRadius: 18, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
@@ -600,6 +603,7 @@ function InsightCard({ insight }: { insight: Insight }) {
         <div style={{ width: "100%" }}>
           <VegaEmbed
             spec={spec}
+            onError={(e) => setVegaError(String(e))}
             options={{
               actions: false,
               renderer: "canvas",
@@ -609,6 +613,9 @@ function InsightCard({ insight }: { insight: Insight }) {
               timeFormatLocale: VEGA_TIME_FORMAT_LOCALE,
             }}
           />
+          {vegaError && (
+            <pre style={{ fontSize: 12, color: "red", whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 8 }}>{vegaError}</pre>
+          )}
         </div>
       )}
     </div>
