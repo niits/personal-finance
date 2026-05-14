@@ -182,7 +182,7 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
     mark: { type: "bar", cornerRadiusEnd: 4 },
     encoding: {
       y: { field: "name", type: "nominal", sort: "-x", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK, labelFontWeight: 400 } },
-      x: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: valueLabelExpr, tickCount: 3 } },
+      x: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: valueLabelExpr, tickCount: 3, grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] } },
       ...(grouped
         ? {
             color: { field: "series", type: "nominal", legend: { title: null } },

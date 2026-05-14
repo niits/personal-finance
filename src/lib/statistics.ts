@@ -263,11 +263,13 @@ Max 160 characters. Format numbers as Vietnamese: thousand separator "." decimal
 | Situation | Use | Notes |
 |---|---|---|
 | Category comparison (any N) | "bar" — sorted descending | Largest category = top bar = natural focal point |
-| Trend over time (many points) | "line" — name = ISO date "YYYY-MM-DD" | Fill missing days with 0 |
+| Forecast / projection over time (daily spend, pace, future estimate) | "line" — name = ISO date "YYYY-MM-DD" | Always use "line" for anything involving time-based forecasting or predicted values; fill missing days with 0 |
+| Trend over time (historical only, no projection) | "line" — name = ISO date "YYYY-MM-DD" | Fill missing days with 0 |
 | Change between this month vs last month | "bar_grouped" — series = month label | Shows directionality of change instantly |
-| Budget used vs remaining / pace vs limit | "bar_grouped" — two series | "Thực tế" and "Ngân sách" series |
+| Budget used vs remaining / actual vs limit | "bar_grouped" — two series | "Thực tế" and "Ngân sách" series; use "bar_grouped" for any side-by-side comparison, never "bar" |
 
 For "bar": sort chart_data by value descending. Cap at 5 rows; group the tail as "Khác".
+For "bar_grouped": include enough data points so the axis has meaningful tick bins (at least 3 distinct values across both series). Ensure grid lines align to round numbers.
 
 ## Data rules
 
