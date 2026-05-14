@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
+import { expressionInterpreter } from "vega-interpreter";
 import type { TopLevelSpec } from "vega-lite";
 import type { Insight, AgentEvent, ChartDatum } from "@/lib/statistics";
 
@@ -602,6 +603,8 @@ function InsightCard({ insight }: { insight: Insight }) {
             options={{
               actions: false,
               renderer: "canvas",
+              ast: true,
+              expr: expressionInterpreter,
               formatLocale: VEGA_FORMAT_LOCALE,
               timeFormatLocale: VEGA_TIME_FORMAT_LOCALE,
             }}
