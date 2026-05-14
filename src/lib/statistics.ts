@@ -244,6 +244,7 @@ Rules:
     system,
     traceName: "statistics-insights",
     userId,
+    maxOutputTokens: 8000,
     prompt: JSON.stringify({
       period: { key: periodKey, start: periodStart, end: effectiveEnd },
       budget_status: budgetStatus,
