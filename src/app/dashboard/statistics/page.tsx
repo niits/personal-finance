@@ -103,6 +103,7 @@ export default function StatisticsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [upperBound] = useState(currentMonth);
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
+  const [regenError, setRegenError] = useState<ApiError | null>(null);
   const stepCounter = useRef(0);
   // Latch month requests so a slow background refresh on month A doesn't overwrite month B.
   const activeMonth = useRef(selectedMonth);
@@ -155,6 +156,7 @@ export default function StatisticsPage() {
     setStatus("loading");
     setReport(null);
     setError(null);
+    setRegenError(null);
     setRefreshing(false);
 
     const res = await fetch(`/api/statistics?period_key=${month}`);
@@ -196,8 +198,7 @@ export default function StatisticsPage() {
     if (activeMonth.current !== month) return;
     setRefreshing(false);
     if ("report" in result) setReport(result.report);
-    // Background refresh failure: keep stale report visible, log to console for inspection.
-    else console.error("[stats] background refresh failed", result.error);
+    else setRegenError(result.error);
   }, [generate]);
 
   const regenerate = useCallback(async (month: string) => {
@@ -205,15 +206,14 @@ export default function StatisticsPage() {
     setStatus("generating");
     setAgentSteps([]);
     setError(null);
+    setRegenError(null);
     const result = await generate(month, (step) => {
       if (activeMonth.current === month) setAgentSteps((prev) => [...prev, step]);
     });
     if (activeMonth.current !== month) return;
     if ("error" in result) {
-      // No prior report → show full error. Prior report exists → keep it visible
-      // but still log so the user can see the failure in console.
       if (!report) { setError(result.error); setStatus("error"); }
-      else { console.error("[stats] regenerate failed", result.error); setStatus("ready"); }
+      else { setRegenError(result.error); setStatus("ready"); }
       return;
     }
     setReport(result.report);
@@ -294,6 +294,25 @@ export default function StatisticsPage() {
             showJumpToCurrent={selectedMonth !== upperBound}
             onJumpToCurrent={() => setSelectedMonth(upperBound)}
           />
+        )}
+
+        {status === "ready" && regenError && (
+          <div style={{ background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)", borderRadius: 14, padding: "14px 16px", marginBottom: 8, display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <span style={{ color: "#ff453a", flexShrink: 0, fontSize: 16, lineHeight: 1.4 }}>!</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "#b94a05", margin: "0 0 4px" }}>
+                Tạo lại thất bại
+              </p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink)", margin: 0, lineHeight: 1.5, wordBreak: "break-word" }}>
+                {regenError.details?.message ?? regenError.error}
+              </p>
+            </div>
+            <button
+              onClick={() => setRegenError(null)}
+              style={{ background: "none", border: "none", color: "var(--ink-muted-48)", cursor: "pointer", fontSize: 18, lineHeight: 1, flexShrink: 0, padding: 0 }}
+              aria-label="Đóng"
+            >×</button>
+          </div>
         )}
 
         {status === "ready" && report && report.insights.length > 0 && (

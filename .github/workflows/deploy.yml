@@ -96,6 +96,7 @@ jobs:
         run: npm run build:cf
         env:
           NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          APP_VERSION: ${{ github.sha }}
 
       - name: Run D1 migrations (production)
         uses: cloudflare/wrangler-action@v3
@@ -111,3 +112,11 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --env production
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          secrets: |
+            LANGFUSE_SECRET_KEY
+            LANGFUSE_PUBLIC_KEY
+            LANGFUSE_BASE_URL
+        env:
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}

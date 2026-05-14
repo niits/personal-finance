@@ -242,7 +242,8 @@ Rules:
   const result = await runAIObject({
     schema: insightSchema,
     system,
-    maxOutputTokens: 204800,
+    traceName: "statistics-insights",
+    userId,
     prompt: JSON.stringify({
       period: { key: periodKey, start: periodStart, end: effectiveEnd },
       budget_status: budgetStatus,
