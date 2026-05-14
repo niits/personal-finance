@@ -2,49 +2,210 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import type { Insight, AgentEvent } from "@/lib/statistics";
+import type { TopLevelSpec } from "vega-lite";
+import type { Insight, AgentEvent, ChartDatum } from "@/lib/statistics";
 
 type AgentStep = AgentEvent & { id: number };
 
-const CHART_COLORS = ["#0066cc", "#30d158", "#ff453a", "#ff9f0a", "#bf5af2", "#32ade6", "#ac8e68"];
+// DESIGN.md: brand is #0066cc. Single-series charts use only the primary;
+// multi-category charts pull from a desaturated iOS palette that harmonises
+// with the Apple aesthetic without competing for accent status.
+const PRIMARY = "#0066cc";
+const CHART_PALETTE = [PRIMARY, "#30d158", "#ff9f0a", "#bf5af2", "#32ade6", "#ff453a", "#ac8e68", "#5856d6"];
+const INK = "#1d1d1f";
+const INK_MUTED = "#7a7a7a";
+const HAIRLINE = "#e0e0e0";
+const FONT_BODY = "SF Pro Text, system-ui, -apple-system, sans-serif";
 
-// Handles both new format (chart_type + chart_data) and legacy DB format (option)
-type AnyInsight = Insight | { title: string; summary: string; option: Record<string, unknown> };
+// vi-VN number formatting: thousand="." decimal=","
+const VEGA_FORMAT_LOCALE = {
+  decimal: ",",
+  thousands: ".",
+  grouping: [3],
+  currency: ["", " ₫"],
+};
+const VEGA_TIME_FORMAT_LOCALE = {
+  dateTime: "%A, %e %B %Y, %X",
+  date: "%d/%m/%Y",
+  time: "%H:%M:%S",
+  periods: ["SA", "CH"],
+  days: ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"],
+  shortDays: ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
+  months: ["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"],
+  shortMonths: ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","T11","T12"],
+};
 
-function buildEChartsOption(insight: Insight) {
-  const data = insight.chart_data;
-  if (!data || !insight.chart_type) return null;
-  if (insight.chart_type === "pie") {
-    return {
-      color: CHART_COLORS,
-      tooltip: { trigger: "item", formatter: "{b}: {c} ₫ ({d}%)" },
-      series: [{ type: "pie", radius: ["35%", "65%"], data }],
-    };
-  }
-  if (insight.chart_type === "bar") {
-    return {
-      color: CHART_COLORS,
-      tooltip: { trigger: "axis" },
-      xAxis: { type: "category", data: data.map((d) => d.name), axisLabel: { fontSize: 12 } },
-      yAxis: { type: "value" },
-      series: [{ type: "bar", data: data.map((d) => d.value) }],
-    };
-  }
-  return {
-    color: CHART_COLORS,
-    tooltip: { trigger: "axis" },
-    xAxis: { type: "category", data: data.map((d) => d.name) },
-    yAxis: { type: "value" },
-    series: [{ type: "line", smooth: true, data: data.map((d) => d.value), areaStyle: { opacity: 0.15 } }],
-  };
+function vegaFormat(unit?: Insight["value_unit"]): string {
+  if (unit === "percent") return ",.2~f";
+  return ",.0f";
 }
 
-const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
+function vegaUnitSuffix(unit?: Insight["value_unit"]): string {
+  if (unit === "percent") return "%";
+  if (unit === "count") return "";
+  return " ₫";
+}
+
+function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
+  const data = insight.chart_data;
+  if (!data || data.length === 0 || !insight.chart_type) return null;
+  const unit = insight.value_unit;
+  const format = vegaFormat(unit);
+  const suffix = vegaUnitSuffix(unit);
+  const valueTitle = unit === "percent" ? "Tỷ lệ" : unit === "count" ? "Số lượng" : "Số tiền";
+
+  const baseAxis = {
+    labelFont: FONT_BODY,
+    titleFont: FONT_BODY,
+    labelColor: INK_MUTED,
+    titleColor: INK_MUTED,
+    labelFontSize: 11,
+    titleFontSize: 11,
+    labelFontWeight: 400 as const,
+    grid: false,
+    domain: false,
+    ticks: false,
+  };
+  const config = {
+    view: { stroke: null },
+    axis: baseAxis,
+    axisX: { ...baseAxis },
+    axisY: { ...baseAxis, grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] },
+    legend: {
+      labelFont: FONT_BODY,
+      titleFont: FONT_BODY,
+      labelColor: INK,
+      labelFontSize: 12,
+      symbolSize: 72,
+      symbolType: "circle" as const,
+      orient: "bottom" as const,
+      padding: 12,
+      offset: 8,
+    },
+    range: { category: CHART_PALETTE },
+    font: FONT_BODY,
+  };
+  const base = {
+    $schema: "https://vega.github.io/schema/vega-lite/v6.json",
+    width: "container" as const,
+    autosize: { type: "fit" as const, contains: "padding" as const, resize: true },
+    background: "transparent",
+    config,
+    data: { values: data as ChartDatum[] },
+  };
+
+  if (insight.chart_type === "pie") {
+    return {
+      ...base,
+      height: 260,
+      // DESIGN.md: 18px radius on cards. Donut hole + 2px white stroke gives the
+      // "tile within tile" feel without a hard border.
+      mark: { type: "arc", innerRadius: 64, outerRadius: 108, stroke: "#ffffff", strokeWidth: 2, cornerRadius: 2 },
+      encoding: {
+        theta: { field: "value", type: "quantitative", stack: true },
+        color: { field: "name", type: "nominal", legend: { title: null } },
+        tooltip: [
+          { field: "name", type: "nominal", title: "Danh mục" },
+          { field: "value", type: "quantitative", title: valueTitle, format },
+        ],
+      },
+    } as TopLevelSpec;
+  }
+
+  if (insight.chart_type === "line") {
+    const isDate = data.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.name));
+    // DESIGN.md forbids decorative gradients — use a solid 12% fill below the
+    // stroke instead. The fill anchors the curve to the axis without competing
+    // with the line itself.
+    return {
+      ...base,
+      height: 220,
+      layer: [
+        {
+          mark: { type: "area", color: PRIMARY, opacity: 0.12, line: false, interpolate: "monotone" },
+          encoding: {
+            x: isDate
+              ? { field: "name", type: "temporal", title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 6 } }
+              : { field: "name", type: "ordinal", title: null, axis: { labelAngle: 0 } },
+            y: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: `datum.label + '${suffix}'` } },
+          },
+        },
+        {
+          mark: { type: "line", color: PRIMARY, strokeWidth: 2, interpolate: "monotone" },
+          encoding: {
+            x: isDate
+              ? { field: "name", type: "temporal" }
+              : { field: "name", type: "ordinal" },
+            y: { field: "value", type: "quantitative" },
+            tooltip: [
+              isDate
+                ? { field: "name", type: "temporal", title: "Ngày", format: "%d/%m/%Y" }
+                : { field: "name", type: "ordinal", title: "Mục" },
+              { field: "value", type: "quantitative", title: valueTitle, format },
+            ],
+          },
+        },
+        {
+          mark: { type: "point", color: PRIMARY, filled: true, size: 36 },
+          encoding: {
+            x: isDate
+              ? { field: "name", type: "temporal" }
+              : { field: "name", type: "ordinal" },
+            y: { field: "value", type: "quantitative" },
+            opacity: { value: 0 },
+            tooltip: [
+              isDate
+                ? { field: "name", type: "temporal", title: "Ngày", format: "%d/%m/%Y" }
+                : { field: "name", type: "ordinal", title: "Mục" },
+              { field: "value", type: "quantitative", title: valueTitle, format },
+            ],
+          },
+        },
+      ],
+    } as TopLevelSpec;
+  }
+
+  // bar / bar_grouped
+  const hasSeries = data.some((d) => d.series);
+  const grouped = insight.chart_type === "bar_grouped" || hasSeries;
+  const distinctNames = new Set(data.map((d) => d.name)).size;
+  return {
+    ...base,
+    height: Math.max(180, Math.min(360, distinctNames * (grouped ? 32 : 28) + 40)),
+    mark: { type: "bar", cornerRadiusEnd: 4 },
+    encoding: {
+      y: { field: "name", type: "nominal", sort: "-x", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK, labelFontWeight: 400 } },
+      x: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: `datum.label + '${suffix}'`, tickCount: 4 } },
+      ...(grouped
+        ? {
+            color: { field: "series", type: "nominal", legend: { title: null } },
+            yOffset: { field: "series", type: "nominal" },
+          }
+        : { color: { value: PRIMARY } }),
+      tooltip: [
+        { field: "name", type: "nominal", title: "Mục" },
+        ...(grouped ? [{ field: "series", type: "nominal" as const, title: "Nhóm" }] : []),
+        { field: "value", type: "quantitative", title: valueTitle, format },
+      ],
+    },
+  } as TopLevelSpec;
+}
+
+type VegaEmbedProps = {
+  spec: TopLevelSpec;
+  options?: Record<string, unknown>;
+  className?: string;
+};
+
+const VegaEmbed = dynamic<VegaEmbedProps>(
+  () => import("react-vega").then((m) => m.VegaEmbed as React.ComponentType<VegaEmbedProps>),
+  { ssr: false, loading: () => <div style={{ height: 220, background: "var(--canvas)" }} /> },
+);
 
 type Report = {
   found: true;
   period_key: string;
-  insights: AnyInsight[];
+  insights: Insight[];
   is_dirty: boolean;
   is_current_period: boolean;
   generated_at: number;
@@ -416,14 +577,9 @@ const INSIGHT_TYPE_STYLE: Record<string, { label: string; color: string; bg: str
   alert:          { label: "Cảnh báo",      color: "#b94a05", bg: "rgba(255,69,58,0.08)" },
 };
 
-function InsightCard({ insight }: { insight: AnyInsight }) {
-  const isNew = "chart_type" in insight || "type" in insight;
-  const newInsight = isNew ? (insight as Insight) : null;
-  const chartOption = newInsight
-    ? buildEChartsOption(newInsight)
-    : (insight as { option: Record<string, unknown> }).option;
-
-  const badge = newInsight?.type ? INSIGHT_TYPE_STYLE[newInsight.type] ?? null : null;
+function InsightCard({ insight }: { insight: Insight }) {
+  const spec = buildVegaLiteSpec(insight);
+  const badge = insight.type ? INSIGHT_TYPE_STYLE[insight.type] ?? null : null;
   return (
     <div style={{ background: "var(--canvas)", borderRadius: 18, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
@@ -436,23 +592,29 @@ function InsightCard({ insight }: { insight: AnyInsight }) {
           </span>
         )}
       </div>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", lineHeight: 1.5, marginBottom: chartOption ? 16 : 0 }}>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", lineHeight: 1.5, marginBottom: spec ? 16 : 0 }}>
         {insight.summary}
       </p>
-      {chartOption && (
-        <ReactECharts
-          option={chartOption as Record<string, unknown>}
-          style={{ height: 220 }}
-          opts={{ renderer: "canvas" }}
-        />
+      {spec && (
+        <div style={{ width: "100%" }}>
+          <VegaEmbed
+            spec={spec}
+            options={{
+              actions: false,
+              renderer: "canvas",
+              formatLocale: VEGA_FORMAT_LOCALE,
+              timeFormatLocale: VEGA_TIME_FORMAT_LOCALE,
+            }}
+          />
+        </div>
       )}
-      {newInsight?.evidence && (
-        <details style={{ marginTop: chartOption ? 12 : 16 }}>
+      {insight.evidence && (
+        <details style={{ marginTop: spec ? 12 : 16 }}>
           <summary style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", cursor: "pointer", userSelect: "none" }}>
             Dữ liệu
           </summary>
           <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginTop: 6, lineHeight: 1.5 }}>
-            {newInsight.evidence}
+            {insight.evidence}
           </p>
         </details>
       )}

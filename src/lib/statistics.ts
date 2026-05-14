@@ -6,12 +6,17 @@ import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate
 
 export type InsightType = "analysis" | "recommendation" | "alert";
 
+export type ChartType = "pie" | "bar" | "line" | "bar_grouped";
+
+export type ChartDatum = { name: string; value: number; series?: string };
+
 export type Insight = {
   type?: InsightType;
   title: string;
   summary: string;
-  chart_type?: "pie" | "bar" | "line";
-  chart_data?: { name: string; value: number }[];
+  chart_type?: ChartType;
+  chart_data?: ChartDatum[];
+  value_unit?: "currency" | "percent" | "count";
   evidence?: string;
 };
 
@@ -214,17 +219,36 @@ export async function generateStatisticsReport(
 
   const system = `You are a trusted personal finance manager. You have been given all spending data for a period. Respond with 3–5 genuinely useful insights in valid JSON.${objectiveLine}
 
-Insight types (mix them):
-- "analysis": data-backed spending breakdown or trend — MUST include chart_type + chart_data
-- "recommendation": specific action the user should take — chart optional
-- "alert": overspending, anomaly, or behavior worth flagging — chart optional
+**Visualization-first**: Every insight MUST include a chart whenever the underlying data supports it. Charts carry the message; summary text is a one-line caption.
 
-Rules:
-- title: concise Vietnamese (max 40 chars)
-- summary: 1–3 Vietnamese sentences, cite real ₫ amounts, be direct
-- evidence: one key data sentence in Vietnamese
-- chart_type: "pie" = category share, "bar" = comparison, "line" = daily trend
-- chart_data: [{name, value}] using exact numbers from the input data`;
+Insight types:
+- "analysis": data-backed breakdown or trend — chart REQUIRED
+- "alert": overspending, anomaly, or threshold breach — chart REQUIRED if numeric (e.g. budget used vs remaining, daily pace vs limit)
+- "recommendation": concrete next action — chart optional, only include if it strengthens the point
+
+Chart selection guide:
+- "pie": share of a whole (categories of expense)
+- "bar": top-N comparison (largest categories, expense vs income totals)
+- "bar_grouped": two series side-by-side per name — use \`series\` field on each datum (e.g. {name:"Ăn uống", value:3016320, series:"Tháng này"}, {name:"Ăn uống", value:2400000, series:"Tháng trước"})
+- "line": daily trend over time — name = ISO date, value = amount per day
+
+Data rules:
+- chart_data values are RAW numbers from the input (no formatting, no units in the value)
+- value_unit: "currency" for ₫ amounts, "percent" for 0–100 percentages, "count" for tx counts
+- Use exact numbers from the input data (no rounding, no fabrication)
+- For pie/bar, sort by value descending; cap at 8 entries (group small ones as "Khác")
+- For line, include every date in the period; use 0 for days with no activity
+
+Text rules (Vietnamese):
+- title: max 40 chars, specific (e.g. "Ăn uống chiếm 24% chi tiêu" not "Phân bổ chi tiêu")
+- summary: 1 short sentence — the chart shows the rest. Format numbers as Vietnamese: thousand separator "." and decimal "," (e.g. "3.016.320 ₫", "23,45%"). Round decimals to max 2 places.
+- evidence: one factual sentence with the key numbers, same formatting`;
+
+  const chartDatumSchema = z.object({
+    name: z.string(),
+    value: z.number(),
+    series: z.string().optional(),
+  });
 
   const insightSchema = z.object({
     insights: z.array(
@@ -232,8 +256,9 @@ Rules:
         type: z.enum(["analysis", "recommendation", "alert"]),
         title: z.string(),
         summary: z.string(),
-        chart_type: z.enum(["pie", "bar", "line"]).optional(),
-        chart_data: z.array(z.object({ name: z.string(), value: z.number() })).optional(),
+        chart_type: z.enum(["pie", "bar", "bar_grouped", "line"]).optional(),
+        chart_data: z.array(chartDatumSchema).optional(),
+        value_unit: z.enum(["currency", "percent", "count"]).optional(),
         evidence: z.string(),
       }),
     ).min(1).max(5),
@@ -244,7 +269,7 @@ Rules:
     system,
     traceName: "statistics-insights",
     userId,
-    maxOutputTokens: 8000,
+    maxOutputTokens: 16000,
     prompt: JSON.stringify({
       period: { key: periodKey, start: periodStart, end: effectiveEnd },
       budget_status: budgetStatus,
