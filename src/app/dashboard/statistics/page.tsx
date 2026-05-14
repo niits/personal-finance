@@ -86,6 +86,12 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
     range: { category: CHART_PALETTE },
     font: FONT_BODY,
   };
+  // Compact axis labels for mobile: "15.000.000 đ" → "15tr", "500.000 đ" → "500k"
+  const valueLabelExpr =
+    unit === "currency"
+      ? `datum.value >= 1000000 ? format(datum.value / 1000000, '.1~f') + 'tr' : datum.value >= 1000 ? format(datum.value / 1000, '.0f') + 'k' : format(datum.value, '.0f') + ' ₫'`
+      : `datum.label + '${suffix}'`;
+
   const base = {
     $schema: "https://vega.github.io/schema/vega-lite/v6.json",
     width: "container" as const,
@@ -128,7 +134,7 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
             x: isDate
               ? { field: "name", type: "temporal", title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 6 } }
               : { field: "name", type: "ordinal", title: null, axis: { labelAngle: 0 } },
-            y: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: `datum.label + '${suffix}'` } },
+            y: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: valueLabelExpr } },
           },
         },
         {
@@ -176,7 +182,7 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
     mark: { type: "bar", cornerRadiusEnd: 4 },
     encoding: {
       y: { field: "name", type: "nominal", sort: "-x", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK, labelFontWeight: 400 } },
-      x: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: `datum.label + '${suffix}'`, tickCount: 4 } },
+      x: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: valueLabelExpr, tickCount: 3 } },
       ...(grouped
         ? {
             color: { field: "series", type: "nominal", legend: { title: null } },

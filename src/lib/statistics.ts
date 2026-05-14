@@ -267,7 +267,7 @@ Max 160 characters. Format numbers as Vietnamese: thousand separator "." decimal
 | Change between this month vs last month | "bar_grouped" — series = month label | Shows directionality of change instantly |
 | Budget used vs remaining / pace vs limit | "bar_grouped" — two series | "Thực tế" and "Ngân sách" series |
 
-For "bar": sort chart_data by value descending. Cap at 7 rows; group the tail as "Khác".
+For "bar": sort chart_data by value descending. Cap at 5 rows; group the tail as "Khác".
 
 ## Data rules
 
@@ -275,7 +275,8 @@ For "bar": sort chart_data by value descending. Cap at 7 rows; group the tail as
 - Each row: { "name": string, "value": number, "series"?: string } — never use "category" as a key
 - value_unit: "currency" for ₫, "percent" for 0–100 values, "count" for counts
 - Use exact numbers from the input — never round aggressively, never fabricate
-- Cap at 7 entries; group the tail as "Khác" with the summed remainder
+- Cap at 5 entries; group the tail as "Khác" with the summed remainder
+- For bar charts: keep each `name` ≤ 12 characters — abbreviate long Vietnamese labels so they fit on a 375 px phone screen (e.g. "Hoá đơn & dịch vụ" → "Hoá đơn", "Mua sắm & tiêu dùng" → "Mua sắm")
 - For line charts: use every date in the range; fill missing days with 0
 
 ## Examples of well-formed insights
