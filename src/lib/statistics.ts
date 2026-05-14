@@ -262,14 +262,15 @@ Max 160 characters. Format numbers as Vietnamese: thousand separator "." decimal
 
 | Situation | Use | Notes |
 |---|---|---|
-| Category comparison (any N) | "bar" — sorted descending | Largest category = top bar = natural focal point |
-| Forecast / projection over time (daily spend, pace, future estimate) | "line" — name = ISO date "YYYY-MM-DD" | Always use "line" for anything involving time-based forecasting or predicted values; fill missing days with 0 |
-| Trend over time (historical only, no projection) | "line" — name = ISO date "YYYY-MM-DD" | Fill missing days with 0 |
-| Change between this month vs last month | "bar_grouped" — series = month label | Shows directionality of change instantly |
-| Budget used vs remaining / actual vs limit | "bar_grouped" — two series | "Thực tế" and "Ngân sách" series; use "bar_grouped" for any side-by-side comparison, never "bar" |
+| Category breakdown (any N categories) | "bar" — sorted descending | Largest category = top bar; horizontal layout, one color |
+| Forecast / projection over time (daily pace, future estimate) | "line" — name = ISO date "YYYY-MM-DD" | Use "line" for anything that shows change over time or a predicted trajectory |
+| Historical trend over time | "line" — name = ISO date "YYYY-MM-DD" | Fill missing days with 0 |
+| Period-over-period change (month vs month, same category across months) | "bar_grouped" — name = period label, series = category | Multiple months as rows, each category as a series |
+| Actual vs single limit / budget / average | "bar_grouped" — series "Thực tế" for actual, series **exactly** "Ngân sách", "Giới hạn", or "Trung bình" for the reference | Renderer draws actual as bar + reference as a vertical rule line — Apple-style threshold marker |
 
 For "bar": sort chart_data by value descending. Cap at 5 rows; group the tail as "Khác".
-For "bar_grouped": include enough data points so the axis has meaningful tick bins (at least 3 distinct values across both series). Ensure grid lines align to round numbers.
+For "bar_grouped" with a reference series: include exactly ONE entry with the reference series — the renderer converts it to a vertical threshold rule, not a second bar.
+For "bar_grouped" multi-period: include data for every period even if zero, so the axis is evenly spaced.
 
 ## Data rules
 

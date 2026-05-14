@@ -121,52 +121,28 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
 
   if (insight.chart_type === "line") {
     const isDate = data.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.name));
-    // DESIGN.md forbids decorative gradients — use a solid 12% fill below the
-    // stroke instead. The fill anchors the curve to the axis without competing
-    // with the line itself.
+    const xEnc = isDate
+      ? { field: "name", type: "temporal" as const, title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 5 } }
+      : { field: "name", type: "ordinal" as const, title: null, axis: { labelAngle: 0 } };
+    const yEnc = { field: "value", type: "quantitative" as const, title: null, axis: { format, labelExpr: valueLabelExpr } };
+    const lineTooltip = [
+      isDate
+        ? { field: "name", type: "temporal" as const, title: "Ngày", format: "%d/%m/%Y" }
+        : { field: "name", type: "ordinal" as const, title: "Mục" },
+      { field: "value", type: "quantitative" as const, title: valueTitle, format },
+    ];
     return {
       ...base,
-      height: 220,
+      height: 200,
       layer: [
         {
-          mark: { type: "area", color: PRIMARY, opacity: 0.12, line: false, interpolate: "monotone" },
-          encoding: {
-            x: isDate
-              ? { field: "name", type: "temporal", title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 6 } }
-              : { field: "name", type: "ordinal", title: null, axis: { labelAngle: 0 } },
-            y: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: valueLabelExpr } },
-          },
-        },
-        {
           mark: { type: "line", color: PRIMARY, strokeWidth: 2, interpolate: "monotone" },
-          encoding: {
-            x: isDate
-              ? { field: "name", type: "temporal" }
-              : { field: "name", type: "ordinal" },
-            y: { field: "value", type: "quantitative" },
-            tooltip: [
-              isDate
-                ? { field: "name", type: "temporal", title: "Ngày", format: "%d/%m/%Y" }
-                : { field: "name", type: "ordinal", title: "Mục" },
-              { field: "value", type: "quantitative", title: valueTitle, format },
-            ],
-          },
+          encoding: { x: xEnc, y: yEnc, tooltip: lineTooltip },
         },
+        // Invisible points to widen the tooltip hit area on mobile
         {
-          mark: { type: "point", color: PRIMARY, filled: true, size: 36 },
-          encoding: {
-            x: isDate
-              ? { field: "name", type: "temporal" }
-              : { field: "name", type: "ordinal" },
-            y: { field: "value", type: "quantitative" },
-            opacity: { value: 0 },
-            tooltip: [
-              isDate
-                ? { field: "name", type: "temporal", title: "Ngày", format: "%d/%m/%Y" }
-                : { field: "name", type: "ordinal", title: "Mục" },
-              { field: "value", type: "quantitative", title: valueTitle, format },
-            ],
-          },
+          mark: { type: "point", color: PRIMARY, filled: true, size: 48, opacity: 0 },
+          encoding: { x: { ...xEnc, axis: null }, y: { field: "value", type: "quantitative" as const }, tooltip: lineTooltip },
         },
       ],
     } as TopLevelSpec;
@@ -176,6 +152,60 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
   const hasSeries = data.some((d) => d.series);
   const grouped = insight.chart_type === "bar_grouped" || hasSeries;
   const distinctNames = new Set(data.map((d) => d.name)).size;
+
+  // Apple-style reference-rule: bar_grouped where exactly one series is a
+  // budget/limit/average marker → draw actual data as bars, reference as a
+  // vertical rule line (like Apple Health's threshold indicator).
+  const REF_SERIES_RE = /^(Ngân sách|Giới hạn|Trung bình|Mục tiêu)$/;
+  const allSeriesNames = [...new Set(data.filter((d) => d.series).map((d) => d.series!))];
+  const refSeriesName = allSeriesNames.find((s) => REF_SERIES_RE.test(s));
+  const refEntries = refSeriesName ? data.filter((d) => d.series === refSeriesName) : [];
+  const uniqueRefValues = new Set(refEntries.map((d) => d.value));
+  const isRefChart = grouped && !!refSeriesName && allSeriesNames.length === 2 && uniqueRefValues.size === 1;
+
+  if (isRefChart) {
+    const actualData = data.filter((d) => d.series !== refSeriesName);
+    const refValue = [...uniqueRefValues][0];
+    const actualRowCount = new Set(actualData.map((d) => d.name)).size;
+    const xAxisSpec = {
+      format, labelExpr: valueLabelExpr, tickCount: 3,
+      grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] as number[],
+    };
+    return {
+      ...base,
+      height: Math.max(72, actualRowCount * 44 + 20),
+      layer: [
+        {
+          mark: { type: "bar", cornerRadiusEnd: 4, height: 28 },
+          data: { values: actualData },
+          encoding: {
+            y: { field: "name", type: "nominal", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK } },
+            x: { field: "value", type: "quantitative", title: null, axis: xAxisSpec },
+            color: { value: PRIMARY },
+            tooltip: [
+              { field: "name", type: "nominal", title: "Mục" },
+              { field: "value", type: "quantitative", title: valueTitle, format },
+            ],
+          },
+        },
+        // Reference threshold rule
+        {
+          mark: { type: "rule", color: INK_MUTED, strokeDash: [4, 3], strokeWidth: 1.5 },
+          encoding: { x: { datum: refValue, type: "quantitative" as const } },
+        },
+        // Reference label (top of rule line)
+        {
+          mark: { type: "text", align: "left", dx: 4, dy: 0, fontSize: 10, color: INK_MUTED, baseline: "top" as const },
+          encoding: {
+            x: { datum: refValue, type: "quantitative" as const },
+            y: { value: 2 },
+            text: { value: refSeriesName },
+          },
+        },
+      ],
+    } as TopLevelSpec;
+  }
+
   return {
     ...base,
     height: Math.max(180, Math.min(360, distinctNames * (grouped ? 32 : 28) + 40)),
