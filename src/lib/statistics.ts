@@ -279,7 +279,7 @@ For "bar_grouped" multi-period: include data for every period even if zero, so t
 - value_unit: "currency" for ₫, "percent" for 0–100 values, "count" for counts
 - Use exact numbers from the input — never round aggressively, never fabricate
 - Cap at 5 entries; group the tail as "Khác" with the summed remainder
-- For bar charts: keep each `name` ≤ 12 characters — abbreviate long Vietnamese labels so they fit on a 375 px phone screen (e.g. "Hoá đơn & dịch vụ" → "Hoá đơn", "Mua sắm & tiêu dùng" → "Mua sắm")
+- For bar charts: keep each "name" ≤ 12 characters — abbreviate long Vietnamese labels so they fit on a 375 px phone screen (e.g. "Hoá đơn & dịch vụ" → "Hoá đơn", "Mua sắm & tiêu dùng" → "Mua sắm")
 - For line charts: use every date in the range; fill missing days with 0
 
 ## Examples of well-formed insights
