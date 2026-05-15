@@ -17,6 +17,7 @@ export default function CategoriesPage() {
   const [recatSuggestions, setRecatSuggestions] = useState<RecategorizeSuggestion[] | null>(null);
   const [recatState, setRecatState] = useState<"loading" | "done" | "error" | "idle">("idle");
   const [runId, setRunId] = useState<number | null>(null);
+  const [fillEmojiState, setFillEmojiState] = useState<"idle" | "loading" | "done" | "error">("idle");
 
   async function handleAddCategory(
     name: string,
@@ -100,6 +101,14 @@ export default function CategoriesPage() {
     setSuggestState("done");
   }
 
+  async function handleFillEmoji() {
+    setFillEmojiState("loading");
+    const r = await fetch("/api/categories/fill-emoji", { method: "POST" }).catch(() => null);
+    if (!r?.ok) { setFillEmojiState("error"); return; }
+    setFillEmojiState("done");
+    mutate(CATS_KEY);
+  }
+
   async function handleLoadRecatSuggestions() {
     setRecatState("loading");
     setRecatSuggestions(null);
@@ -135,6 +144,8 @@ export default function CategoriesPage() {
       onAcceptRecat={handleAcceptRecat}
       onLoadSuggestions={handleLoadSuggestions}
       onLoadRecatSuggestions={handleLoadRecatSuggestions}
+      fillEmojiState={fillEmojiState}
+      onFillEmoji={handleFillEmoji}
     />
   );
 }
