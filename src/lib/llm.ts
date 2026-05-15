@@ -1,8 +1,54 @@
-import { createWorkersAI } from "workers-ai-provider";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { generateText, generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
+import { createWorkersAI } from "workers-ai-provider";
+import type { ZodType } from "zod";
 
-export async function getModel() {
+const MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+
+// Workers AI Llama 4 Scout hard limit — exceeding this causes error 3030
+const MAX_OUTPUT_TOKENS = 131000;
+
+export async function runAIObject<T>(opts: {
+  schema: ZodType<T>;
+  schemaName?: string;
+  schemaDescription?: string;
+  system?: string;
+  prompt: string;
+  maxOutputTokens?: number;
+  traceName?: string;
+  userId?: string;
+}): Promise<T> {
   const { env } = await getCloudflareContext({ async: true });
   const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
-  return workersai(process.env.CF_AI_MODEL ?? "@cf/moonshotai/kimi-k2.6");
+  const model = workersai(MODEL);
+
+  const cappedTokens = Math.min(opts.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS);
+
+  try {
+    const { object } = await generateObject({
+      model,
+      schema: opts.schema,
+      schemaName: opts.schemaName,
+      schemaDescription: opts.schemaDescription,
+      system: opts.system,
+      prompt: opts.prompt,
+      maxOutputTokens: cappedTokens,
+    });
+    return object;
+  } catch (structuredErr) {
+    if (NoObjectGeneratedError.isInstance(structuredErr) && structuredErr.text != null) {
+      throw new Error(
+        `${structuredErr.message}\n\nRaw model response:\n${structuredErr.text}`,
+      );
+    }
+    throw structuredErr;
+  }
 }
+
+export async function getWorkersAIModel(): Promise<LanguageModel> {
+  const { env } = await getCloudflareContext({ async: true });
+  const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
+  return workersai(MODEL);
+}
+
+export { generateText };

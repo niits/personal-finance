@@ -18,12 +18,14 @@ type TxnRow = {
   amount: number;
   type: "expense" | "income";
   note: string | null;
+  emoji: string | null;
   date: string;
   monthly_budget_id: number | null;
   created_at: number;
   updated_at: number;
   cat_id: number;
   cat_name: string;
+  cat_emoji: string | null;
   cat_level: number;
   cat_parent_id: number | null;
   cat_p1_name: string | null;
@@ -44,14 +46,26 @@ function getRootCategoryName(row: TxnRow): string {
   return row.cat_p2_name ?? row.cat_p1_name ?? row.cat_name;
 }
 
+function buildCbMap(cbRows: CbRow[]): Map<number, { id: number; name: string }[]> {
+  const map = new Map<number, { id: number; name: string }[]>();
+  for (const row of cbRows) {
+    const list = map.get(row.transaction_id) ?? [];
+    list.push({ id: row.id, name: row.name });
+    map.set(row.transaction_id, list);
+  }
+  return map;
+}
+
 function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: string }[]>) {
   return {
     id: row.id,
     amount: row.amount,
     type: row.type,
+    emoji: row.emoji ?? null,
     category: {
       id: row.cat_id,
       name: row.cat_name,
+      emoji: row.cat_emoji ?? null,
       path: buildCategoryPath(row),
     },
     root_category_name: getRootCategoryName(row),
@@ -98,12 +112,14 @@ export async function GET(request: NextRequest) {
       "t.amount",
       "t.type",
       "t.note",
+      "t.emoji",
       "t.date",
       "t.monthly_budget_id",
       "t.created_at",
       "t.updated_at",
       "c.id as cat_id",
       "c.name as cat_name",
+      "c.emoji as cat_emoji",
       "c.level as cat_level",
       "c.parent_id as cat_parent_id",
       "p1.name as cat_p1_name",
@@ -141,7 +157,7 @@ export async function GET(request: NextRequest) {
   const results = (await query.execute()) as TxnRow[];
 
   // Fetch custom budgets for all transactions
-  const cbMap = new Map<number, { id: number; name: string }[]>();
+  let cbMap = new Map<number, { id: number; name: string }[]>();
   if (results.length > 0) {
     const ids = results.map((r) => r.id);
     const cbRows = (await db
@@ -150,11 +166,7 @@ export async function GET(request: NextRequest) {
       .select(["tcb.transaction_id", "cb.id", "cb.name"])
       .where("tcb.transaction_id", "in", ids)
       .execute()) as CbRow[];
-    for (const row of cbRows) {
-      const list = cbMap.get(row.transaction_id) ?? [];
-      list.push({ id: row.id, name: row.name });
-      cbMap.set(row.transaction_id, list);
-    }
+    cbMap = buildCbMap(cbRows);
   }
 
   // Summary always for the full budget period regardless of filters
@@ -269,6 +281,7 @@ export async function POST(request: NextRequest) {
   }
 
   const note = typeof b.note === "string" ? b.note : null;
+  const emoji = typeof b.emoji === "string" && b.emoji.trim() ? b.emoji.trim() : null;
 
   const result = await db
     .insertInto("transaction")
@@ -278,6 +291,7 @@ export async function POST(request: NextRequest) {
       type: b.type as "expense" | "income",
       category_id: categoryId,
       note,
+      emoji,
       date,
       monthly_budget_id: monthlyBudgetId,
     })
@@ -304,11 +318,13 @@ export async function POST(request: NextRequest) {
       "t.amount",
       "t.type",
       "t.note",
+      "t.emoji",
       "t.date",
       "t.monthly_budget_id",
       "t.created_at",
       "c.id as cat_id",
       "c.name as cat_name",
+      "c.emoji as cat_emoji",
       "c.level as cat_level",
       "c.parent_id as cat_parent_id",
       "p1.name as cat_p1_name",

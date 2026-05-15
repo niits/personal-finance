@@ -7,20 +7,22 @@ import { useSession } from "@/lib/auth-client";
 
 const tabs = [
   { href: "/dashboard", label: "Tổng quan", icon: "◎" },
+  { href: "/dashboard/statistics", label: "Thống kê", icon: "◑" },
   { href: "/dashboard/categories", label: "Danh mục", icon: "⊞" },
   { href: "/dashboard/budget", label: "Ngân sách", icon: "◈" },
+  { href: "/dashboard/account", label: "Tài khoản", icon: "◯" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { replace } = useRouter();
   const { data: session, isPending } = useSession();
 
   useEffect(() => {
     if (!isPending && !session) {
-      router.replace("/");
+      replace("/sign-in");
     }
-  }, [session, isPending, router]);
+  }, [session, isPending, replace]);
 
   // Listen for global 401 events dispatched by the fetcher (e.g. from SWR
   // revalidation) so we redirect even when the layout session is still truthy.
@@ -46,8 +48,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         right: 0,
         height: 72,
         background: "rgba(255,255,255,0.92)",
-        backdropFilter: "saturate(180%) blur(20px)",
-        WebkitBackdropFilter: "saturate(180%) blur(20px)",
+        backdropFilter: "saturate(180%) blur(8px)",
+        WebkitBackdropFilter: "saturate(180%) blur(8px)",
         borderTop: "1px solid var(--hairline)",
         display: "flex",
         alignItems: "flex-start",
@@ -76,7 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>
               <span style={{
                 fontFamily: "var(--font-body)",
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: active ? 600 : 400,
                 letterSpacing: -0.12,
               }}>

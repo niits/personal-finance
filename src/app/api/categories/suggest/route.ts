@@ -1,10 +1,9 @@
 import type { NextRequest } from "next/server";
-import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { getModel } from "@/lib/llm";
+import { runAIObject } from "@/lib/llm";
 
 type CategoryRow = { id: number; name: string; type: "income" | "expense"; level: number };
 type TransactionRow = { note: string; type: "income" | "expense"; cat_name: string };
@@ -109,20 +108,16 @@ Gợi ý các danh mục mới nên thêm để tổ chức tốt hơn.`;
 
   let parsedOutput: z.infer<typeof SuggestionSchema>;
   try {
-    const model = await getModel();
-    const { output } = await generateText({
-      model,
-      output: Output.object({
-        schema: SuggestionSchema
-      }),
+    parsedOutput = await runAIObject({
+      schema: SuggestionSchema,
       system: SYSTEM_PROMPT,
       prompt: userContent,
     });
-    parsedOutput = SuggestionSchema.parse(output);
   } catch (err) {
     console.error("AI suggest error:", err);
     await db.prepare("DELETE FROM ai_suggestion_run WHERE id = ?").bind(runId).run();
-    return Response.json({ error: err, code: "AI_ERROR" }, { status: 502 });
+    const message = err instanceof Error ? err.message : String(err);
+    return Response.json({ error: message, code: "AI_ERROR" }, { status: 502 });
   }
 
   const catMap = new Map(categories.map((c) => [c.id, c.name]));

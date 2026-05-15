@@ -6,6 +6,7 @@ import { Errors } from "@/lib/errors";
 type CategoryRow = {
   id: number;
   name: string;
+  emoji: string | null;
   parent_id: number | null;
   level: number;
   sort_order: number;
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
   const db = await getKysely();
   const results = (await db
     .selectFrom("category")
-    .select(["id", "name", "parent_id", "level", "sort_order", "type", "created_at"])
+    .select(["id", "name", "emoji", "parent_id", "level", "sort_order", "type", "created_at"])
     .where("user_id", "=", session.user.id)
     .orderBy("level")
     .orderBy("sort_order")
@@ -55,10 +56,11 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body) return Errors.validation("Request body không hợp lệ");
 
-  const { name, parent_id, type } = body as {
+  const { name, parent_id, type, emoji } = body as {
     name?: unknown;
     parent_id?: unknown;
     type?: unknown;
+    emoji?: unknown;
   };
 
   if (typeof name !== "string" || name.trim().length === 0)
@@ -95,17 +97,20 @@ export async function POST(request: NextRequest) {
     resolvedType = type;
   }
 
+  const emojiVal = typeof emoji === "string" && emoji.trim() ? emoji.trim() : null;
+
   const result = (await db
     .insertInto("category")
     .values({
       user_id: userId,
       name: name.trim(),
+      emoji: emojiVal,
       parent_id: (parent_id as number | null | undefined) ?? null,
       level,
       sort_order: 0,
       type: resolvedType,
     })
-    .returning(["id", "name", "parent_id", "level", "sort_order", "type", "created_at"])
+    .returning(["id", "name", "emoji", "parent_id", "level", "sort_order", "type", "created_at"])
     .executeTakeFirst()) as CategoryRow;
 
   return Response.json({ category: result }, { status: 201 });

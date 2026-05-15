@@ -2,7 +2,7 @@
 -- time-based window that captures edits (category changes, note updates,
 -- budget link changes) that the old ID-based window would have missed.
 
-ALTER TABLE "transaction" ADD COLUMN updated_at INTEGER NOT NULL DEFAULT (unixepoch());
+ALTER TABLE "transaction" ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_transaction_user_updated_at ON "transaction"(user_id, updated_at);
 
