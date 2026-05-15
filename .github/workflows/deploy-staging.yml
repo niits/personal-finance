@@ -3,6 +3,14 @@ name: Deploy to Staging
 on:
   push:
     branches: [staging]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".claude/**"
+      - ".storybook/**"
+      - "*.json"
+      - "!package.json"
+      - "!package-lock.json"
   workflow_dispatch:
 
 jobs:
