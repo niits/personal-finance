@@ -17,21 +17,12 @@ test.describe("Auth — API protection", () => {
 
   test("dashboard redirects to sign-in when not authenticated", async ({ page }) => {
     await page.goto("/dashboard");
-    // Should redirect away from /dashboard — either to / or /sign-in
     await expect(page).not.toHaveURL(/\/dashboard/);
   });
-});
 
-test.describe("Auth — /api/test/* protection", () => {
-  test("POST /api/test/reset returns 403 without X-Test-Secret header", async ({ request }) => {
+  test("/api/test/reset does not exist in production build", async ({ request }) => {
+    // Route is deleted before every build (E2E and production alike)
     const res = await request.post("/api/test/reset");
-    expect(res.status()).toBe(403);
-  });
-
-  test("POST /api/test/reset returns 403 with wrong secret", async ({ request }) => {
-    const res = await request.post("/api/test/reset", {
-      headers: { "X-Test-Secret": "wrong-secret" },
-    });
-    expect(res.status()).toBe(403);
+    expect(res.status()).toBe(404);
   });
 });

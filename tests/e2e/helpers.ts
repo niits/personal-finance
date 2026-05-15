@@ -1,17 +1,10 @@
-import { request } from "@playwright/test";
+import { getUserId, wipeUserData, seedUserData, type SeedLevel } from "./db-reset";
 
-const BASE_URL = "http://localhost:8787";
-const TEST_SECRET = process.env.PLAYWRIGHT_TEST_SECRET ?? "";
+export { TEST_EMAIL } from "./global-setup";
 
-export const TEST_EMAIL = "e2e@test.local";
-
-/** Wipes and re-seeds the test user's app data. Call in `beforeAll` of each spec file. */
-export async function resetTestData(seed?: "minimal" | "categories" | "budget" | "full") {
-  const ctx = await request.newContext({ baseURL: BASE_URL });
-  const res = await ctx.post("/api/test/reset", {
-    headers: { "X-Test-Secret": TEST_SECRET },
-    data: { email: TEST_EMAIL, seed },
-  });
-  if (!res.ok()) throw new Error(`resetTestData failed: ${await res.text()}`);
-  await ctx.dispose();
+/** Wipes and re-seeds the test user's app data directly via D1. Call in `beforeAll` of each spec file. */
+export async function resetTestData(seed: SeedLevel = "minimal"): Promise<void> {
+  const userId = getUserId("e2e@test.local");
+  wipeUserData(userId);
+  seedUserData(userId, seed);
 }

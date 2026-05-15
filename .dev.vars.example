@@ -4,6 +4,3 @@ GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 BETTER_AUTH_SECRET=any-random-string-at-least-32-chars!!
 BETTER_AUTH_URL=http://localhost:8787
-
-# Required to run Playwright E2E tests locally (any random string)
-PLAYWRIGHT_TEST_SECRET=local-dev-test-secret

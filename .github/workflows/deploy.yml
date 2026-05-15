@@ -100,9 +100,11 @@ jobs:
           printf 'GITHUB_CLIENT_SECRET=ci-placeholder\n' >> .dev.vars
           printf 'BETTER_AUTH_SECRET=ci-only-secret-not-used-in-production-aaa\n' >> .dev.vars
           printf 'BETTER_AUTH_URL=http://localhost:8787\n' >> .dev.vars
-          printf 'PLAYWRIGHT_TEST_SECRET=ci-e2e-reset-secret\n' >> .dev.vars
 
-      - name: Build for Cloudflare (with test routes — E2E needs /api/test/reset)
+      - name: Remove test-only API routes before build (same as production)
+        run: rm -rf src/app/api/test/
+
+      - name: Build for Cloudflare
         run: npm run build:cf
         env:
           NEXT_PUBLIC_APP_URL: http://localhost:8787
@@ -110,8 +112,6 @@ jobs:
 
       - name: Run E2E tests
         run: npm run test:e2e
-        env:
-          PLAYWRIGHT_TEST_SECRET: ci-e2e-reset-secret
 
       - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4
