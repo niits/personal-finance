@@ -4,6 +4,60 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git Workflow (GitLab Flow)
+
+This project follows a simplified GitLab Flow. `main` is always stable and deployable; every change goes through a feature branch and a Pull Request.
+
+### Branch rules
+
+**Never commit directly to `main`.** Always create a new branch for every change.
+
+- Reuse an existing branch only if the new work is clearly related to that branch's ongoing feature or fix.
+- If it's unclear whether to create a new branch or reuse one, ask before proceeding.
+
+### Branch naming
+
+| Type | Pattern | Example |
+|------|---------|---------|
+| Feature | `feature/<name>` | `feature/expense-filter` |
+| Bug fix | `fix/<name>` | `fix/currency-rounding` |
+| Production hotfix | `hotfix/<name>` | `hotfix/auth-crash` |
+| Refactor | `refactor/<name>` | `refactor/transaction-hook` |
+
+### Workflow
+
+```bash
+# 1. Always branch from an up-to-date main
+git checkout main && git pull
+git checkout -b feature/<name>
+
+# 2. Commit often with Conventional Commits
+git commit -m "feat(scope): short description"
+
+# 3. Push and open a Pull Request → main
+git push -u origin feature/<name>
+
+# 4. After PR is merged, delete the branch
+git branch -d feature/<name>
+```
+
+### Commit message format (Conventional Commits)
+
+```
+<type>(<scope>): <short description>
+```
+
+Types: `feat` · `fix` · `refactor` · `docs` · `test` · `chore`
+
+Examples:
+```
+feat(transactions): add recurring expense support
+fix(auth): handle expired GitHub token
+refactor(stats): extract useStatistics hook
+```
+
+---
+
 ## Project
 
 Personal finance expense tracker — Next.js app deployed on Cloudflare Workers, optimized for iPhone and laptop. UI in Vietnamese, VND currency.
