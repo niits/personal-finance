@@ -1,40 +1,55 @@
 /**
- * Direct D1 database operations for E2E test setup.
- * Uses `wrangler d1 execute --local` to manipulate the SQLite file
- * without going through the app — so CI can use the same production build.
+ * Direct D1 SQLite access for E2E test setup.
+ * Uses better-sqlite3 (already a transitive dep via wrangler) to read/write
+ * the local D1 file directly, without spawning a wrangler subprocess.
+ * This avoids the SQLite write-lock conflict with the running wrangler dev server.
  */
-import { execFileSync } from "child_process";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const Database = require("better-sqlite3") as typeof import("better-sqlite3");
+import fs from "fs";
+import path from "path";
 
-const DB_NAME = "personal-finance-auth";
-
-function wranglerExec(sql: string): unknown[] {
-  const out = execFileSync(
-    "npx",
-    ["wrangler", "d1", "execute", DB_NAME, "--local", "--command", sql, "--json"],
-    { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] },
-  );
-  const parsed = JSON.parse(out) as Array<{ results: unknown[] }>;
-  return parsed[0]?.results ?? [];
+function getDb(): InstanceType<typeof Database> {
+  // Wrangler stores local D1 at .wrangler/state/v3/d1/miniflare-D1DatabaseObject/<hash>.sqlite
+  const dir = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
+  const files = fs.readdirSync(dir)
+    .filter(f => f.endsWith(".sqlite") && f !== "metadata.sqlite")
+    .map(f => path.join(dir, f));
+  if (!files[0]) throw new Error("Local D1 SQLite file not found — run the dev server at least once first.");
+  return new Database(path.resolve(files[0]));
 }
 
 export function getUserId(email: string): string {
-  const rows = wranglerExec(`SELECT id FROM user WHERE email = '${email}'`) as Array<{ id: string }>;
-  if (!rows[0]) throw new Error(`No user with email ${email} in local D1`);
-  return rows[0].id;
+  const db = getDb();
+  const row = db.prepare("SELECT id FROM user WHERE email = ?").get(email) as { id: string } | undefined;
+  db.close();
+  if (!row) throw new Error(`No user with email ${email} in local D1`);
+  return row.id;
 }
 
 export function wipeUserData(userId: string): void {
-  wranglerExec(`DELETE FROM "transaction" WHERE user_id = '${userId}'`);
-  wranglerExec(`DELETE FROM budget_adjustment WHERE monthly_budget_id IN (SELECT id FROM monthly_budget WHERE user_id = '${userId}')`);
-  wranglerExec(`DELETE FROM monthly_budget WHERE user_id = '${userId}'`);
-  wranglerExec(`DELETE FROM custom_budget WHERE user_id = '${userId}'`);
-  wranglerExec(`DELETE FROM category WHERE user_id = '${userId}'`);
+  const db = getDb();
+  // WAL mode allows a concurrent reader (wrangler dev) while we write
+  db.pragma("journal_mode = WAL");
+  db.pragma("foreign_keys = OFF");
+  db.transaction(() => {
+    db.prepare(`DELETE FROM "transaction" WHERE user_id = ?`).run(userId);
+    db.prepare(`DELETE FROM budget_adjustment WHERE monthly_budget_id IN (SELECT id FROM monthly_budget WHERE user_id = ?)`).run(userId);
+    db.prepare(`DELETE FROM monthly_budget WHERE user_id = ?`).run(userId);
+    db.prepare(`DELETE FROM custom_budget WHERE user_id = ?`).run(userId);
+    db.prepare(`DELETE FROM category WHERE user_id = ?`).run(userId);
+  })();
+  db.pragma("foreign_keys = ON");
+  db.close();
 }
 
 export type SeedLevel = "minimal" | "categories" | "budget" | "full";
 
 export function seedUserData(userId: string, seed: SeedLevel): void {
   if (seed === "minimal") return;
+
+  const db = getDb();
+  db.pragma("journal_mode = WAL");
 
   const expenseCategories = [
     { name: "Ăn uống", emoji: "🍜" },
@@ -46,34 +61,38 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
 
   const catIds: Record<string, number> = {};
 
-  for (const cat of expenseCategories) {
-    const rows = wranglerExec(
-      `INSERT INTO category (user_id, name, emoji, level, type, sort_order) VALUES ('${userId}', '${cat.name}', '${cat.emoji}', 1, 'expense', 0) RETURNING id`,
-    ) as Array<{ id: number }>;
-    catIds[cat.name] = rows[0].id;
-  }
-  for (const cat of incomeCategories) {
-    const rows = wranglerExec(
-      `INSERT INTO category (user_id, name, emoji, level, type, sort_order) VALUES ('${userId}', '${cat.name}', '${cat.emoji}', 1, 'income', 0) RETURNING id`,
-    ) as Array<{ id: number }>;
-    catIds[cat.name] = rows[0].id;
-  }
+  const insertCat = db.prepare(
+    `INSERT INTO category (user_id, name, emoji, level, type, sort_order) VALUES (?, ?, ?, 1, ?, 0)`,
+  );
 
-  if (seed === "categories") return;
+  db.transaction(() => {
+    for (const cat of expenseCategories) {
+      const info = insertCat.run(userId, cat.name, cat.emoji, "expense");
+      catIds[cat.name] = Number(info.lastInsertRowid);
+    }
+    for (const cat of incomeCategories) {
+      const info = insertCat.run(userId, cat.name, cat.emoji, "income");
+      catIds[cat.name] = Number(info.lastInsertRowid);
+    }
+  })();
+
+  if (seed === "categories") { db.close(); return; }
 
   const month = new Date().toISOString().substring(0, 7);
-  const budgetRows = wranglerExec(
-    `INSERT INTO monthly_budget (user_id, month, amount) VALUES ('${userId}', '${month}', 5000000) RETURNING id`,
-  ) as Array<{ id: number }>;
-  const budgetId = budgetRows[0].id;
+  const budgetInfo = db.prepare(
+    `INSERT INTO monthly_budget (user_id, month, amount) VALUES (?, ?, 5000000)`,
+  ).run(userId, month);
+  const budgetId = Number(budgetInfo.lastInsertRowid);
 
-  if (seed === "budget") return;
+  if (seed === "budget") { db.close(); return; }
 
   const today = new Date().toISOString().substring(0, 10);
-  wranglerExec(
-    `INSERT INTO "transaction" (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES ('${userId}', 85000, 'expense', ${catIds["Ăn uống"]}, 'Bún bò buổi trưa', '${today}', ${budgetId})`,
-  );
-  wranglerExec(
-    `INSERT INTO "transaction" (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES ('${userId}', 15000000, 'income', ${catIds["Lương"]}, 'Lương tháng 5', '${today}', NULL)`,
-  );
+  db.prepare(
+    `INSERT INTO "transaction" (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES (?, 85000, 'expense', ?, 'Bún bò buổi trưa', ?, ?)`,
+  ).run(userId, catIds["Ăn uống"], today, budgetId);
+  db.prepare(
+    `INSERT INTO "transaction" (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES (?, 15000000, 'income', ?, 'Lương tháng 5', ?, NULL)`,
+  ).run(userId, catIds["Lương"], today);
+
+  db.close();
 }

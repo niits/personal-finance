@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 
-// All sign-in tests run unauthenticated
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("Sign-in page — layout", () => {
@@ -9,17 +8,16 @@ test.describe("Sign-in page — layout", () => {
     await expect(page.getByRole("button", { name: /GitHub/i })).toBeVisible();
     await expect(page.locator("input[type='email']")).toBeVisible();
     await expect(page.locator("input[type='password']")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Đăng nhập" })).toBeVisible();
+    // Scope to main to avoid matching Navbar's "Đăng nhập" link
+    await expect(page.locator("main").getByRole("button", { name: "Đăng nhập" })).toBeVisible();
   });
 
   test("toggles to sign-up mode and back", async ({ page }) => {
     await page.goto("/sign-in");
-    await page.getByRole("button", { name: "Đăng ký" }).click();
-    // Name field appears in sign-up mode
+    await page.locator("main").getByRole("button", { name: "Đăng ký" }).click();
     await expect(page.locator("input[type='text']")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Tạo tài khoản" })).toBeVisible();
-    // Toggle back
-    await page.getByRole("button", { name: "Đăng nhập" }).last().click();
+    await expect(page.locator("main").getByRole("button", { name: "Tạo tài khoản" })).toBeVisible();
+    await page.locator("main").getByRole("button", { name: "Đăng nhập" }).click();
     await expect(page.locator("input[type='text']")).not.toBeVisible();
   });
 });
@@ -29,7 +27,7 @@ test.describe("Sign-in page — email/password auth", () => {
     await page.goto("/sign-in");
     await page.locator("input[type='email']").fill("e2e@test.local");
     await page.locator("input[type='password']").fill("e2e-test-password-123");
-    await page.getByRole("button", { name: "Đăng nhập" }).click();
+    await page.locator("main").getByRole("button", { name: "Đăng nhập" }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 8000 });
   });
 
@@ -37,10 +35,8 @@ test.describe("Sign-in page — email/password auth", () => {
     await page.goto("/sign-in");
     await page.locator("input[type='email']").fill("e2e@test.local");
     await page.locator("input[type='password']").fill("wrong-password");
-    await page.getByRole("button", { name: "Đăng nhập" }).click();
-    // Error message appears — better-auth returns a message we surface
+    await page.locator("main").getByRole("button", { name: "Đăng nhập" }).click();
     await expect(page.locator("p").filter({ hasText: /thất bại|sai|Invalid|incorrect/i })).toBeVisible({ timeout: 5000 });
-    // Still on sign-in page
     await expect(page).toHaveURL(/\/sign-in/);
   });
 

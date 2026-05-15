@@ -1,6 +1,6 @@
 import { request } from "@playwright/test";
 import path from "path";
-import { getUserId, wipeUserData } from "./db-reset";
+import { getUserId, wipeUserData, seedUserData } from "./db-reset";
 
 const BASE_URL = "http://localhost:8787";
 export const TEST_EMAIL = "e2e@test.local";
@@ -9,7 +9,10 @@ const TEST_PASSWORD = "e2e-test-password-123";
 export const STORAGE_STATE = path.join(__dirname, "storageState.json");
 
 export default async function globalSetup() {
-  const ctx = await request.newContext({ baseURL: BASE_URL });
+  const ctx = await request.newContext({
+    baseURL: BASE_URL,
+    extraHTTPHeaders: { Origin: BASE_URL },
+  });
 
   // Try sign-in first; if the account doesn't exist yet, sign up then sign in.
   // Auth goes through the real app — this is intentional (tests the auth code path).
@@ -36,9 +39,10 @@ export default async function globalSetup() {
     throw new Error(`E2E sign-in failed (${signInRes.status()}): ${body}`);
   }
 
-  // Wipe app data directly via D1 — no test-only HTTP endpoint needed.
+  // Seed "full" once — read-only tests share this state without resetting.
   const userId = getUserId(TEST_EMAIL);
   wipeUserData(userId);
+  seedUserData(userId, "full");
 
   await ctx.storageState({ path: STORAGE_STATE });
   await ctx.dispose();

@@ -104,6 +104,9 @@ jobs:
       - name: Remove test-only API routes before build (same as production)
         run: rm -rf src/app/api/test/
 
+      - name: Apply local D1 migrations
+        run: npx wrangler d1 migrations apply personal-finance-auth --local
+
       - name: Build for Cloudflare
         run: npm run build:cf
         env:

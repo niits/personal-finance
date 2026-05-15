@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { resetTestData } from "../helpers";
 
-test.beforeAll(async () => {
-  // Seed categories + budget + 1 expense + 1 income transaction
-  await resetTestData("full");
-});
-
+// Read-only tests — reset to "full" so they're independent of file execution order
 test.describe("Dashboard — transaction list", () => {
+  test.beforeAll(async () => {
+    await resetTestData("full");
+  });
+
   test("shows existing transaction after seed", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page.getByText("Bún bò buổi trưa")).toBeVisible();
@@ -14,7 +14,6 @@ test.describe("Dashboard — transaction list", () => {
 
   test("shows budget bar when monthly budget exists", async ({ page }) => {
     await page.goto("/dashboard");
-    // Budget bar is rendered inside the header when monthly_budget is non-null
     await expect(page.getByText(/Ngân sách/)).toBeVisible();
   });
 
@@ -23,38 +22,62 @@ test.describe("Dashboard — transaction list", () => {
     await expect(page.getByText("Thu nhập")).toBeVisible();
     await expect(page.getByText("Tiết kiệm")).toBeVisible();
   });
+
+  test("previous month button navigates to prior month", async ({ page }) => {
+    await page.goto("/dashboard");
+    const monthLabel = page.getByText(/Tháng \d+\/\d+/).first();
+    const currentLabel = await monthLabel.textContent();
+    expect(currentLabel).toBeTruthy();
+    await page.getByRole("button", { name: "‹" }).click();
+    const newLabel = await monthLabel.textContent();
+    expect(newLabel).not.toBe(currentLabel);
+  });
 });
 
+// Read-only — tap transaction to open action sheet, then cancel
+test.describe("Dashboard — action sheet", () => {
+  test.beforeAll(async () => {
+    await resetTestData("full");
+  });
+
+  test("opens action sheet on transaction tap", async ({ page }) => {
+    await page.goto("/dashboard");
+    await page.getByText("Bún bò buổi trưa").first().click();
+    await expect(page.getByRole("button", { name: "Sửa" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Xoá" })).toBeVisible();
+  });
+
+  test("edit flow pre-fills form with existing transaction data", async ({ page }) => {
+    await page.goto("/dashboard");
+    await page.getByText("Bún bò buổi trưa").first().click();
+    await page.getByRole("button", { name: "Sửa" }).click();
+    await expect(page.getByText("Sửa giao dịch")).toBeVisible();
+    await expect(page.locator("input[inputmode='numeric']")).toHaveValue("85.000");
+  });
+});
+
+// Mutating tests — each resets to "full" before running
 test.describe("Dashboard — add transaction", () => {
+  test.beforeEach(async () => {
+    await resetTestData("full");
+  });
+
   test("opens form via FAB and creates an expense", async ({ page }) => {
     await page.goto("/dashboard");
-
-    // FAB is the + button
     await page.locator("button", { hasText: "+" }).click();
+    await expect(page.getByText("Chi tiêu").first()).toBeVisible();
 
-    // Form sheet appears
-    const sheet = page.locator("text=Chi tiêu").first();
-    await expect(sheet).toBeVisible();
-
-    // Enter amount
-    const amountInput = page.locator("input[inputmode='numeric']");
-    await amountInput.fill("120000");
-
-    // Category list should show — click the first leaf category (Ăn uống is level 1 with no children)
-    await page.getByText("Ăn uống").click();
-
-    // Submit
+    await page.locator("input[inputmode='numeric']").fill("120000");
+    const catBtn = page.getByRole("button", { name: "Ăn uống" }).last();
+    await catBtn.scrollIntoViewIfNeeded();
+    await catBtn.click();
     await page.locator("button", { hasText: "Lưu giao dịch" }).click();
-
-    // Form closes and new transaction appears
     await expect(page.getByText("Lưu giao dịch")).not.toBeVisible();
   });
 
   test("shows validation error when amount is missing", async ({ page }) => {
     await page.goto("/dashboard");
     await page.locator("button", { hasText: "+" }).click();
-
-    // Try to save without filling amount
     await page.locator("button", { hasText: "Lưu giao dịch" }).click();
     await expect(page.getByText("Nhập số tiền hợp lệ")).toBeVisible();
   });
@@ -62,60 +85,21 @@ test.describe("Dashboard — add transaction", () => {
   test("shows validation error when category is not selected", async ({ page }) => {
     await page.goto("/dashboard");
     await page.locator("button", { hasText: "+" }).click();
-
-    const amountInput = page.locator("input[inputmode='numeric']");
-    await amountInput.fill("50000");
-
+    await page.locator("input[inputmode='numeric']").fill("50000");
     await page.locator("button", { hasText: "Lưu giao dịch" }).click();
     await expect(page.getByText("Chọn danh mục")).toBeVisible();
   });
 });
 
-test.describe("Dashboard — edit and delete", () => {
-  test("opens action sheet on transaction tap", async ({ page }) => {
-    await page.goto("/dashboard");
-    await page.getByText("Bún bò buổi trưa").click();
-
-    // Action sheet shows edit + delete buttons
-    await expect(page.getByRole("button", { name: "Sửa" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Xoá" })).toBeVisible();
-  });
-
-  test("edit flow pre-fills form with existing transaction data", async ({ page }) => {
-    await page.goto("/dashboard");
-    await page.getByText("Bún bò buổi trưa").click();
-    await page.getByRole("button", { name: "Sửa" }).click();
-
-    // "Sửa giao dịch" heading appears in edit mode
-    await expect(page.getByText("Sửa giao dịch")).toBeVisible();
-    // Amount is pre-filled
-    const amountInput = page.locator("input[inputmode='numeric']");
-    await expect(amountInput).toHaveValue("85.000");
+test.describe("Dashboard — delete transaction", () => {
+  test.beforeEach(async () => {
+    await resetTestData("full");
   });
 
   test("delete removes transaction from list", async ({ page }) => {
     await page.goto("/dashboard");
-    await page.getByText("Bún bò buổi trưa").click();
+    await page.getByText("Bún bò buổi trưa").first().click();
     await page.getByRole("button", { name: "Xoá" }).click();
-
-    // Transaction disappears from list
-    await expect(page.getByText("Bún bò buổi trưa")).not.toBeVisible();
-  });
-});
-
-test.describe("Dashboard — month navigation", () => {
-  test("previous month button navigates to prior month", async ({ page }) => {
-    await page.goto("/dashboard");
-
-    // Get current month label (e.g. "Tháng 5/2026")
-    const currentLabel = await page.locator("span").filter({ hasText: /Tháng \d+\/\d+/ }).textContent();
-    expect(currentLabel).toBeTruthy();
-
-    // Click previous month chevron (‹)
-    await page.locator("button", { hasText: "‹" }).click();
-
-    // Label changes
-    const newLabel = await page.locator("span").filter({ hasText: /Tháng \d+\/\d+/ }).textContent();
-    expect(newLabel).not.toBe(currentLabel);
+    await expect(page.getByText("Bún bò buổi trưa").first()).not.toBeVisible();
   });
 });
