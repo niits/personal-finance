@@ -177,9 +177,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --env production
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          # SECURITY: PLAYWRIGHT_TEST_SECRET and DEV_USER_ID must NEVER appear
-          # in this secrets list. Their absence is what keeps /api/test/* inactive
-          # on production (middleware returns 404 when the var is unset).
           secrets: |
             LANGFUSE_SECRET_KEY
             LANGFUSE_PUBLIC_KEY
