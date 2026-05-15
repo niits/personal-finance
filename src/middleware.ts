@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
-  // /api/test/* routes only exist when PLAYWRIGHT_TEST_SECRET is explicitly set.
-  // In production this env var is never configured → every request returns 404,
-  // making the routes completely invisible to the outside world.
+  // Local dev convenience guard: prevents accidentally calling /api/test/*
+  // without a secret configured. NOT a security mechanism — production safety
+  // comes from deploy.yml deleting src/app/api/test/ before the build, so
+  // these routes literally do not exist in the production bundle.
   if (request.nextUrl.pathname.startsWith("/api/test/")) {
     if (!process.env.PLAYWRIGHT_TEST_SECRET) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
