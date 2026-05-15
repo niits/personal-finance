@@ -3,24 +3,8 @@ name: CI / Deploy
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".claude/**"
-      - ".storybook/**"
-      - "*.json"
-      - "!package.json"
-      - "!package-lock.json"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".claude/**"
-      - ".storybook/**"
-      - "*.json"
-      - "!package.json"
-      - "!package-lock.json"
   workflow_dispatch:
 
 jobs:
