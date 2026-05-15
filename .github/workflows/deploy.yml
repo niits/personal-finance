@@ -95,15 +95,12 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Write .dev.vars for wrangler preview
-        env:
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-          PLAYWRIGHT_TEST_SECRET: ${{ secrets.PLAYWRIGHT_TEST_SECRET }}
         run: |
           printf 'GITHUB_CLIENT_ID=ci-placeholder\n' >> .dev.vars
           printf 'GITHUB_CLIENT_SECRET=ci-placeholder\n' >> .dev.vars
-          printf 'BETTER_AUTH_SECRET=%s\n' "$BETTER_AUTH_SECRET" >> .dev.vars
+          printf 'BETTER_AUTH_SECRET=ci-only-secret-not-used-in-production-aaa\n' >> .dev.vars
           printf 'BETTER_AUTH_URL=http://localhost:8787\n' >> .dev.vars
-          printf 'PLAYWRIGHT_TEST_SECRET=%s\n' "$PLAYWRIGHT_TEST_SECRET" >> .dev.vars
+          printf 'PLAYWRIGHT_TEST_SECRET=ci-e2e-reset-secret\n' >> .dev.vars
 
       - name: Build for Cloudflare (with test routes — E2E needs /api/test/reset)
         run: npm run build:cf
@@ -114,7 +111,7 @@ jobs:
       - name: Run E2E tests
         run: npm run test:e2e
         env:
-          PLAYWRIGHT_TEST_SECRET: ${{ secrets.PLAYWRIGHT_TEST_SECRET }}
+          PLAYWRIGHT_TEST_SECRET: ci-e2e-reset-secret
 
       - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4
