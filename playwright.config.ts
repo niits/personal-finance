@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { STORAGE_STATE } from "./tests/e2e/global-setup";
 
 export default defineConfig({
   testDir: "./tests/e2e/specs",
@@ -14,6 +15,7 @@ export default defineConfig({
     // iPhone 14 Pro — primary target device per DESIGN.md
     viewport: { width: 393, height: 852 },
     deviceScaleFactor: 3,
+    storageState: STORAGE_STATE,
   },
 
   projects: [
