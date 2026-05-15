@@ -59,3 +59,9 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: d1 migrations apply personal-finance-auth-staging --remote --env staging
+
+      # 5. Remove the prod dump — contains real user data, must not persist on the runner.
+      - name: Remove prod dump
+        if: always()
+        run: rm -f prod-dump.sql
+

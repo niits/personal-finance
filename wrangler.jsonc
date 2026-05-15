@@ -42,9 +42,11 @@
     // Staging environment — separate Worker and D1 database.
     // One-time setup (run locally):
     //   wrangler d1 create personal-finance-auth-staging
-    //   → copy the returned database_id and replace STAGING_DB_ID below
     //   wrangler secret put BETTER_AUTH_SECRET --env staging
     //   wrangler secret put BETTER_AUTH_URL    --env staging
+    //   wrangler secret put GITHUB_CLIENT_ID   --env staging  (use a separate GitHub OAuth App)
+    //   wrangler secret put GITHUB_CLIENT_SECRET --env staging
+    //   gh variable set STAGING_APP_URL --body "https://personal-finance-staging.<your-subdomain>.workers.dev"
     "staging": {
       "name": "personal-finance-staging",
       "d1_databases": [
