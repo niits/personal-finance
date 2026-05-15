@@ -12,7 +12,7 @@ This project follows a simplified GitLab Flow. `main` is always stable and deplo
 
 **Never commit directly to `main` or `staging`.** Always create a new branch for every change.
 
-**Default PR target is `staging`**, not `main`. After staging is validated, staging is merged into main.
+**Default PR target is `staging`**, not `main`. Releases are done by merging `staging` directly into `main` at the end of each epic, then tagging the release.
 
 **Hotfix branches** (`hotfix/*`) target `main` directly, then `staging` is rebased on top of main:
 ```bash
@@ -34,6 +34,21 @@ git push --force origin staging
 | Bug fix | `fix/<name>` | `fix/currency-rounding` |
 | Production hotfix | `hotfix/<name>` | `hotfix/auth-crash` |
 | Refactor | `refactor/<name>` | `refactor/transaction-hook` |
+
+### Epic & Release Workflow
+
+Each epic maps to a **GitHub Milestone**. Features ship to `staging` throughout the epic. When the epic is done:
+
+```bash
+# Merge staging → main (release)
+gh pr create --base main --head staging --title "release: <epic-name>"
+gh pr merge --merge --delete-branch
+
+# Tag the release on main
+git checkout main && git pull
+git tag release/<epic-name>
+git push origin --tags
+```
 
 ### Workflow
 
