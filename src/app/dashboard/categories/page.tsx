@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import useSWR, { mutate } from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { CategoriesTemplate } from "@/components/templates/CategoriesTemplate";
 import type { Category, Suggestion, RecategorizeSuggestion } from "@/components/templates/CategoriesTemplate";
 
 const CATS_KEY = "/api/categories";
+
+function hasMissingEmoji(categories: Category[]): boolean {
+  for (const c of categories) {
+    if (!c.emoji) return true;
+    if (c.children?.some((ch) => !ch.emoji)) return true;
+  }
+  return false;
+}
 
 export default function CategoriesPage() {
   const { data, isLoading } = useSWR<{ categories: Category[] }>(CATS_KEY, fetcher);
@@ -17,6 +25,7 @@ export default function CategoriesPage() {
   const [recatSuggestions, setRecatSuggestions] = useState<RecategorizeSuggestion[] | null>(null);
   const [recatState, setRecatState] = useState<"loading" | "done" | "error" | "idle">("idle");
   const [runId, setRunId] = useState<number | null>(null);
+  const autoFilledRef = useRef(false);
 
   async function handleAddCategory(
     name: string,
@@ -99,6 +108,15 @@ export default function CategoriesPage() {
     setRunId(d.run_id ?? null);
     setSuggestState("done");
   }
+
+  useEffect(() => {
+    if (!isLoading && cats.length > 0 && !autoFilledRef.current && hasMissingEmoji(cats)) {
+      autoFilledRef.current = true;
+      fetch("/api/categories/fill-emoji", { method: "POST" })
+        .then((r) => r.ok ? mutate(CATS_KEY) : null)
+        .catch(() => null);
+    }
+  }, [cats, isLoading]);
 
   async function handleLoadRecatSuggestions() {
     setRecatState("loading");
