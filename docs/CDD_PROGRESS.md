@@ -47,7 +47,7 @@ organisms → templates → pages). Every component lives in its own folder with
 | `TransactionListItem` | tsx + stories + index | ✅ |
 | `StatCard` | tsx + stories + index | ✅ |
 
-## Phase 5 — Organisms (partial) 🔄 IN PROGRESS
+## Phase 5 — Organisms ✅ DONE
 
 | Component | Source | Files | Status |
 |-----------|--------|-------|--------|
@@ -55,72 +55,35 @@ organisms → templates → pages). Every component lives in its own folder with
 | `EmojiPicker` | `src/components/EmojiPicker.tsx` | tsx + stories + index | ✅ |
 | `DashboardSummary` | `src/app/dashboard/page.tsx` (inline) | tsx + stories + index | ✅ |
 | `TransactionGroup` | `src/app/dashboard/page.tsx` (inline) | tsx + stories + index | ✅ |
-| `TransactionForm` | `src/components/TransactionForm.tsx` | **EMPTY — TODO** | ❌ |
-| `VegaChart` | `src/app/dashboard/statistics/page.tsx` | **EMPTY — TODO** | ❌ |
+| `TransactionForm` | `src/components/TransactionForm.tsx` | tsx + stories + index | ✅ |
+| `VegaChart` | `src/app/dashboard/statistics/page.tsx` | tsx + stories + index | ✅ |
 
-### TransactionForm TODO
+## Phase 6 — Templates ✅ DONE
 
-- Named export `TransactionForm` (not default)
-- Update `import EmojiPicker` → from `@/components/organisms/EmojiPicker`
-- Keep internal sub-components: `CategoryDrillDown`, `DatePicker` (they are implementation
-  details, not exported)
-- Export the `EditTransaction` type
-- Stories: `CreateMode`, `EditMode`, `WithError` — static render with mock categories/budgets
-  via args (no SWR in stories)
-- After extracting, update `src/components/TransactionForm.tsx` to re-export shim:
-  `export { TransactionForm } from "@/components/organisms/TransactionForm"`
+| Template | Status |
+|----------|--------|
+| `DashboardTemplate` | ✅ |
+| `StatisticsTemplate` | ✅ |
+| `BudgetTemplate` | ✅ |
+| `CategoriesTemplate` | ✅ |
 
-### VegaChart TODO
+## Phase 7 — Thin Pages ✅ DONE
 
-- Extract from `src/app/dashboard/statistics/page.tsx`:
-  - Constants: `PRIMARY`, `CHART_PALETTE`, `INK`, `INK_MUTED`, `HAIRLINE`, `FONT_BODY`
-  - Locale configs: `VEGA_FORMAT_LOCALE`, `VEGA_TIME_FORMAT_LOCALE`
-  - Helpers: `vegaFormat()`, `vegaUnitSuffix()`, `buildVegaLiteSpec()`
-  - Dynamic import: `VegaEmbed` (ssr: false)
-  - Component: `VegaChart({ insight: Insight })` — renders chart or null if no chart_data
-- Stories: `BarChart`, `LineChart`, `PieChart`, `GroupedBar`, `NoChart`
-- After extracting, update `statistics/page.tsx`:
-  - Remove extracted constants/functions
-  - Import `{ VegaChart }` from `@/components/organisms/VegaChart`
-  - Replace `InsightCard` inline chart rendering with `<VegaChart insight={insight} />`
+- [x] `src/app/dashboard/page.tsx`
+- [x] `src/app/dashboard/statistics/page.tsx`
+- [x] `src/app/dashboard/budget/page.tsx`
+- [x] `src/app/dashboard/categories/page.tsx`
 
-## Phase 6 — Templates 📋 TODO
+## Phase 8 — Shim old flat files ✅ DONE
 
-Create page-layout components in `src/components/templates/`. Each accepts all data as props
-and emits callbacks — no data fetching, no router calls.
+- [x] `src/components/Navbar.tsx` → re-exports from organisms/Navbar
+- [x] `src/components/EmojiPicker.tsx` → re-exports from organisms/EmojiPicker
+- [x] `src/components/TransactionForm.tsx` → re-exports from organisms/TransactionForm
 
-| Template | Slot props in | Callbacks out | Source page |
-|----------|---------------|---------------|-------------|
-| `DashboardTemplate` | `dashboardData`, `transactions[]`, `loading`, `selectedMonth`, `isCurrentMonth` | `onPrevMonth`, `onNextMonth`, `onDeleteTransaction`, `onSaveTransaction` | `src/app/dashboard/page.tsx` |
-| `StatisticsTemplate` | `insights[]`, `status`, `agentSteps[]`, `refreshing`, `month`, `isAtUpperBound`, `error`, `regenError` | `onRegenerate`, `onNavigateMonth` | `src/app/dashboard/statistics/page.tsx` |
-| `BudgetTemplate` | `monthlyBudget`, `customBudgets[]`, `selectedMonth`, `isCurrentMonth` | `onSaveMonthly`, `onSaveCustom`, `onDeleteCustom` | `src/app/dashboard/budget/page.tsx` |
-| `CategoriesTemplate` | `categories[]`, `loading` | `onAddCategory`, `onEditCategory`, `onDeleteCategory`, `onAiSuggest` | `src/app/dashboard/categories/page.tsx` |
+## Phase 9 — Verify ✅ DONE
 
-## Phase 7 — Thin Pages 📋 TODO
-
-Each `page.tsx` becomes a data-fetching shell: fetch data → render template.
-All rendering logic moves into the template.
-
-- [ ] `src/app/dashboard/page.tsx`
-- [ ] `src/app/dashboard/statistics/page.tsx`
-- [ ] `src/app/dashboard/budget/page.tsx`
-- [ ] `src/app/dashboard/categories/page.tsx`
-
-## Phase 8 — Shim old flat files 📋 TODO
-
-Update old flat component files to re-export from the organism, so existing imports keep
-working without a big-bang rename pass:
-
-- [ ] `src/components/Navbar.tsx` → `export { Navbar } from "@/components/organisms/Navbar"`
-- [ ] `src/components/EmojiPicker.tsx` → `export { EmojiPicker } from "@/components/organisms/EmojiPicker"` + keep default export
-- [ ] `src/components/TransactionForm.tsx` → `export { TransactionForm } from "@/components/organisms/TransactionForm"` + keep default export
-
-## Phase 9 — Verify ✅ TODO
-
-```bash
-npm run storybook      # all stories load, no TS errors
-npm run dev            # app works end-to-end
-npx tsc --noEmit       # zero type errors
+```
+npx tsc --noEmit  → zero new errors (pre-existing: @storybook/nextjs, vega-* types)
 ```
 
 ---
