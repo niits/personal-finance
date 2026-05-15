@@ -82,6 +82,26 @@ fix(auth): handle expired GitHub token
 refactor(stats): extract useStatistics hook
 ```
 
+### Skipping CI
+
+Append `[skip ci]` to the commit message when the change cannot affect runtime behavior and running the full CI pipeline would be wasteful:
+
+```
+docs(workflow): update release steps [skip ci]
+chore: update CLAUDE.md [skip ci]
+```
+
+**Use `[skip ci]` when ALL changed files are:**
+- Documentation (`*.md`, `docs/**`)
+- Claude Code config (`.claude/**`, `CLAUDE.md`, `AGENTS.md`)
+- Storybook config (`.storybook/**`) — not story files themselves
+
+**Do NOT use `[skip ci]` when changing:**
+- Any file under `src/`
+- `package.json`, `package-lock.json`
+- Any workflow file (`.github/**`)
+- Config files that affect the build (`tsconfig.json`, `wrangler.jsonc`, `tailwind.config.*`)
+
 ---
 
 ## Project
