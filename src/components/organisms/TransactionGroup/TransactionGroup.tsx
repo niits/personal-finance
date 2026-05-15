@@ -18,9 +18,12 @@ type TransactionGroupProps = {
   date: string;
   transactions: TransactionItemData[];
   onTransactionClick?: (id: number) => void;
+  onSuggest?: (id: number) => void;
+  suggestingId?: number | null;
+  suggestedIds?: Set<number>;
 };
 
-export function TransactionGroup({ date, transactions, onTransactionClick }: TransactionGroupProps) {
+export function TransactionGroup({ date, transactions, onTransactionClick, onSuggest, suggestingId, suggestedIds }: TransactionGroupProps) {
   const netAmount = transactions.reduce(
     (sum, t) => sum + (t.type === "expense" ? -t.amount : t.amount),
     0,
@@ -41,6 +44,12 @@ export function TransactionGroup({ date, transactions, onTransactionClick }: Tra
             transaction={txn}
             showDivider={i > 0}
             onClick={onTransactionClick}
+            onSuggest={onSuggest}
+            suggestState={
+              suggestingId === txn.id ? "loading"
+              : suggestedIds?.has(txn.id) ? "done"
+              : "idle"
+            }
           />
         ))}
       </div>
