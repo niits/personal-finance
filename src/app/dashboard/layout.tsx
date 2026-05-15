@@ -15,14 +15,14 @@ const tabs = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { replace } = useRouter();
+  const router = useRouter();
   const { data: session, isPending } = useSession();
 
   useEffect(() => {
     if (!isPending && !session) {
-      replace("/sign-in");
+      router.replace("/sign-in");
     }
-  }, [session, isPending, replace]);
+  }, [session, isPending, router]);
 
   // Listen for global 401 events dispatched by the fetcher (e.g. from SWR
   // revalidation) so we redirect even when the layout session is still truthy.
