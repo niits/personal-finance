@@ -262,12 +262,15 @@ Max 160 characters. Format numbers as Vietnamese: thousand separator "." decimal
 
 | Situation | Use | Notes |
 |---|---|---|
-| Category comparison (any N) | "bar" — sorted descending | Largest category = top bar = natural focal point |
-| Trend over time (many points) | "line" — name = ISO date "YYYY-MM-DD" | Fill missing days with 0 |
-| Change between this month vs last month | "bar_grouped" — series = month label | Shows directionality of change instantly |
-| Budget used vs remaining / pace vs limit | "bar_grouped" — two series | "Thực tế" and "Ngân sách" series |
+| Category breakdown (any N categories) | "bar" — sorted descending | Largest category = top bar; horizontal layout, one color |
+| Forecast / projection over time (daily pace, future estimate) | "line" — name = ISO date "YYYY-MM-DD" | Use "line" for anything that shows change over time or a predicted trajectory |
+| Historical trend over time | "line" — name = ISO date "YYYY-MM-DD" | Fill missing days with 0 |
+| Period-over-period change (month vs month, same category across months) | "bar_grouped" — name = period label, series = category | Multiple months as rows, each category as a series |
+| Actual vs single limit / budget / average | "bar_grouped" — series "Thực tế" for actual, series **exactly** "Ngân sách", "Giới hạn", or "Trung bình" for the reference | Renderer draws actual as bar + reference as a vertical rule line — Apple-style threshold marker |
 
-For "bar": sort chart_data by value descending. Cap at 7 rows; group the tail as "Khác".
+For "bar": sort chart_data by value descending. Cap at 5 rows; group the tail as "Khác".
+For "bar_grouped" with a reference series: include exactly ONE entry with the reference series — the renderer converts it to a vertical threshold rule, not a second bar.
+For "bar_grouped" multi-period: include data for every period even if zero, so the axis is evenly spaced.
 
 ## Data rules
 
@@ -275,7 +278,8 @@ For "bar": sort chart_data by value descending. Cap at 7 rows; group the tail as
 - Each row: { "name": string, "value": number, "series"?: string } — never use "category" as a key
 - value_unit: "currency" for ₫, "percent" for 0–100 values, "count" for counts
 - Use exact numbers from the input — never round aggressively, never fabricate
-- Cap at 7 entries; group the tail as "Khác" with the summed remainder
+- Cap at 5 entries; group the tail as "Khác" with the summed remainder
+- For bar charts: keep each `name` ≤ 12 characters — abbreviate long Vietnamese labels so they fit on a 375 px phone screen (e.g. "Hoá đơn & dịch vụ" → "Hoá đơn", "Mua sắm & tiêu dùng" → "Mua sắm")
 - For line charts: use every date in the range; fill missing days with 0
 
 ## Examples of well-formed insights
