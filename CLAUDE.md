@@ -4,6 +4,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Language
+
+- **Code, comments, docs, commit messages, PR titles/descriptions, issue titles/descriptions, epic names**: English
+- **UI strings in the app**: Vietnamese
+
 ## Git Workflow (GitLab Flow)
 
 This project follows a simplified GitLab Flow. `main` is always stable and deployable; every change goes through a feature branch and a Pull Request.
