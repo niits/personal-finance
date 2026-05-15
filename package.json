@@ -9,9 +9,12 @@
     "lint": "eslint",
     "build:cf": "opennextjs-cloudflare build",
     "dev:cf": "opennextjs-cloudflare build && opennextjs-cloudflare preview -- --port 8787",
+    "preview:cf": "opennextjs-cloudflare preview -- --port 8787",
     "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --env production",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:integration": "vitest run --config vitest.config.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test": "npm run test:unit && npm run test:integration",
     "icons": "node scripts/generate-icons.mjs"
   },
@@ -37,6 +40,7 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.8.71",
     "@opennextjs/cloudflare": "^1.19.4",
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
