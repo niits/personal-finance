@@ -4,7 +4,3 @@ GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 BETTER_AUTH_SECRET=any-random-string-at-least-32-chars!!
 BETTER_AUTH_URL=http://localhost:8787
-
-LANGFUSE_SECRET_KEY=
-LANGFUSE_PUBLIC_KEY=
-LANGFUSE_BASE_URL=https://cloud.langfuse.com
