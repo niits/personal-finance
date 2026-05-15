@@ -10,7 +10,7 @@ export function middleware(request: NextRequest) {
     // Redirect unauthenticated requests to the home/login page.
     // This is a lightweight presence check — expiry validation still
     // happens server-side in requireSession() for every API route.
-    const loginUrl = new URL("/", request.url);
+    const loginUrl = new URL("/sign-in", request.url);
     loginUrl.searchParams.set("from", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
