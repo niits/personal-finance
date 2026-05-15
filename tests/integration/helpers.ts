@@ -1,24 +1,41 @@
 import { env } from "cloudflare:test";
-import fs from "node:fs";
-import path from "node:path";
 
 const TEST_SECRET = "test-secret-vitest-do-not-use-in-production";
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../migrations");
+
+// Use Vite's import.meta.glob to bundle SQL files at compile time.
+// This avoids node:fs calls which are not available in the Workers test runtime.
+const migrationModules = import.meta.glob<string>("../../migrations/*.sql", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
+/**
+ * Strip SQL line comments and split into individual statements.
+ * Naive split(";") breaks when comments contain semicolons (e.g. migration 0006).
+ */
+function splitSql(sql: string): string[] {
+  const lines = sql.split("\n");
+  const cleaned = lines
+    .map((line) => {
+      const commentIdx = line.indexOf("--");
+      return commentIdx === -1 ? line : line.substring(0, commentIdx);
+    })
+    .join("\n");
+
+  return cleaned
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
 
 export async function applyMigrations() {
-  const files = fs
-    .readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
+  const entries = Object.entries(migrationModules).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
 
-  for (const file of files) {
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf-8");
-    // D1 batch doesn't support multi-statement strings; split by semicolon
-    const statements = sql
-      .split(";")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-
+  for (const [, sql] of entries) {
+    const statements = splitSql(sql);
     for (const stmt of statements) {
       await env.DB.prepare(stmt).run();
     }

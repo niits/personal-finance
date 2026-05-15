@@ -1,0 +1,67 @@
+name: Sync Prod → Staging
+
+# Manual trigger only — run this before testing a release candidate on staging.
+# It replaces all staging data with a fresh snapshot of production, then applies
+# any pending migrations so the schema is always at the latest version.
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Snapshot prod and restore to staging
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 1. Export the full production database (schema + data) to a local file.
+      - name: Export production database
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 export personal-finance-auth --remote --output prod-dump.sql
+
+      # 2. Wipe staging rows (DELETE in FK-safe order) so INSERT in the dump won't conflict.
+      - name: Clear staging data
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 execute personal-finance-auth-staging --remote --file scripts/clear-staging-data.sql
+
+      # 3. Import prod snapshot into staging.
+      #    CREATE TABLE IF NOT EXISTS statements are harmless (schema already exists).
+      - name: Import production data to staging
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 execute personal-finance-auth-staging --remote --file prod-dump.sql
+
+      # 4. Apply any migrations that are on this branch but not yet on prod.
+      #    This keeps staging one step ahead for pre-production testing.
+      - name: Apply pending migrations (staging)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply personal-finance-auth-staging --remote --env staging
+
+      # 5. Remove the prod dump — contains real user data, must not persist on the runner.
+      - name: Remove prod dump
+        if: always()
+        run: rm -f prod-dump.sql
+

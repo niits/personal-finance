@@ -191,7 +191,7 @@ export async function GET(request: NextRequest) {
   const summary = await summaryQuery.executeTakeFirst();
 
   const isPastMonth = month !== currentBudgetMonth();
-  const cacheHeader = isPastMonth ? "private, max-age=86400" : "no-store";
+  const cacheHeader = isPastMonth ? "private, max-age=86400, must-revalidate" : "no-store";
 
   return Response.json({
     transactions: results.map((r) => formatTransaction(r, cbMap)),

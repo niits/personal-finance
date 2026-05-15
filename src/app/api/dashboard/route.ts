@@ -97,7 +97,10 @@ export async function GET(request: NextRequest) {
     paceStatus = totalExpense > ideal ? "over" : "under";
   }
 
-  const cacheHeader = isCurrentBudgetMonth ? "no-store" : "private, max-age=86400";
+  // must-revalidate ensures the browser always sends the session cookie to
+  // revalidate with the server even for cached past-month data — preventing
+  // stale authenticated responses from being shown after sign-out.
+  const cacheHeader = isCurrentBudgetMonth ? "no-store" : "private, max-age=86400, must-revalidate";
 
   return Response.json({
     month,
