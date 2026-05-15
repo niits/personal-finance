@@ -21,7 +21,6 @@ export async function runAIObject<T>(opts: {
   const { env } = await getCloudflareContext({ async: true });
   const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
   const model = workersai(MODEL);
-
   const cappedTokens = Math.min(opts.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS);
 
   try {
