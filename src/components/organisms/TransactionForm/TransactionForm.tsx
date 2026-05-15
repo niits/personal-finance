@@ -542,7 +542,7 @@ export function TransactionForm({ open, onClose, onSaved, transaction }: Transac
           touchAction: "pan-y",
           transform: `translateY(${sheetTranslateY}${typeof sheetTranslateY === "number" ? "px" : ""})`,
           transition: isDragging ? "none" : `transform 0.4s ${SPRING}`,
-          willChange: isDragging ? "transform" : "auto",
+          ...(isDragging && { willChange: "transform" }),
         }}
       >
         <div
