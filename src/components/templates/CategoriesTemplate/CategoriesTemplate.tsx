@@ -48,6 +48,8 @@ export type CategoriesTemplateProps = {
   onAcceptRecat: (s: RecategorizeSuggestion) => Promise<{ error?: string }>;
   onLoadSuggestions: () => void;
   onLoadRecatSuggestions: () => void;
+  fillEmojiState: "idle" | "loading" | "done" | "error";
+  onFillEmoji: () => void;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -104,6 +106,8 @@ export function CategoriesTemplate({
   onAcceptRecat,
   onLoadSuggestions,
   onLoadRecatSuggestions,
+  fillEmojiState,
+  onFillEmoji,
 }: CategoriesTemplateProps) {
   const [newName, setNewName] = useState("");
   const [newEmoji, setNewEmoji] = useState<string | null>(null);
@@ -507,6 +511,24 @@ export function CategoriesTemplate({
             }}
           >
             ✦ Gợi ý
+          </button>
+          <button
+            onClick={onFillEmoji}
+            disabled={fillEmojiState === "loading"}
+            style={{
+              background: "transparent",
+              color: fillEmojiState === "done" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.75)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              borderRadius: 999,
+              padding: "8px 16px",
+              fontFamily: "var(--font-body)",
+              fontSize: 14,
+              fontWeight: 400,
+              cursor: fillEmojiState === "loading" ? "wait" : "pointer",
+              opacity: fillEmojiState === "loading" ? 0.6 : 1,
+            }}
+          >
+            {fillEmojiState === "loading" ? "⏳ Đang điền…" : fillEmojiState === "done" ? "✓ Đã điền emoji" : "✦ Fill emoji"}
           </button>
           <button
             onClick={() => setShowForm(!showForm)}

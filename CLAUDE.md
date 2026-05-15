@@ -10,7 +10,18 @@ This project follows a simplified GitLab Flow. `main` is always stable and deplo
 
 ### Branch rules
 
-**Never commit directly to `main`.** Always create a new branch for every change.
+**Never commit directly to `main` or `staging`.** Always create a new branch for every change.
+
+**Default PR target is `staging`**, not `main`. After staging is validated, staging is merged into main.
+
+**Hotfix branches** (`hotfix/*`) target `main` directly, then `staging` is rebased on top of main:
+```bash
+gh pr merge <pr> --merge --delete-branch   # merge hotfix → main
+git checkout staging && git rebase origin/main
+git push --force origin staging
+```
+
+**Always merge PRs automatically** (`gh pr merge --merge --delete-branch`) after pushing, unless told otherwise.
 
 - Reuse an existing branch only if the new work is clearly related to that branch's ongoing feature or fix.
 - If it's unclear whether to create a new branch or reuse one, ask before proceeding.
@@ -34,7 +45,7 @@ git checkout -b feature/<name>
 # 2. Commit often with Conventional Commits
 git commit -m "feat(scope): short description"
 
-# 3. Push and open a Pull Request → main
+# 3. Push and open a Pull Request → staging
 git push -u origin feature/<name>
 
 # 4. After PR is merged, delete the branch

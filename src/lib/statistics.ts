@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { sql } from "kysely";
+import { tool, stepCountIs } from "ai";
 import { getKysely } from "@/lib/db";
-import { runAIObject } from "@/lib/llm";
+import { runAIObject, getWorkersAIModel, generateText } from "@/lib/llm";
 import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate } from "@/lib/validators";
 
 export type InsightType = "analysis" | "recommendation" | "alert";
@@ -139,8 +140,7 @@ export async function generateStatisticsReport(
     }),
   );
 
-  // ── Step 1: Pre-fetch all data (emit live events so UI shows progress) ──────
-  emit?.({ type: "tool_call", tool: "get_expense_by_category", label: "Tổng hợp chi tiêu theo danh mục" });
+  // ── Pre-compute data that tools will serve on demand ──────────────────────
   const allTxRows = await db
     .selectFrom("transaction")
     .select(["amount", "category_id", "type", "date", "note"])
@@ -172,9 +172,7 @@ export async function generateStatisticsReport(
   const expenseByCategory = [...expenseTotals.entries()]
     .map(([category, total]) => ({ category, total, pct: Math.round((total / grandTotal) * 100) }))
     .sort((a, b) => b.total - a.total);
-  emit?.({ type: "tool_result", tool: "get_expense_by_category", rows: expenseByCategory.length });
 
-  emit?.({ type: "tool_call", tool: "get_notable_transactions", label: "Giao dịch đáng chú ý" });
   const notableTransactions = allTxRows
     .filter((r) => r.note || r.type === "expense")
     .sort((a, b) => b.amount - a.amount)
@@ -186,9 +184,7 @@ export async function generateStatisticsReport(
       category: resolveCategoryPath(r.category_id, catMap),
       note: r.note ?? null,
     }));
-  emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: notableTransactions.length });
 
-  // Budget status
   const startD = new Date(periodStart + "T00:00:00Z");
   const endD = new Date(effectiveEnd + "T00:00:00Z");
   const todayD = new Date(currentDate() + "T00:00:00Z");
@@ -206,183 +202,165 @@ export async function generateStatisticsReport(
     daily_pace: dailyPace,
     projected_total: dailyPace * totalDays,
   };
-
   const dailyTrend = [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
 
-  // ── Step 2: Single model call using structured output (no tool calling needed) ──
-  emit?.({ type: "tool_call", tool: "analyze", label: "AI đang phân tích và tổng hợp" });
-
-  const objectiveLine = budget?.objective
-    ? `\n\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
-    : "";
-
-  const system = `You are a trusted personal finance advisor. You have full spending data for one period. Your job is to tell a clear, honest story about the user's money — not just list facts.${objectiveLine}
-
-## Your output: 3–5 insights that form a story arc
-
-Structure the insights as a narrative:
-1. **Setup** — What happened overall? (total spend, pace vs budget, vs prior months)
-2. **Finding(s)** — What is the most important pattern, surprise, or concentration? (1–2 insights)
-3. **Alert** — Is anything over budget or accelerating dangerously? (only if true, do not fabricate)
-4. **Action** — One concrete recommendation the user can act on this week
-
-Do not produce generic or obvious observations ("you spent money on food"). Every insight must be specific to the numbers in the data.
-
-## Insight types
-
-- "analysis" — data-backed breakdown or trend → chart REQUIRED
-- "alert" — overspending, anomaly, threshold breach → chart REQUIRED if numeric
-- "recommendation" — one concrete next action → chart only if it strengthens the point
-
-## Title rule: THE TITLE IS THE TAKEAWAY, NOT A DESCRIPTION
-
-The title must state the insight — what the data means, not what it shows.
-
-❌ Bad (describes the chart): "Chi tiêu theo danh mục tháng 5"
-❌ Bad (obvious): "Ăn uống là khoản chi lớn"
-✅ Good (states the finding): "Ăn uống chiếm 35% — tăng 12% so với tháng trước"
-✅ Good (adds significance): "Đã dùng 83% ngân sách — còn 14 ngày"
-✅ Good (actionable alert): "Mua sắm tăng gấp đôi — vượt ngân sách 1,2 triệu ₫"
-
-Max 45 characters.
-
-## Summary rule: add what the chart cannot show
-
-The chart carries the numbers. The summary adds context the chart cannot: comparison to prior period, reason, implication, or urgency.
-
-❌ Bad (repeats chart): "Ăn uống là khoản lớn nhất, kế đến là Cho tặng."
-✅ Good (adds context): "Tăng 12% so với tháng 4, chủ yếu do ăn ngoài cuối tuần."
-✅ Good (adds implication): "Với đà này, tổng chi sẽ vượt ngân sách khoảng 2,1 triệu ₫."
-
-Max 160 characters. Format numbers as Vietnamese: thousand separator "." decimal "," (e.g. "3.016.320 ₫", "23,45%").
-
-## Chart selection
-
-**Never use pie.** A horizontal bar sorted by value is always clearer. Pie charts make angle comparisons impossible; bars make size comparisons instant.
-
-| Situation | Use | Notes |
-|---|---|---|
-| Category breakdown (any N categories) | "bar" — sorted descending | Largest category = top bar; horizontal layout, one color |
-| Forecast / projection over time (daily pace, future estimate) | "line" — name = ISO date "YYYY-MM-DD" | Use "line" for anything that shows change over time or a predicted trajectory |
-| Historical trend over time | "line" — name = ISO date "YYYY-MM-DD" | Fill missing days with 0 |
-| Period-over-period change (month vs month, same category across months) | "bar_grouped" — name = period label, series = category | Multiple months as rows, each category as a series |
-| Actual vs single limit / budget / average | "bar_grouped" — series "Thực tế" for actual, series **exactly** "Ngân sách", "Giới hạn", or "Trung bình" for the reference | Renderer draws actual as bar + reference as a vertical rule line — Apple-style threshold marker |
-
-For "bar": sort chart_data by value descending. Cap at 5 rows; group the tail as "Khác".
-For "bar_grouped" with a reference series: include exactly ONE entry with the reference series — the renderer converts it to a vertical threshold rule, not a second bar.
-For "bar_grouped" multi-period: include data for every period even if zero, so the axis is evenly spaced.
-
-## Data rules
-
-- chart_data values are RAW integers from the input (no formatting, no units)
-- Each row: { "name": string, "value": number, "series"?: string } — never use "category" as a key
-- value_unit: "currency" for ₫, "percent" for 0–100 values, "count" for counts
-- Use exact numbers from the input — never round aggressively, never fabricate
-- Cap at 5 entries; group the tail as "Khác" with the summed remainder
-- For bar charts: keep each "name" ≤ 12 characters — abbreviate long Vietnamese labels so they fit on a 375 px phone screen (e.g. "Hoá đơn & dịch vụ" → "Hoá đơn", "Mua sắm & tiêu dùng" → "Mua sắm")
-- For line charts: use every date in the range; fill missing days with 0
-
-## Examples of well-formed insights
-
-Example 1 — category breakdown (bar, sorted descending, title = takeaway):
-{
-  "type": "analysis",
-  "title": "Ăn uống chiếm 35% — tăng 12% so tháng 4",
-  "summary": "Tăng chủ yếu từ ăn ngoài cuối tuần — 8 giao dịch nhà hàng trên 200.000 ₫.",
-  "chart_type": "bar",
-  "chart_data": [
-    { "name": "Ăn uống", "value": 3016320 },
-    { "name": "Cho tặng", "value": 2250000 },
-    { "name": "Hoá đơn & dịch vụ", "value": 1751000 },
-    { "name": "Khác", "value": 1321328 }
-  ],
-  "value_unit": "currency"
-}
-
-Example 2 — budget alert with projection:
-{
-  "type": "alert",
-  "title": "Đã dùng 83% ngân sách — còn 14 ngày",
-  "summary": "Với tốc độ 412.000 ₫/ngày, tổng chi dự kiến vượt ngân sách 1,8 triệu ₫.",
-  "chart_type": "bar_grouped",
-  "chart_data": [
-    { "name": "Đã chi", "value": 12413228, "series": "Thực tế" },
-    { "name": "Ngân sách", "value": 15000000, "series": "Ngân sách" }
-  ],
-  "value_unit": "currency"
-}
-
-Example 3 — line trend:
-{
-  "type": "analysis",
-  "title": "Chi tiêu tăng mạnh từ tuần thứ 3",
-  "summary": "3 ngày cuối tháng chiếm 28% tổng chi — chủ yếu mua sắm và giải trí.",
-  "chart_type": "line",
-  "chart_data": [
-    { "name": "2026-05-01", "value": 150000 },
-    { "name": "2026-05-02", "value": 0 },
-    { "name": "2026-05-03", "value": 320000 }
-  ],
-  "value_unit": "currency"
-}
-
-Example 4 — month-over-month comparison (Trend Alert template):
-{
-  "type": "alert",
-  "title": "Mua sắm tăng gấp đôi — xu hướng 3 tháng liên tiếp",
-  "summary": "Nếu tiếp tục, mua sắm sẽ chiếm 40% ngân sách vào tháng 7. Cân nhắc đặt hạn mức danh mục.",
-  "chart_type": "bar_grouped",
-  "chart_data": [
-    { "name": "Tháng 3", "value": 800000, "series": "Mua sắm" },
-    { "name": "Tháng 4", "value": 1200000, "series": "Mua sắm" },
-    { "name": "Tháng 5", "value": 1900000, "series": "Mua sắm" }
-  ],
-  "value_unit": "currency"
-}`;
-
+  // ── Schemas ────────────────────────────────────────────────────────────────
   const chartDatumSchema = z.object({
     name: z.string().describe("Category label or ISO date — never the key 'category'"),
     value: z.number().describe("Raw numeric amount (no formatting, no units)"),
     series: z.string().optional().describe("Group label, only for bar_grouped"),
   });
 
+  const insightItemSchema = z.object({
+    type: z.enum(["analysis", "recommendation", "alert"]),
+    title: z.string().max(60).describe("Specific Vietnamese headline, max 45 chars"),
+    summary: z.string().max(220).describe("One-sentence Vietnamese caption, ≤160 chars"),
+    chart_type: z.enum(["pie", "bar", "bar_grouped", "line"]).optional()
+      .describe("Required for 'analysis' and numeric 'alert'."),
+    chart_data: z.array(chartDatumSchema).optional()
+      .describe("Structured rows for the chart. Required whenever chart_type is set."),
+    value_unit: z.enum(["currency", "percent", "count"]).optional(),
+  });
+
   const insightSchema = z.object({
-    insights: z.array(
-      z.object({
-        type: z.enum(["analysis", "recommendation", "alert"]),
-        title: z.string().max(60).describe("Specific Vietnamese headline, max 40 chars"),
-        summary: z.string().max(220).describe("One-sentence Vietnamese caption, ≤220 chars"),
-        chart_type: z.enum(["pie", "bar", "bar_grouped", "line"]).optional()
-          .describe("Required for 'analysis' and numeric 'alert'. Omit only if chart truly does not apply."),
-        chart_data: z.array(chartDatumSchema).optional()
-          .describe("Structured rows for the chart. Required whenever chart_type is set."),
-        value_unit: z.enum(["currency", "percent", "count"]).optional(),
+    insights: z.array(insightItemSchema).min(1).max(5),
+  });
+
+  const objectiveLine = budget?.objective
+    ? `\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
+    : "";
+
+  const SYSTEM = `You are a trusted personal finance advisor.${objectiveLine}
+
+You have tools to fetch spending data. Use them to explore the data, then call generate_insights with your findings.
+
+IMPORTANT: You MUST call tools first before generate_insights. Call at least:
+- get_budget_status
+- get_expense_by_category
+Then call generate_insights with 3–5 insights based on what you found.
+
+## Insight rules
+- Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.
+  ❌ "Chi tiêu theo danh mục" ✅ "Ăn uống chiếm 35% — tăng 12% so tháng trước"
+- Summary = adds context the chart cannot show (max 160 chars, Vietnamese)
+- Never use pie charts — use bar (sorted desc) instead
+- chart_data values are raw integers, no formatting
+- Cap bar charts at 5 rows, group tail as "Khác"
+- For bar chart names: ≤ 12 chars, abbreviate if needed`;
+
+  // ── Real tool-calling loop ─────────────────────────────────────────────────
+  let capturedInsights: Insight[] | null = null as Insight[] | null;
+  const model = await getWorkersAIModel();
+
+  try {
+    await generateText({
+      model,
+      system: SYSTEM,
+      stopWhen: stepCountIs(8),
+      maxOutputTokens: 16000,
+      prompt: `Analyze spending for period ${periodKey} (${periodStart} to ${effectiveEnd}). Prior months for context: ${JSON.stringify(priorSummaries)}`,
+      tools: {
+        get_budget_status: tool({
+          description: "Get budget and overall spending summary for the period",
+          inputSchema: z.object({}),
+          outputSchema: z.unknown(),
+          execute: async () => {
+            emit?.({ type: "tool_call", tool: "get_budget_status", label: "Tổng quan ngân sách" });
+            emit?.({ type: "tool_result", tool: "get_budget_status", rows: 1 });
+            return { period: { key: periodKey, start: periodStart, end: effectiveEnd }, ...budgetStatus };
+          },
+        }),
+        get_expense_by_category: tool({
+          description: "Get expense totals grouped by category, sorted by amount descending",
+          inputSchema: z.object({}),
+          outputSchema: z.unknown(),
+          execute: async () => {
+            emit?.({ type: "tool_call", tool: "get_expense_by_category", label: "Chi tiêu theo danh mục" });
+            const result = expenseByCategory.slice(0, 12);
+            emit?.({ type: "tool_result", tool: "get_expense_by_category", rows: result.length });
+            return result;
+          },
+        }),
+        get_notable_transactions: tool({
+          description: "Get top transactions by amount for the period",
+          inputSchema: z.object({}),
+          outputSchema: z.unknown(),
+          execute: async () => {
+            emit?.({ type: "tool_call", tool: "get_notable_transactions", label: "Giao dịch đáng chú ý" });
+            const result = notableTransactions.slice(0, 12);
+            emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: result.length });
+            return result;
+          },
+        }),
+        get_daily_trend: tool({
+          description: "Get daily expense and income totals for the period",
+          inputSchema: z.object({}),
+          outputSchema: z.unknown(),
+          execute: async () => {
+            emit?.({ type: "tool_call", tool: "get_daily_trend", label: "Xu hướng chi tiêu theo ngày" });
+            const result = dailyTrend.slice(-20);
+            emit?.({ type: "tool_result", tool: "get_daily_trend", rows: result.length });
+            return result;
+          },
+        }),
+        generate_insights: tool({
+          description: "Generate the final structured finance report with 3-5 insights. Call this LAST after fetching data.",
+          inputSchema: insightSchema,
+          outputSchema: z.object({ status: z.string(), count: z.number() }),
+          execute: async (args) => {
+            capturedInsights = (args as z.infer<typeof insightSchema>).insights as Insight[];
+            emit?.({ type: "tool_call", tool: "generate_insights", label: "Tổng hợp nhận xét" });
+            emit?.({ type: "tool_result", tool: "generate_insights", rows: capturedInsights.length });
+            return { status: "saved", count: capturedInsights.length };
+          },
+        }),
+      },
+      onStepFinish({ stepNumber, toolCalls, finishReason, text }) {
+        // Debug: log each step to diagnose if the model skips tool calling
+        console.log("[stats-agent] step", {
+          stepNumber,
+          finishReason,
+          toolCalls: toolCalls.map((tc) => tc.toolName),
+          hasText: !!text?.trim(),
+        });
+      },
+    });
+  } catch (agentErr) {
+    console.error("[stats-agent] generateText error:", agentErr);
+    // Fall through to fallback below — don't rethrow yet
+  }
+
+  // ── Fallback: if agent didn't call generate_insights, use pre-fetched data ─
+  // This handles "lazy" Llama behavior where it answers in text instead of tools.
+  if (!capturedInsights || capturedInsights.length === 0) {
+    console.warn("[stats-agent] no insights from tool-calling — falling back to generateObject");
+    emit?.({ type: "tool_call", tool: "analyze", label: "AI đang phân tích (fallback)" });
+
+    const fallbackResult = await runAIObject({
+      schema: insightSchema,
+      schemaName: "FinanceInsightsReport",
+      schemaDescription: "A structured personal finance report with 3–5 insights.",
+      system: SYSTEM,
+      traceName: "statistics-insights-fallback",
+      userId,
+      maxOutputTokens: 16000,
+      prompt: JSON.stringify({
+        period: { key: periodKey, start: periodStart, end: effectiveEnd },
+        budget_status: budgetStatus,
+        expense_by_category: expenseByCategory.slice(0, 12),
+        notable_transactions: notableTransactions.slice(0, 12),
+        daily_trend: dailyTrend.slice(-20),
+        prior_periods: priorSummaries,
       }),
-    ).min(1).max(5),
-  });
+    });
 
-  const result = await runAIObject({
-    schema: insightSchema,
-    schemaName: "FinanceInsightsReport",
-    schemaDescription: "A structured personal finance report with 3–5 insights, each pairing a Vietnamese caption with a chart spec.",
-    system,
-    traceName: "statistics-insights",
-    userId,
-    maxOutputTokens: 16000,
-    prompt: JSON.stringify({
-      period: { key: periodKey, start: periodStart, end: effectiveEnd },
-      budget_status: budgetStatus,
-      expense_by_category: expenseByCategory.slice(0, 12),
-      notable_transactions: notableTransactions.slice(0, 12),
-      daily_trend: dailyTrend.slice(-20),
-      prior_periods: priorSummaries,
-    }),
-  });
+    capturedInsights = fallbackResult.insights;
+    emit?.({ type: "tool_result", tool: "analyze", rows: capturedInsights.length });
+  }
 
-  const capturedInsights: Insight[] = result.insights;
-  emit?.({ type: "tool_result", tool: "analyze", rows: capturedInsights.length });
-
-  if (capturedInsights.length === 0) throw new Error("AI không tạo được nhận xét — thử lại sau");
+  if (!capturedInsights || capturedInsights.length === 0) {
+    throw new Error("AI không tạo được nhận xét — thử lại sau");
+  }
 
   await saveReport(db, userId, periodType, periodKey, capturedInsights, now);
 }

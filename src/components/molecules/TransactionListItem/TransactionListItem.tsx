@@ -17,9 +17,11 @@ type TransactionListItemProps = {
   transaction: TransactionItemData;
   showDivider?: boolean;
   onClick?: (id: number) => void;
+  onSuggest?: (id: number) => void;
+  suggestState?: "idle" | "loading" | "done";
 };
 
-export function TransactionListItem({ transaction: t, showDivider, onClick }: TransactionListItemProps) {
+export function TransactionListItem({ transaction: t, showDivider, onClick, onSuggest, suggestState = "idle" }: TransactionListItemProps) {
   const displayEmoji = t.emoji ?? t.categoryEmoji;
   const fallback = t.categoryName.charAt(0).toUpperCase();
 
@@ -83,12 +85,35 @@ export function TransactionListItem({ transaction: t, showDivider, onClick }: Tr
         )}
       </div>
 
-      <CurrencyDisplay
-        amount={t.amount}
-        signed
-        signType={t.type}
-        size="md"
-      />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        {onSuggest && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSuggest(t.id); }}
+            disabled={suggestState === "loading"}
+            aria-label="Gợi ý AI"
+            title="Gợi ý danh mục & emoji"
+            style={{
+              background: "none",
+              border: "none",
+              padding: "4px 6px",
+              cursor: suggestState === "loading" ? "wait" : "pointer",
+              fontSize: 14,
+              lineHeight: 1,
+              color: suggestState === "done" ? "var(--primary)" : "var(--ink-muted-48)",
+              opacity: suggestState === "loading" ? 0.5 : 1,
+              borderRadius: 6,
+            }}
+          >
+            {suggestState === "loading" ? "⏳" : suggestState === "done" ? "✦" : "✦"}
+          </button>
+        )}
+        <CurrencyDisplay
+          amount={t.amount}
+          signed
+          signType={t.type}
+          size="md"
+        />
+      </div>
     </div>
   );
 }

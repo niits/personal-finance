@@ -51,6 +51,9 @@ export type DashboardTemplateProps = {
   onCloseForm: () => void;
   onSaved: () => void;
   onDelete: (txn: Transaction) => void;
+  onSuggest?: (id: number) => void;
+  suggestingId?: number | null;
+  suggestedIds?: Set<number>;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -151,6 +154,9 @@ export function DashboardTemplate({
   onCloseForm,
   onSaved,
   onDelete,
+  onSuggest,
+  suggestingId,
+  suggestedIds,
 }: DashboardTemplateProps) {
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
 
@@ -343,9 +349,22 @@ export function DashboardTemplate({
                         </div>
                       )}
                     </div>
-                    <p style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: txn.type === "expense" ? "#ff453a" : "#30d158", letterSpacing: -0.2, flexShrink: 0 }}>
-                      {txn.type === "expense" ? "−" : "+"}{fmt(txn.amount)}₫
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                      {onSuggest && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onSuggest(txn.id); }}
+                          disabled={suggestingId === txn.id}
+                          aria-label="Gợi ý AI"
+                          title="Gợi ý danh mục & emoji"
+                          style={{ background: "none", border: "none", padding: "4px 6px", cursor: suggestingId === txn.id ? "wait" : "pointer", fontSize: 14, lineHeight: 1, color: suggestedIds?.has(txn.id) ? "var(--primary)" : "var(--ink-muted-48)", opacity: suggestingId === txn.id ? 0.5 : 1, borderRadius: 6 }}
+                        >
+                          {suggestingId === txn.id ? "⏳" : "✦"}
+                        </button>
+                      )}
+                      <p style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: txn.type === "expense" ? "#ff453a" : "#30d158", letterSpacing: -0.2 }}>
+                        {txn.type === "expense" ? "−" : "+"}{fmt(txn.amount)}₫
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
