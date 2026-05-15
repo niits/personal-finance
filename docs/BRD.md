@@ -7,11 +7,11 @@
 | Field | Value |
 |-------|-------|
 | Type | Business Requirements Document |
-| Document Version | 1.1 |
+| Document Version | 1.2 |
 | Status | Draft |
 | Author | niits |
 | Created | 2026-04-29 |
-| Last Updated | 2026-05-06 |
+| Last Updated | 2026-05-14 |
 
 ---
 
@@ -93,7 +93,9 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 - Transaction history: view, edit, delete, filter
 - Monthly summaries: total expenses, total income, savings
 - Default monthly budget value configuration for the next month
+- AI-generated statistical insights: narrative analysis + Vega-Lite charts per month
 - Vietnamese-language UI and VND currency (initial target)
+- Component-driven UI development (Storybook stories for all components)
 
 ### 4.2 Out of Scope
 
@@ -269,6 +271,21 @@ Thu nhập
 
 ---
 
+### 6.9 Statistics & AI Insights (STAT)
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| STAT-01 | Users must be able to generate an AI-powered statistical analysis for any month | Must Have |
+| STAT-02 | Each insight must include: a title, a narrative explanation, a primary numeric value with unit, and optionally a Vega-Lite chart | Must Have |
+| STAT-03 | Chart types supported: bar, line, pie, area | Must Have |
+| STAT-04 | Insights must be streamed progressively — each card appears as the AI produces it | Should Have |
+| STAT-05 | The system must pass the user's actual transaction data for that month to the AI | Must Have |
+| STAT-06 | Insight generation must be idempotent within a session — re-generating for the same month replaces the previous stream | Should Have |
+| STAT-07 | Charts must render without using `eval` (CSP constraint — use vega-interpreter) | Must Have |
+| STAT-08 | All chart amounts must be formatted with vi-VN locale (thousands separator `.`, decimal `,`, suffix `₫`) | Must Have |
+
+---
+
 ## 7. Business Rules
 
 | ID | Rule |
@@ -333,6 +350,8 @@ Thu nhập
 |----|-------------|
 | NFR-M01 | Schema migrations must use Wrangler migrations; no direct database edits allowed |
 | NFR-M02 | Every schema change must have a corresponding migration file |
+| NFR-M03 | Every UI component must have a co-located Storybook story file covering all meaningful states |
+| NFR-M04 | UI components must follow the Component Driven Development hierarchy defined in `docs/COMPONENT_ARCHITECTURE.md` |
 
 ---
 
@@ -453,9 +472,12 @@ App (authenticated)
 │   ├── Header: month navigator ‹ › , hero spend, budget bar with pace layer
 │   ├── Category filter chips (top 3 level-1 by expense count)
 │   └── Transaction feed (grouped by date, current month default)
-├── Tab 2: Categories (Danh mục)
+├── Tab 2: Statistics (Thống kê)
+│   ├── Month selector
+│   └── AI-generated insight cards + Vega-Lite charts
+├── Tab 3: Categories (Danh mục)
 │   └── Category tree (3 levels, manage)
-└── Tab 3: Budgets (Ngân sách)
+└── Tab 4: Budgets (Ngân sách)
     ├── Monthly Budget Section
     │   ├── Adjust Budget Action
     │   └── Adjustment History (accordion)
@@ -545,6 +567,8 @@ Detailed sequence diagrams are described in [`FLOWS.md`](./FLOWS.md).
 | C-02 | Database is SQLite (D1), not PostgreSQL/MySQL |
 | C-03 | Framework is Next.js App Router + TypeScript; no change allowed |
 | C-04 | No offline mode |
+| C-05 | UI must follow Component Driven Development (CDD) hierarchy — see `docs/COMPONENT_ARCHITECTURE.md` |
+| C-06 | Every UI component must have a Storybook story covering all meaningful states |
 
 ### 12.3 Dependencies
 

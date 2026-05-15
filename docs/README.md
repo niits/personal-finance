@@ -10,6 +10,7 @@ Stable project-wide standards. Written once, updated only when requirements or a
 |----------|------|--------|-------------|
 | [BRD.md](./BRD.md) | Business Requirements | Draft | Requirements, data model, business rules, UI specs |
 | [TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md) | Technical Design | Draft | DB schema, API contracts, edge cases, computed values |
+| [COMPONENT_ARCHITECTURE.md](./COMPONENT_ARCHITECTURE.md) | Frontend Architecture | Active | CDD philosophy, component hierarchy, Storybook conventions, refactor roadmap |
 | [TESTING.md](./TESTING.md) | Testing Strategy | Draft | Unit and integration test setup, patterns, coverage targets |
 
 ### Architecture Decision Records (`adr/`)

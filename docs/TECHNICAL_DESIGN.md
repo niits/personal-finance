@@ -6,12 +6,12 @@
 | Field | Value |
 |-------|-------|
 | Type | Technical Design Document |
-| Document Version | 1.1 |
+| Document Version | 1.2 |
 | Status | Draft |
 | Author | niits |
 | Created | 2026-04-29 |
-| Last Updated | 2026-05-06 |
-| Based On | BRD v1.1, specs/flows.md v1.1 |
+| Last Updated | 2026-05-14 |
+| Based On | BRD v1.2, specs/flows.md v1.1, COMPONENT_ARCHITECTURE.md v1.0 |
 
 ---
 
@@ -25,6 +25,7 @@
 6. [Computed Values & Business Logic](#6-computed-values--business-logic)
 7. [Seeding & Initialization](#7-seeding--initialization)
 8. [Error Response Format](#8-error-response-format)
+9. [Frontend Architecture](#9-frontend-architecture)
 
 ---
 
@@ -792,7 +793,67 @@ Upsert (INSERT OR REPLACE).
 
 ---
 
-### 4.9 AI Suggestion Runs
+### 4.9 Statistics
+
+#### `GET /api/statistics`
+
+Returns cached or previously generated insight data for the given month (if any). Used to check if insights already exist before generating new ones.
+
+**Query params:**
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `month` | `YYYY-MM` | yes | Month to fetch |
+
+**Response `200`:**
+```json
+{
+  "month": "2026-04",
+  "insights": [...]    // array of Insight objects, or empty if not generated yet
+}
+```
+
+---
+
+#### `POST /api/statistics/generate`
+
+Triggers AI insight generation for a given month. Returns a **streaming** response (Server-Sent Events or NDJSON) where each event is a partial or complete `Insight` object emitted as the AI produces it.
+
+**Request:**
+```json
+{ "month": "2026-04" }
+```
+
+**Behavior:**
+1. Fetch all transactions for the month from D1 (amount, category path, type, date, note)
+2. Build a structured prompt with the transaction data and insight rules
+3. Call the AI (Anthropic `claude-*` via `generateObject` with streaming)
+4. Stream each insight object as it is produced — the client renders cards progressively
+5. Each `Insight` has: `title`, `narrative`, `value` (numeric), `value_unit` (`vnd` | `percent` | `count`), optional `chart_type` and `chart_data`
+
+**Insight object shape:**
+```ts
+type Insight = {
+  title: string;
+  narrative: string;
+  value: number;
+  value_unit: "vnd" | "percent" | "count";
+  chart_type?: "bar" | "line" | "pie" | "area";
+  chart_data?: ChartDatum[];
+};
+
+type ChartDatum = {
+  label: string;
+  value: number;
+  group?: string;
+};
+```
+
+**CSP constraint:** Chart rendering uses `vega-interpreter` (no `eval`) — the API must produce standard Vega-Lite specs; the client injects the interpreter at render time.
+
+---
+
+### 4.10 AI Suggestion Runs
 
 #### `POST /api/categories/suggest`
 
@@ -1133,6 +1194,67 @@ For field-level errors, include `details`:
 
 ---
 
+## 9. Frontend Architecture
+
+The full frontend architecture is defined in `docs/COMPONENT_ARCHITECTURE.md`. This section summarizes the technical contracts relevant to implementation.
+
+### 9.1 Component Hierarchy
+
+```
+Atoms → Molecules → Organisms → Templates → Pages (App Router)
+```
+
+Pages (`src/app/**`) are data-fetching shells only. They call hooks/APIs and pass all data as props to template components. No rendering logic in page files.
+
+### 9.2 State Management
+
+| State Type | Tool | Scope |
+|-----------|------|-------|
+| Server state (categories, transactions, dashboard) | SWR (`useSWR`) | Page level |
+| Local UI state (modals open, active tab, form values) | `useState` / `useReducer` | Organism level |
+| URL state (selected month, filters) | Next.js `useSearchParams` | Page level |
+
+SWR keys use the pattern `["/api/resource", { month, ... }]`. Mutation calls `mutate()` after success.
+
+### 9.3 Storybook Integration
+
+- Adapter: `@storybook/nextjs` (handles Image, Link, fonts)
+- Stories co-located with components: `ComponentName.stories.tsx`
+- Format: CSF3 with `args` and `play` functions where needed
+- Viewport presets: 375px (iPhone SE), 393px (iPhone 14 Pro), 768px (iPad), 1280px (Desktop)
+- Every story renders without auth, router, or network — use args for all data
+- CI runs `build-storybook` to catch broken stories
+
+### 9.4 Data Flow Diagram
+
+```
+App Router page.tsx
+    │  useSWR("/api/dashboard?month=...")
+    │
+    ▼
+DashboardTemplate (props: dashboardData, transactions, onSave, ...)
+    │
+    ├── DashboardSummary (organism) ← receives summary props
+    │       ├── BudgetProgressBar (molecule)
+    │       └── PaceChip (molecule)
+    │
+    ├── MonthStepper (molecule) ← month string + callbacks
+    │
+    └── TransactionGroup[] (organism) ← grouped transaction arrays
+            └── TransactionListItem[] (molecule)
+```
+
+### 9.5 Cloudflare-Specific Frontend Constraints
+
+| Constraint | Detail |
+|-----------|--------|
+| No `eval` in Worker | Use `vega-interpreter` for Vega expression evaluation |
+| No Node.js built-ins | No `path`, `fs`, etc. in any component or hook |
+| DB access only in API routes | Never call `getCloudflareContext()` from client components |
+| Dynamic imports for heavy libs | Use `next/dynamic` for Vega (`react-vega`) to keep initial bundle small |
+
+---
+
 ## Appendix A: API Route Summary
 
 | Method | Path | Description |
@@ -1159,4 +1281,6 @@ For field-level errors, include `details`:
 | PUT | `/api/budget-config` | Upsert default monthly amount |
 | GET | `/api/dashboard` | Summary stats + daily expenses for a period |
 | GET | `/api/pace-line` | Pace line chart data for a month |
+| GET | `/api/statistics` | Fetch cached insights for a month |
+| POST | `/api/statistics/generate` | Stream AI-generated insights for a month |
 | PATCH | `/api/ai-suggestion-runs/:id` | Transition run: `pending` → `available` |
