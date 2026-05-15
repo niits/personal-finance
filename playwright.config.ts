@@ -7,7 +7,9 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? "github" : "html",
+  reporter: process.env.CI
+    ? [["github"], ["html"], ["junit", { outputFile: "test-results/e2e.xml" }]]
+    : [["html", { open: "never" }]],
 
   use: {
     baseURL: "http://localhost:8787",
