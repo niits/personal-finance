@@ -24,6 +24,16 @@ export async function getAuth() {
     secret: cfEnv.BETTER_AUTH_SECRET,
     baseURL: cfEnv.BETTER_AUTH_URL,
     database: cfEnv.DB,
+    emailAndPassword: {
+      enabled: true,
+    },
+    account: {
+      accountLinking: {
+        enabled: true,
+        // Prevent locking yourself out — must have ≥1 auth method remaining
+        allowUnlinkingAll: false,
+      },
+    },
     socialProviders: {
       github: {
         clientId: cfEnv.GITHUB_CLIENT_ID,

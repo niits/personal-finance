@@ -43,6 +43,18 @@ npm run build:cf     # Build for Cloudflare Workers
 npm run deploy:cf    # Build + deploy to production
 ```
 
+## E2E Testing Principle
+
+**Tests must run against identical production code.** Never add endpoints, secrets, feature flags, or modules that exist only during testing — doing so changes the behavior under test and defeats the purpose of E2E.
+
+- ✅ Seed test data by writing directly to the local D1 SQLite file (bypasses the app, doesn't change production behavior)
+- ✅ Authenticate via real HTTP auth endpoints (tests the actual auth path)
+- ❌ Never add API routes like `/api/test/reset` that only exist during E2E
+- ❌ Never add build-time secrets that alter code paths (e.g. `PLAYWRIGHT_TEST_SECRET`)
+- ❌ Never create endpoints to make a failing test pass — if a test fails because a feature is broken, that's the test doing its job
+
+If a test fails due to a missing/broken feature: fix the feature in production code, or remove the test. Do not add test scaffolding.
+
 ## Documentation
 
 All documentation must be written in English. UI strings in the app remain in Vietnamese.

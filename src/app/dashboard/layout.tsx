@@ -10,6 +10,7 @@ const tabs = [
   { href: "/dashboard/statistics", label: "Thống kê", icon: "◑" },
   { href: "/dashboard/categories", label: "Danh mục", icon: "⊞" },
   { href: "/dashboard/budget", label: "Ngân sách", icon: "◈" },
+  { href: "/dashboard/account", label: "Tài khoản", icon: "◯" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -19,7 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!isPending && !session) {
-      replace("/");
+      replace("/sign-in");
     }
   }, [session, isPending, replace]);
 
