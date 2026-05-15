@@ -27,6 +27,13 @@ export async function getAuth() {
     emailAndPassword: {
       enabled: true,
     },
+    account: {
+      accountLinking: {
+        enabled: true,
+        // Prevent locking yourself out — must have ≥1 auth method remaining
+        allowUnlinkingAll: false,
+      },
+    },
     socialProviders: {
       github: {
         clientId: cfEnv.GITHUB_CLIENT_ID,
