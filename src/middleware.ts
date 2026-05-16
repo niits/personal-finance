@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Cookie name matches better-auth's default: prefix "better-auth", name "session_token"
-const SESSION_COOKIE = "better-auth.session_token";
+import { getSessionCookie } from "better-auth/cookies";
 
 // Auth pages: redirect to / if already authenticated
 const AUTH_PAGES = ["/sign-in", "/forgot-password", "/reset-password"];
@@ -19,10 +17,13 @@ function isAppRoute(pathname: string): boolean {
   );
 }
 
+export function hasSessionCookie(request: NextRequest): boolean {
+  return Boolean(getSessionCookie(request));
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get(SESSION_COOKIE);
-  const isAuthenticated = Boolean(sessionCookie?.value);
+  const isAuthenticated = hasSessionCookie(request);
 
   // Rule 1: Auth pages + authenticated → redirect to /
   if (isAuthPage(pathname) && isAuthenticated) {
