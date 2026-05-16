@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
+import { authClientFetch } from "@/lib/auth-client";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -15,9 +15,9 @@ export default function ForgotPasswordPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await authClient.forgetPassword({
-        email,
-        redirectTo: `${window.location.origin}/sign-in/reset-password`,
+      const res = await authClientFetch("/request-password-reset", {
+        method: "POST",
+        body: { email, redirectTo: `${window.location.origin}/sign-in/reset-password` },
       });
       if (res.error) throw new Error(res.error.message ?? "Đã có lỗi xảy ra");
       setSent(true);
