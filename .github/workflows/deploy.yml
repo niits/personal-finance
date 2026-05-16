@@ -3,8 +3,6 @@ name: CI / Deploy
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -53,9 +51,6 @@ jobs:
           restore-keys: |
             nextjs-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-
             nextjs-${{ runner.os }}-
-
-      - name: Remove test-only API routes before production build
-        run: rm -rf src/app/api/test/
 
       - name: Build for Cloudflare
         run: npm run build:cf
