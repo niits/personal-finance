@@ -8,7 +8,7 @@ test.describe("Categories — list", () => {
   });
 
   test("shows seeded categories", async ({ page }) => {
-    await page.goto("/dashboard/categories");
+    await page.goto("/categories");
     await expect(page.getByText("Ăn uống").first()).toBeVisible();
     await expect(page.getByText("Lương").first()).toBeVisible();
   });
@@ -21,7 +21,7 @@ test.describe("Categories — empty state", () => {
   });
 
   test("shows empty state when no categories exist", async ({ page }) => {
-    await page.goto("/dashboard/categories");
+    await page.goto("/categories");
     await expect(page.getByRole("button", { name: "+ Thêm" })).toBeVisible();
     await expect(page.getByText("Ăn uống")).not.toBeVisible();
   });
@@ -34,7 +34,7 @@ test.describe("Categories — create", () => {
   });
 
   test("creates a new expense category", async ({ page }) => {
-    await page.goto("/dashboard/categories");
+    await page.goto("/categories");
     await page.getByRole("button", { name: "+ Thêm" }).click();
 
     await page.getByRole("textbox", { name: "Tên danh mục" }).fill("Sức khoẻ");
