@@ -37,13 +37,13 @@ export default function SignInPage() {
     setLoading(true);
     try {
       if (mode === "sign-in") {
-        const res = await signIn.email({ email, password, callbackURL: "/dashboard" });
+        const res = await signIn.email({ email, password, callbackURL: "/" });
         if (res.error) throw new Error(res.error.message ?? "Đăng nhập thất bại");
       } else {
-        const res = await authClient.signUp.email({ email, password, name, callbackURL: "/dashboard" });
+        const res = await authClient.signUp.email({ email, password, name, callbackURL: "/" });
         if (res.error) throw new Error(res.error.message ?? "Tạo tài khoản thất bại");
       }
-      router.replace("/dashboard");
+      router.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
     } finally {
@@ -86,7 +86,7 @@ export default function SignInPage() {
 
         {/* GitHub SSO */}
         <button
-          onClick={() => signIn.social({ provider: "github", callbackURL: `${window.location.origin}/dashboard` })}
+          onClick={() => signIn.social({ provider: "github", callbackURL: `${window.location.origin}/` })}
           style={{
             width: "100%",
             display: "flex",
@@ -111,7 +111,7 @@ export default function SignInPage() {
 
         {/* Google SSO */}
         <button
-          onClick={() => signIn.social({ provider: "google", callbackURL: `${window.location.origin}/dashboard` })}
+          onClick={() => signIn.social({ provider: "google", callbackURL: `${window.location.origin}/` })}
           style={{
             width: "100%",
             display: "flex",
@@ -182,7 +182,7 @@ export default function SignInPage() {
 
           {mode === "sign-in" && (
             <div style={{ textAlign: "right", marginTop: -4 }}>
-              <Link href="/sign-in/forgot-password" style={{
+              <Link href="/forgot-password" style={{
                 fontFamily: "var(--font-body)",
                 fontSize: 13,
                 color: "var(--ink-muted-48)",

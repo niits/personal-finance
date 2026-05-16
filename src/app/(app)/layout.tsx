@@ -3,36 +3,26 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useSession } from "@/lib/auth-client";
 
 const tabs = [
-  { href: "/dashboard", label: "Tổng quan", icon: "◎" },
-  { href: "/dashboard/statistics", label: "Thống kê", icon: "◑" },
-  { href: "/dashboard/categories", label: "Danh mục", icon: "⊞" },
-  { href: "/dashboard/budget", label: "Ngân sách", icon: "◈" },
-  { href: "/dashboard/account", label: "Tài khoản", icon: "◯" },
+  { href: "/", label: "Tổng quan", icon: "◎" },
+  { href: "/statistics", label: "Thống kê", icon: "◑" },
+  { href: "/categories", label: "Danh mục", icon: "⊞" },
+  { href: "/budget", label: "Ngân sách", icon: "◈" },
+  { href: "/account", label: "Tài khoản", icon: "◯" },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session, isPending } = useSession();
-
-  useEffect(() => {
-    if (!isPending && !session) {
-      router.replace("/sign-in");
-    }
-  }, [session, isPending, router]);
 
   // Listen for global 401 events dispatched by the fetcher (e.g. from SWR
   // revalidation) so we redirect even when the layout session is still truthy.
   useEffect(() => {
-    const handle = () => router.replace("/");
+    const handle = () => router.replace("/sign-in");
     window.addEventListener("auth:expired", handle);
     return () => window.removeEventListener("auth:expired", handle);
   }, [router]);
-
-  if (isPending || !session) return null;
 
   return (
     <div style={{ minHeight: "100svh", background: "var(--canvas-parchment)", paddingTop: 44 }}>
@@ -57,8 +47,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         zIndex: 50,
       }}>
         {tabs.map((tab) => {
-          const active = tab.href === "/dashboard"
-            ? pathname === "/dashboard"
+          const active = tab.href === "/"
+            ? pathname === "/"
             : pathname.startsWith(tab.href);
           return (
             <Link
