@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Language
 
-- **Code, comments, docs, commit messages, PR titles/descriptions, issue titles/descriptions, epic names**: English
+- **Code, comments, docs, commit messages, PR/issue titles/descriptions, epic names, release notes**: English
+- **Claude's responses to the user**: English
+- **If the user writes in Vietnamese**: respond in English and include a tip showing how the request would read in English
 - **UI strings in the app**: Vietnamese
 
 ## Git Workflow (GitLab Flow)
@@ -17,7 +19,7 @@ This project follows a simplified GitLab Flow. `main` is always stable and deplo
 
 **Never commit directly to `main` or `staging`.** Always create a new branch for every change.
 
-**Default PR target is `staging`**, not `main`. Releases are done by merging `staging` directly into `main` at the end of each epic, then tagging the release.
+**Default PR target is `staging`**, not `main`. Releases are done by cutting a `release/<epic-name>` branch from `staging`, merging it into `main`, and tagging — so the release branch serves as a permanent named snapshot of exactly what shipped.
 
 **Hotfix branches** (`hotfix/*`) target `main` directly, then `staging` is rebased on top of main:
 ```bash
@@ -39,21 +41,34 @@ git push --force origin staging
 | Bug fix | `fix/<name>` | `fix/currency-rounding` |
 | Production hotfix | `hotfix/<name>` | `hotfix/auth-crash` |
 | Refactor | `refactor/<name>` | `refactor/transaction-hook` |
+| Release | `release/<epic-name>` | `release/epic-1-auth` |
 
 ### Epic & Release Workflow
 
 Each epic maps to a **GitHub Milestone**. Features ship to `staging` throughout the epic. When the epic is done:
 
 ```bash
-# Merge staging → main (release)
-gh pr create --base main --head staging --title "release: <epic-name>"
-gh pr merge --merge --delete-branch
+# 1. Cut a release branch from staging — this becomes the permanent snapshot
+git checkout staging && git pull
+git checkout -b release/<epic-name>
+git push -u origin release/<epic-name>
 
-# Tag the release on main
+# 2. PR: release/<epic-name> → main  (do NOT delete the branch — keep it as a snapshot)
+gh pr create --base main --head release/<epic-name> --title "release: <epic-name>"
+gh pr merge --merge   # no --delete-branch
+
+# 3. Tag the release on main
 git checkout main && git pull
 git tag release/<epic-name>
 git push origin --tags
+
+# 4. Rebase staging on top of main so they stay in sync
+git checkout staging
+git rebase origin/main
+git push --force origin staging
 ```
+
+The `release/<epic-name>` branch is **never deleted** — it marks exactly what was in production at that point, making it easy to diff any future state against a past release.
 
 ### Workflow
 
