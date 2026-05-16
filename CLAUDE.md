@@ -32,6 +32,17 @@ git push --force origin staging
 
 **Before starting any task, ask:** "Is this a hotfix (targets `main` directly) or part of an epic (targets `staging`)?" — do not assume, always confirm. Use the answer to pick the correct base branch and PR target.
 
+**PR body must close linked issues** using GitHub's closing syntax so issues are automatically closed on merge:
+
+```
+Closes #45
+Closes #46
+```
+
+**After a PR is merged**, post a comment on each closed issue with any additional context collected during the fix — root cause details, edge cases found, implementation decisions, or gotchas for future reference.
+
+**Every code change must include relevant tests.** For E2E-testable behaviour, add or update a Playwright spec. For pure logic, add a Vitest unit test. Never ship a code change without test coverage of the changed behaviour.
+
 - Reuse an existing branch only if the new work is clearly related to that branch's ongoing feature or fix.
 - If it's unclear whether to create a new branch or reuse one, ask before proceeding.
 
