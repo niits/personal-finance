@@ -30,6 +30,8 @@ git push --force origin staging
 
 **Always merge PRs automatically** (`gh pr merge --merge --delete-branch`) after pushing, unless told otherwise.
 
+**Before starting any task, ask:** "Is this a hotfix (targets `main` directly) or part of an epic (targets `staging`)?" — do not assume, always confirm. Use the answer to pick the correct base branch and PR target.
+
 - Reuse an existing branch only if the new work is clearly related to that branch's ongoing feature or fix.
 - If it's unclear whether to create a new branch or reuse one, ask before proceeding.
 
