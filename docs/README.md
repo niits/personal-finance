@@ -44,6 +44,7 @@ Chronological notes from debugging sessions, design decisions, and implementatio
 | [20260502_dashboard_ui.md](./dev_logs/20260502_dashboard_ui.md) | Budget bar bug, spending chart, transaction list design, filter decisions |
 | [20260502_merge_transactions_into_home.md](./dev_logs/20260502_merge_transactions_into_home.md) | Merged Transactions tab into Home; full layout rewrite |
 | [20260506_migrate_to_firebase.md](./dev_logs/20260506_migrate_to_firebase.md) | Firebase migration analysis — full scope, rationale for staying on Cloudflare |
+| [20260516_staging_auth_redirect.md](./dev_logs/20260516_staging_auth_redirect.md) | HTTPS staging auth loop — secure Better Auth cookie not recognized by route guard |
 
 ---
 
