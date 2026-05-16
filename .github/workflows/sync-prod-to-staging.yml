@@ -1,15 +1,20 @@
 name: Sync Prod → Staging
 
-# Manual trigger only — run this before testing a release candidate on staging.
+# Runs automatically after a successful production deploy, or manually on demand.
 # It replaces all staging data with a fresh snapshot of production, then applies
 # any pending migrations so the schema is always at the latest version.
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["CI / Deploy"]
+    branches: [main]
+    types: [completed]
 
 jobs:
   sync:
     name: Snapshot prod and restore to staging
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
     env:

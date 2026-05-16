@@ -10,42 +10,97 @@ const GitHubIcon = () => (
   </svg>
 );
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+const GoogleIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+);
+
+function SectionGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section style={{
-      background: "var(--surface-white)",
-      borderRadius: "var(--radius-lg)",
-      padding: "var(--space-lg)",
-      marginBottom: 16,
-    }}>
-      <h2 style={{
-        fontFamily: "var(--font-display)",
-        fontSize: 17,
+    <div style={{ marginBottom: "var(--space-lg)" }}>
+      <div style={{
+        fontFamily: "var(--font-body)",
+        fontSize: 12,
         fontWeight: 600,
-        color: "var(--ink)",
-        letterSpacing: -0.374,
-        marginBottom: 16,
-      }}>{title}</h2>
-      {children}
-    </section>
+        color: "var(--ink-muted-48)",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        paddingLeft: "var(--space-md)",
+        marginBottom: "var(--space-xs)",
+      }}>
+        {label}
+      </div>
+      <div style={{
+        background: "var(--canvas)",
+        borderRadius: "var(--radius-lg)",
+        overflow: "hidden",
+      }}>
+        {children}
+      </div>
+    </div>
   );
 }
 
-function Row({ label, value, action }: { label: string; value?: string; action?: React.ReactNode }) {
+function ListRow({ icon, label, value, action, isLast = false }: {
+  icon?: React.ReactNode;
+  label: string;
+  value?: React.ReactNode;
+  action?: React.ReactNode;
+  isLast?: boolean;
+}) {
   return (
     <div style={{
       display: "flex",
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingTop: 10,
-      paddingBottom: 10,
-      borderBottom: "1px solid var(--hairline)",
+      gap: "var(--space-sm)",
+      padding: "12px var(--space-md)",
+      borderBottom: isLast ? "none" : "1px solid var(--hairline)",
     }}>
-      <div>
-        <div style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", fontWeight: 500 }}>{label}</div>
-        {value && <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginTop: 2 }}>{value}</div>}
+      {icon && (
+        <div style={{
+          width: 32,
+          height: 32,
+          borderRadius: "var(--radius-sm)",
+          background: "var(--canvas-parchment)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          color: "var(--ink-muted-80)",
+        }}>
+          {icon}
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: "var(--font-body)",
+          fontSize: 16,
+          fontWeight: 400,
+          color: "var(--ink)",
+          lineHeight: 1.3,
+        }}>
+          {label}
+        </div>
+        {value && (
+          <div style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 13,
+            color: "var(--ink-muted-48)",
+            marginTop: 1,
+          }}>
+            {value}
+          </div>
+        )}
       </div>
-      {action}
+      {action && (
+        <div style={{ flexShrink: 0 }}>
+          {action}
+        </div>
+      )}
     </div>
   );
 }
@@ -69,25 +124,30 @@ export default function AccountPage() {
   // they already have one (then they use the "Change password" form variant).
   const [hasPassword, setHasPassword] = useState<boolean | null>(null);
 
-  // GitHub linked status — check via list-accounts API
+  // GitHub / Google linked status — check via list-accounts API
   const [githubLinked, setGithubLinked] = useState<boolean | null>(null);
+  const [googleLinked, setGoogleLinked] = useState<boolean | null>(null);
+  const [unlinkError, setUnlinkError] = useState<string | null>(null);
   // Load linked accounts on mount
   useEffect(() => {
     fetch("/api/auth/list-accounts", { credentials: "include" })
       .then(r => r.json())
       .then((data: unknown) => {
-        const accounts = data as Array<{ provider: string }>;
-        return accounts;
-      })
-      .then((accounts) => {
-        setGithubLinked(accounts.some(a => a.provider === "github"));
-        setHasPassword(accounts.some(a => a.provider === "credential"));
+        const accounts = data as Array<{ providerId: string }>;
+        setGithubLinked(accounts.some(a => a.providerId === "github"));
+        setGoogleLinked(accounts.some(a => a.providerId === "google"));
+        setHasPassword(accounts.some(a => a.providerId === "credential"));
       })
       .catch(() => {
         setGithubLinked(false);
+        setGoogleLinked(false);
         setHasPassword(false);
       });
   }, []);
+
+  // Total active auth methods — used to disable unlinking the last one (#33)
+  const totalAuthMethods =
+    (githubLinked ? 1 : 0) + (googleLinked ? 1 : 0) + (hasPassword ? 1 : 0);
 
   async function handlePasswordSave() {
     setPasswordError(null);
@@ -118,12 +178,28 @@ export default function AccountPage() {
   }
 
   async function handleUnlinkGitHub() {
+    setUnlinkError(null);
     const res = await unlinkAccount({ providerId: "github" });
     if (res?.error) {
-      alert(res.error.message ?? "Không thể bỏ liên kết");
+      setUnlinkError(res.error.message ?? "Không thể bỏ liên kết");
       return;
     }
     setGithubLinked(false);
+    refetch?.();
+  }
+
+  async function handleLinkGoogle() {
+    await linkSocial({ provider: "google", callbackURL: "/dashboard/account" });
+  }
+
+  async function handleUnlinkGoogle() {
+    setUnlinkError(null);
+    const res = await unlinkAccount({ providerId: "google" });
+    if (res?.error) {
+      setUnlinkError(res.error.message ?? "Không thể bỏ liên kết");
+      return;
+    }
+    setGoogleLinked(false);
     refetch?.();
   }
 
@@ -133,139 +209,254 @@ export default function AccountPage() {
 
   if (!session) return null;
 
+  const userInitials = (session.user.name ?? session.user.email ?? "?")
+    .split(" ")
+    .slice(0, 2)
+    .map(s => s[0])
+    .join("")
+    .toUpperCase();
+
   return (
-    <div style={{ padding: "24px 16px", maxWidth: 560, margin: "0 auto" }}>
-      <h1 style={{
-        fontFamily: "var(--font-display)",
-        fontSize: 22,
-        fontWeight: 600,
-        color: "var(--ink)",
-        letterSpacing: -0.28,
-        marginBottom: 24,
+    <div style={{
+      minHeight: "100vh",
+      background: "var(--canvas-parchment)",
+      paddingBottom: "var(--space-xxl)",
+    }}>
+      {/* Page header */}
+      <div style={{
+        padding: "var(--space-xl) var(--space-md) var(--space-lg)",
+        maxWidth: 560,
+        margin: "0 auto",
       }}>
-        Tài khoản
-      </h1>
+        <h1 style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 34,
+          fontWeight: 700,
+          color: "var(--ink)",
+          letterSpacing: -0.374,
+          margin: 0,
+        }}>
+          Tài khoản
+        </h1>
+      </div>
 
-      {/* Profile */}
-      <Section title="Thông tin">
-        <Row label="Tên" value={session.user.name ?? "—"} />
-        <Row label="Email" value={session.user.email} />
-      </Section>
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 var(--space-md)" }}>
 
-      {/* Linked accounts */}
-      <Section title="Phương thức đăng nhập">
-        <Row
-          label="GitHub"
-          value={githubLinked === null ? "Đang tải…" : githubLinked ? "Đã liên kết" : "Chưa liên kết"}
-          action={
-            githubLinked === null ? null : githubLinked ? (
-              <button onClick={handleUnlinkGitHub} style={dangerBtnStyle}>
-                Bỏ liên kết
-              </button>
-            ) : (
-              <button onClick={handleLinkGitHub} style={linkBtnStyle}>
-                <GitHubIcon /> Liên kết
-              </button>
-            )
-          }
-        />
-
-        <div style={{ paddingTop: 12 }}>
+        {/* Profile card */}
+        <div style={{
+          background: "var(--canvas)",
+          borderRadius: "var(--radius-lg)",
+          padding: "var(--space-lg)",
+          marginBottom: "var(--space-lg)",
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--space-md)",
+        }}>
           <div style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: "var(--primary)",
+            color: "#fff",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: showPasswordForm ? 16 : 0,
+            justifyContent: "center",
+            fontFamily: "var(--font-display)",
+            fontSize: 22,
+            fontWeight: 600,
+            flexShrink: 0,
           }}>
-            <div>
-              <div style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", fontWeight: 500 }}>
-                {hasPassword ? "Mật khẩu" : "Đặt mật khẩu"}
-              </div>
+            {userInitials}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 17,
+              fontWeight: 600,
+              color: "var(--ink)",
+              letterSpacing: -0.374,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}>
+              {session.user.name ?? "Người dùng"}
+            </div>
+            <div style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 14,
+              color: "var(--ink-muted-48)",
+              marginTop: 2,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}>
+              {session.user.email}
+            </div>
+          </div>
+        </div>
+
+        {/* Linked accounts */}
+        <SectionGroup label="Phương thức đăng nhập">
+          {unlinkError && (
+            <div style={{
+              padding: "10px var(--space-md)",
+              fontFamily: "var(--font-body)",
+              fontSize: 13,
+              color: "var(--danger)",
+              borderBottom: "1px solid var(--hairline)",
+            }}>
+              {unlinkError}
+            </div>
+          )}
+          <ListRow
+            icon={<GitHubIcon />}
+            label="GitHub"
+            value={githubLinked === null ? "Đang tải…" : githubLinked ? "Đã liên kết" : "Chưa liên kết"}
+            action={
+              githubLinked === null ? null : githubLinked ? (
+                <button
+                  onClick={handleUnlinkGitHub}
+                  disabled={totalAuthMethods <= 1}
+                  title={totalAuthMethods <= 1 ? "Không thể bỏ liên kết phương thức đăng nhập duy nhất" : undefined}
+                  style={{ ...unlinkBtnStyle, opacity: totalAuthMethods <= 1 ? 0.35 : 1, cursor: totalAuthMethods <= 1 ? "not-allowed" : "pointer" }}
+                >
+                  Bỏ liên kết
+                </button>
+              ) : (
+                <button onClick={handleLinkGitHub} style={actionBtnStyle}>
+                  <GitHubIcon /> Liên kết
+                </button>
+              )
+            }
+          />
+          <ListRow
+            icon={<GoogleIcon />}
+            label="Google"
+            value={googleLinked === null ? "Đang tải…" : googleLinked ? "Đã liên kết" : "Chưa liên kết"}
+            action={
+              googleLinked === null ? null : googleLinked ? (
+                <button
+                  onClick={handleUnlinkGoogle}
+                  disabled={totalAuthMethods <= 1}
+                  title={totalAuthMethods <= 1 ? "Không thể bỏ liên kết phương thức đăng nhập duy nhất" : undefined}
+                  style={{ ...unlinkBtnStyle, opacity: totalAuthMethods <= 1 ? 0.35 : 1, cursor: totalAuthMethods <= 1 ? "not-allowed" : "pointer" }}
+                >
+                  Bỏ liên kết
+                </button>
+              ) : (
+                <button onClick={handleLinkGoogle} style={actionBtnStyle}>
+                  <GoogleIcon /> Liên kết
+                </button>
+              )
+            }
+            isLast
+          />
+        </SectionGroup>
+
+        {/* Password */}
+        <SectionGroup label="Mật khẩu">
+          <div style={{ padding: "12px var(--space-md)" }}>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: showPasswordForm ? "var(--space-md)" : 0,
+            }}>
               {passwordSuccess && (
-                <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--success, #34c759)", marginTop: 2 }}>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--success)" }}>
                   Đã lưu thành công
                 </div>
               )}
-            </div>
-            <button
-              onClick={() => setShowPasswordForm(v => !v)}
-              style={linkBtnStyle}
-            >
-              {showPasswordForm ? "Huỷ" : hasPassword ? "Đổi mật khẩu" : "Đặt mật khẩu"}
-            </button>
-          </div>
-
-          {showPasswordForm && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {hasPassword && (
-                <input
-                  type="password"
-                  placeholder="Mật khẩu hiện tại"
-                  value={currentPassword}
-                  onChange={e => setCurrentPassword(e.target.value)}
-                  style={inputStyle}
-                />
-              )}
-              <input
-                type="password"
-                placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                minLength={8}
-                style={inputStyle}
-              />
-              {passwordError && (
-                <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--danger)", margin: 0 }}>
-                  {passwordError}
-                </p>
-              )}
-              <button
-                onClick={handlePasswordSave}
-                disabled={passwordLoading}
-                className="btn-primary"
-                style={{ alignSelf: "flex-end" }}
-              >
-                {passwordLoading ? "…" : "Lưu"}
+              <button onClick={() => setShowPasswordForm(v => !v)} style={actionBtnStyle}>
+                {showPasswordForm ? "Huỷ" : hasPassword ? "Đổi mật khẩu" : "Đặt mật khẩu"}
               </button>
             </div>
-          )}
-        </div>
-      </Section>
 
-      {/* Export */}
-      <Section title="Xuất dữ liệu">
-        <p style={{
-          fontFamily: "var(--font-body)",
-          fontSize: 14,
-          color: "var(--ink-muted-48)",
-          lineHeight: 1.5,
-          marginBottom: 16,
-        }}>
-          Tải về toàn bộ giao dịch, danh mục và ngân sách của bạn.
-        </p>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => handleExport("json")} style={exportBtnStyle}>
-            Tải JSON
-          </button>
-          <button onClick={() => handleExport("csv")} style={exportBtnStyle}>
-            Tải CSV (giao dịch)
-          </button>
-        </div>
-      </Section>
+            {showPasswordForm && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {hasPassword && (
+                  <input
+                    type="password"
+                    placeholder="Mật khẩu hiện tại"
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
+                    style={inputStyle}
+                  />
+                )}
+                <input
+                  type="password"
+                  placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  minLength={8}
+                  style={inputStyle}
+                />
+                {passwordError && (
+                  <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--danger)", margin: 0 }}>
+                    {passwordError}
+                  </p>
+                )}
+                <button
+                  onClick={handlePasswordSave}
+                  disabled={passwordLoading}
+                  className="btn-primary"
+                  style={{ alignSelf: "flex-end" }}
+                >
+                  {passwordLoading ? "…" : "Lưu"}
+                </button>
+              </div>
+            )}
+          </div>
+        </SectionGroup>
 
-      {/* Sign out */}
-      <Section title="Phiên đăng nhập">
-        <button
-          onClick={() => signOut({ fetchOptions: { onSuccess: () => router.replace("/") } })}
-          style={{ ...dangerBtnStyle, fontSize: 15, padding: "10px 0" }}
-        >
-          Đăng xuất
-        </button>
-      </Section>
+        {/* Export */}
+        <SectionGroup label="Dữ liệu">
+          <div style={{ padding: "var(--space-md)" }}>
+            <p style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 14,
+              color: "var(--ink-muted-48)",
+              lineHeight: 1.5,
+              margin: "0 0 var(--space-md)",
+            }}>
+              Tải về toàn bộ giao dịch, danh mục và ngân sách của bạn.
+            </p>
+            <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+              <button onClick={() => handleExport("json")} style={exportBtnStyle}>
+                Tải JSON
+              </button>
+              <button onClick={() => handleExport("csv")} style={exportBtnStyle}>
+                Tải CSV
+              </button>
+            </div>
+          </div>
+        </SectionGroup>
+
+        {/* Sign out */}
+        <SectionGroup label="Phiên đăng nhập">
+          <button
+            onClick={() => signOut({ fetchOptions: { onSuccess: () => router.replace("/") } })}
+            style={{
+              width: "100%",
+              padding: "14px var(--space-md)",
+              background: "none",
+              border: "none",
+              color: "var(--danger)",
+              fontFamily: "var(--font-body)",
+              fontSize: 16,
+              fontWeight: 500,
+              cursor: "pointer",
+              textAlign: "left",
+            }}
+          >
+            Đăng xuất
+          </button>
+        </SectionGroup>
+
+      </div>
     </div>
   );
 }
-
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "10px 14px",
@@ -279,7 +470,7 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-const linkBtnStyle: React.CSSProperties = {
+const actionBtnStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -291,24 +482,25 @@ const linkBtnStyle: React.CSSProperties = {
   fontWeight: 500,
   cursor: "pointer",
   padding: "4px 0",
+  flexShrink: 0,
 };
 
-const dangerBtnStyle: React.CSSProperties = {
+const unlinkBtnStyle: React.CSSProperties = {
   background: "none",
   border: "none",
-  color: "var(--danger, #ff3b30)",
+  color: "var(--danger)",
   fontFamily: "var(--font-body)",
   fontSize: 14,
   fontWeight: 500,
-  cursor: "pointer",
   padding: "4px 0",
+  flexShrink: 0,
 };
 
 const exportBtnStyle: React.CSSProperties = {
   padding: "10px 16px",
   borderRadius: "var(--radius-md)",
   border: "1px solid var(--hairline)",
-  background: "var(--surface-white)",
+  background: "var(--canvas-parchment)",
   color: "var(--ink)",
   fontFamily: "var(--font-body)",
   fontSize: 14,
