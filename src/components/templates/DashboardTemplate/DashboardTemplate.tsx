@@ -187,10 +187,10 @@ export function DashboardTemplate({
   const barColor = isOver ? "#ff453a" : "var(--primary)";
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 44px - 72px)" }}>
 
       {/* ── Header ── */}
-      <div style={{ background: "var(--surface-black)", color: "var(--on-dark)", padding: "28px 20px 24px", position: "sticky", top: 44, zIndex: 10 }}>
+      <div style={{ background: "var(--surface-black)", color: "var(--on-dark)", padding: "28px 20px 24px", flexShrink: 0 }}>
 
         {/* Month navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2 }}>
@@ -281,7 +281,7 @@ export function DashboardTemplate({
       )}
 
       {/* ── Transaction list ── */}
-      <div>
+      <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
 
         {/* Setup checklist */}
         {!loading && !data?.monthly_budget && (
@@ -350,17 +350,6 @@ export function DashboardTemplate({
                       )}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                      {onSuggest && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onSuggest(txn.id); }}
-                          disabled={suggestingId === txn.id}
-                          aria-label="Gợi ý AI"
-                          title="Gợi ý danh mục & emoji"
-                          style={{ background: "none", border: "none", padding: "4px 6px", cursor: suggestingId === txn.id ? "wait" : "pointer", fontSize: 14, lineHeight: 1, color: suggestedIds?.has(txn.id) ? "var(--primary)" : "var(--ink-muted-48)", opacity: suggestingId === txn.id ? 0.5 : 1, borderRadius: 6 }}
-                        >
-                          {suggestingId === txn.id ? "⏳" : "✦"}
-                        </button>
-                      )}
                       <p style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: txn.type === "expense" ? "#ff453a" : "#30d158", letterSpacing: -0.2 }}>
                         {txn.type === "expense" ? "−" : "+"}{fmt(txn.amount)}₫
                       </p>
