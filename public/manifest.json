@@ -2,7 +2,7 @@
   "name": "Personal Finance",
   "short_name": "Finance",
   "description": "Track your spending, own your story.",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#050c14",
   "theme_color": "#0066cc",
