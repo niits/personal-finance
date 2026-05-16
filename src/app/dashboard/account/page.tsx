@@ -362,18 +362,13 @@ export default function AccountPage() {
               justifyContent: "space-between",
               marginBottom: showPasswordForm ? "var(--space-md)" : 0,
             }}>
-              <div>
-                <div style={{ fontFamily: "var(--font-body)", fontSize: 16, color: "var(--ink)" }}>
-                  {hasPassword ? "Đổi mật khẩu" : "Đặt mật khẩu"}
+              {passwordSuccess && (
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--success)" }}>
+                  Đã lưu thành công
                 </div>
-                {passwordSuccess && (
-                  <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--success)", marginTop: 2 }}>
-                    Đã lưu thành công
-                  </div>
-                )}
-              </div>
+              )}
               <button onClick={() => setShowPasswordForm(v => !v)} style={actionBtnStyle}>
-                {showPasswordForm ? "Huỷ" : hasPassword ? "Đổi" : "Đặt"}
+                {showPasswordForm ? "Huỷ" : hasPassword ? "Đổi mật khẩu" : "Đặt mật khẩu"}
               </button>
             </div>
 
