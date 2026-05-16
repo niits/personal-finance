@@ -1,5 +1,5 @@
-const STATIC_CACHE = "pf-static-v1"; // content-addressed /_next/static/* — never needs invalidation
-const PAGES_CACHE = "pf-pages-v1";  // HTML pages — offline fallback only
+const STATIC_CACHE = "pf-static-v2"; // content-addressed /_next/static/* — never needs invalidation
+const PAGES_CACHE = "pf-pages-v2";  // HTML pages — offline fallback only
 const KNOWN_CACHES = [STATIC_CACHE, PAGES_CACHE];
 
 self.addEventListener("install", () => {
@@ -57,7 +57,7 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() =>
-          caches.match(request).then((cached) => cached ?? caches.match("/dashboard"))
+          caches.match(request).then((cached) => cached ?? caches.match("/"))
         )
     );
   }
