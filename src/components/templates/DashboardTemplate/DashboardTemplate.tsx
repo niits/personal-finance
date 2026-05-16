@@ -187,10 +187,10 @@ export function DashboardTemplate({
   const barColor = isOver ? "#ff453a" : "var(--primary)";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100svh - 44px - 72px)", overflow: "hidden" }}>
+    <div>
 
       {/* ── Header ── */}
-      <div style={{ background: "var(--surface-black)", color: "var(--on-dark)", flexShrink: 0, padding: "28px 20px 24px" }}>
+      <div style={{ background: "var(--surface-black)", color: "var(--on-dark)", padding: "28px 20px 24px", position: "sticky", top: 44, zIndex: 10 }}>
 
         {/* Month navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2 }}>
@@ -263,7 +263,7 @@ export function DashboardTemplate({
 
       {/* ── Category chips ── */}
       {topRoots.length > 0 && (
-        <div style={{ flexShrink: 0, display: "flex", gap: 8, padding: "10px 16px", background: "var(--canvas)", borderBottom: "1px solid var(--hairline)" }}>
+        <div style={{ display: "flex", gap: 8, padding: "10px 16px", background: "var(--canvas)", borderBottom: "1px solid var(--hairline)" }}>
           {(["Tất cả", ...topRoots] as string[]).map((label) => {
             const isAll = label === "Tất cả";
             const active = isAll ? selectedRoot === null : selectedRoot === label;
@@ -280,8 +280,8 @@ export function DashboardTemplate({
         </div>
       )}
 
-      {/* ── Scrollable transaction list ── */}
-      <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+      {/* ── Transaction list ── */}
+      <div>
 
         {/* Setup checklist */}
         {!loading && !data?.monthly_budget && (
