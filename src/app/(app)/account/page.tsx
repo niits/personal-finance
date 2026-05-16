@@ -6,15 +6,11 @@ import {
   useSession,
   signOut,
   linkSocial,
-  unlinkAccount,
   getAuthClientErrorMessage,
   listLinkedAccounts,
-  requestPasswordResetEmail,
-  setAccountPassword,
 } from "@/lib/auth-client";
 import {
   deriveLinkedAccountState,
-  getPasswordActionMode,
   parseLinkedAccountsResponse,
 } from "@/lib/account-password";
 
@@ -120,20 +116,13 @@ function ListRow({ icon, label, value, action, isLast = false }: {
 }
 
 export default function AccountPage() {
-  const { data: session, refetch } = useSession();
+  const { data: session } = useSession();
   const router = useRouter();
 
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordSuccessMessage, setPasswordSuccessMessage] = useState<string | null>(null);
   const [hasPassword, setHasPassword] = useState<boolean | null>(null);
   const [githubLinked, setGithubLinked] = useState<boolean | null>(null);
   const [googleLinked, setGoogleLinked] = useState<boolean | null>(null);
   const [accountLoadError, setAccountLoadError] = useState<string | null>(null);
-  const [unlinkError, setUnlinkError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session?.user.id) return;
@@ -173,97 +162,8 @@ export default function AccountPage() {
     };
   }, [session?.user.id]);
 
-  const totalAuthMethods =
-    (githubLinked ? 1 : 0) + (googleLinked ? 1 : 0) + (hasPassword ? 1 : 0);
-  const passwordActionMode = getPasswordActionMode({
-    hasPassword,
-    githubLinked,
-    googleLinked,
-  });
-
-  async function handleSetPassword() {
-    setPasswordError(null);
-    setPasswordLoading(true);
-    setPasswordSuccessMessage(null);
-    try {
-      if (newPassword !== confirmPassword) {
-        throw new Error("Mật khẩu xác nhận không khớp.");
-      }
-
-      const result = await setAccountPassword({ newPassword });
-      const errorMessage = getAuthClientErrorMessage(result);
-      if (errorMessage) throw new Error(errorMessage);
-
-      setPasswordSuccessMessage("Đã đặt mật khẩu thành công.");
-      setShowPasswordForm(false);
-      setNewPassword("");
-      setConfirmPassword("");
-      setHasPassword(true);
-    } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
-    } finally {
-      setPasswordLoading(false);
-    }
-  }
-
-  async function handleRequestPasswordReset() {
-    setPasswordError(null);
-    setPasswordLoading(true);
-    setPasswordSuccessMessage(null);
-
-    try {
-      const userEmail = session?.user.email;
-      if (!userEmail) {
-        throw new Error("Tài khoản chưa có email để nhận liên kết đặt lại mật khẩu.");
-      }
-
-      const result = await requestPasswordResetEmail({
-        email: userEmail,
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      const errorMessage = getAuthClientErrorMessage(result);
-      if (errorMessage) {
-        throw new Error(errorMessage);
-      }
-
-      setPasswordSuccessMessage(
-        `Nếu địa chỉ email ${userEmail} tồn tại trong hệ thống, email hướng dẫn đặt lại mật khẩu đã được gửi.`,
-      );
-    } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
-    } finally {
-      setPasswordLoading(false);
-    }
-  }
-
   async function handleLinkGitHub() {
     await linkSocial({ provider: "github", callbackURL: "/account" });
-  }
-
-  async function handleUnlinkGitHub() {
-    setUnlinkError(null);
-    const res = await unlinkAccount({ providerId: "github" });
-    if (res?.error) {
-      setUnlinkError(res.error.message ?? "Không thể bỏ liên kết");
-      return;
-    }
-    setGithubLinked(false);
-    refetch?.();
-  }
-
-  async function handleLinkGoogle() {
-    await linkSocial({ provider: "google", callbackURL: "/account" });
-  }
-
-  async function handleUnlinkGoogle() {
-    setUnlinkError(null);
-    const res = await unlinkAccount({ providerId: "google" });
-    if (res?.error) {
-      setUnlinkError(res.error.message ?? "Không thể bỏ liên kết");
-      return;
-    }
-    setGoogleLinked(false);
-    refetch?.();
   }
 
   function handleExport(format: "json" | "csv") {
@@ -360,7 +260,7 @@ export default function AccountPage() {
 
         {/* Linked accounts */}
         <SectionGroup label="Phương thức đăng nhập">
-          {(accountLoadError || unlinkError) && (
+          {accountLoadError && (
             <div style={{
               padding: "10px var(--space-md)",
               fontFamily: "var(--font-body)",
@@ -368,7 +268,7 @@ export default function AccountPage() {
               color: "var(--danger)",
               borderBottom: "1px solid var(--hairline)",
             }}>
-              {accountLoadError ?? unlinkError}
+              {accountLoadError}
             </div>
           )}
           <ListRow
@@ -386,12 +286,11 @@ export default function AccountPage() {
             action={
               accountLoadError || githubLinked === null ? null : githubLinked ? (
                 <button
-                  onClick={handleUnlinkGitHub}
-                  disabled={totalAuthMethods <= 1}
-                  title={totalAuthMethods <= 1 ? "Không thể bỏ liên kết phương thức đăng nhập duy nhất" : undefined}
-                  style={{ ...unlinkBtnStyle, opacity: totalAuthMethods <= 1 ? 0.35 : 1, cursor: totalAuthMethods <= 1 ? "not-allowed" : "pointer" }}
+                  disabled
+                  title="Tạm thời không thể bỏ liên kết GitHub trong lúc các phương thức khác đang bị tắt."
+                  style={{ ...unlinkBtnStyle, opacity: 0.35, cursor: "not-allowed" }}
                 >
-                  Bỏ liên kết
+                  Tạm khóa
                 </button>
               ) : (
                 <button onClick={handleLinkGitHub} style={actionBtnStyle}>
@@ -410,23 +309,10 @@ export default function AccountPage() {
                   ? "Đang tải…"
                   : googleLinked
                     ? "Đã liên kết"
-                    : "Chưa liên kết"
+                    : "Tạm dừng"
             }
             action={
-              accountLoadError || googleLinked === null ? null : googleLinked ? (
-                <button
-                  onClick={handleUnlinkGoogle}
-                  disabled={totalAuthMethods <= 1}
-                  title={totalAuthMethods <= 1 ? "Không thể bỏ liên kết phương thức đăng nhập duy nhất" : undefined}
-                  style={{ ...unlinkBtnStyle, opacity: totalAuthMethods <= 1 ? 0.35 : 1, cursor: totalAuthMethods <= 1 ? "not-allowed" : "pointer" }}
-                >
-                  Bỏ liên kết
-                </button>
-              ) : (
-                <button onClick={handleLinkGoogle} style={actionBtnStyle}>
-                  <GoogleIcon /> Liên kết
-                </button>
-              )
+              <span style={disabledPillStyle}>Sắp có lại</span>
             }
             isLast
           />
@@ -437,105 +323,32 @@ export default function AccountPage() {
           <div style={{ padding: "12px var(--space-md)" }}>
             <div style={{
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start",
               justifyContent: "space-between",
               gap: "var(--space-md)",
-              marginBottom: showPasswordForm ? "var(--space-md)" : 0,
             }}>
               <div style={{ flex: 1 }}>
                 <div style={{
                   fontFamily: "var(--font-body)",
                   fontSize: 14,
-                  color: "var(--ink-muted-48)",
+                  color: "var(--ink)",
                   lineHeight: 1.5,
+                  marginBottom: 4,
                 }}>
-                  {passwordActionMode === "set-password"
-                    ? "Thêm mật khẩu để bạn có thể đăng nhập bằng email ngoài tài khoản social đã liên kết."
-                    : "Chúng tôi sẽ gửi email để bạn đặt lại mật khẩu bằng luồng khôi phục tiêu chuẩn."}
+                  Email và mật khẩu đang được tạm dừng.
                 </div>
-                {passwordSuccessMessage && (
-                  <div style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize: 13,
-                    color: "var(--success)",
-                    lineHeight: 1.5,
-                    marginTop: 8,
-                  }}>
-                    {passwordSuccessMessage}
-                  </div>
-                )}
+                <div style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: 13,
+                  color: "var(--ink-muted-48)",
+                  lineHeight: 1.6,
+                }}>
+                  Đăng nhập, đăng ký, đặt mật khẩu và đặt lại mật khẩu sẽ có lại trong thời gian tới.
+                  {hasPassword ? " Mật khẩu hiện có của bạn cũng đang tạm thời không sử dụng được." : ""}
+                </div>
               </div>
-
-              {passwordActionMode === "loading" ? null : passwordActionMode === "set-password" ? (
-                <button
-                  onClick={() => {
-                    setPasswordError(null);
-                    setPasswordSuccessMessage(null);
-                    setShowPasswordForm((visible) => !visible);
-                  }}
-                  style={actionBtnStyle}
-                >
-                  {showPasswordForm ? "Huỷ" : "Đặt mật khẩu"}
-                </button>
-              ) : (
-                <button
-                  onClick={handleRequestPasswordReset}
-                  disabled={passwordLoading}
-                  style={{
-                    ...actionBtnStyle,
-                    opacity: passwordLoading ? 0.5 : 1,
-                    cursor: passwordLoading ? "wait" : "pointer",
-                  }}
-                >
-                  {passwordLoading ? "Đang gửi…" : "Đặt lại mật khẩu"}
-                </button>
-              )}
+              <span style={disabledPillStyle}>Sắp có lại</span>
             </div>
-
-            {passwordActionMode === "set-password" && showPasswordForm && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <input
-                  type="password"
-                  placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  minLength={8}
-                  style={inputStyle}
-                />
-                <input
-                  type="password"
-                  placeholder="Nhập lại mật khẩu mới"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  minLength={8}
-                  style={inputStyle}
-                />
-                {passwordError && (
-                  <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--danger)", margin: 0 }}>
-                    {passwordError}
-                  </p>
-                )}
-                <button
-                  onClick={handleSetPassword}
-                  disabled={passwordLoading}
-                  className="btn-primary"
-                  style={{ alignSelf: "flex-end" }}
-                >
-                  {passwordLoading ? "Đang lưu…" : "Lưu mật khẩu"}
-                </button>
-              </div>
-            )}
-
-            {passwordActionMode !== "set-password" && passwordError && (
-              <p style={{
-                fontFamily: "var(--font-body)",
-                fontSize: 13,
-                color: "var(--danger)",
-                margin: "12px 0 0",
-              }}>
-                {passwordError}
-              </p>
-            )}
           </div>
         </SectionGroup>
 
@@ -587,19 +400,6 @@ export default function AccountPage() {
     </div>
   );
 }
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "10px 14px",
-  borderRadius: "var(--radius-md)",
-  border: "1px solid var(--hairline)",
-  background: "var(--canvas)",
-  fontFamily: "var(--font-body)",
-  fontSize: 15,
-  color: "var(--ink)",
-  outline: "none",
-  boxSizing: "border-box",
-};
-
 const actionBtnStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
@@ -623,6 +423,21 @@ const unlinkBtnStyle: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 500,
   padding: "4px 0",
+  flexShrink: 0,
+};
+
+const disabledPillStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 28,
+  padding: "0 10px",
+  borderRadius: 999,
+  background: "var(--canvas-parchment)",
+  color: "var(--ink-muted-48)",
+  fontFamily: "var(--font-body)",
+  fontSize: 12,
+  fontWeight: 600,
   flexShrink: 0,
 };
 

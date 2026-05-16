@@ -64,9 +64,7 @@ export async function getAuth() {
     account: {
       accountLinking: {
         enabled: true,
-        // Auto-merge accounts when the same verified email is used across
-        // multiple social providers (e.g. GitHub + Google with same email).
-        trustedProviders: ["github", "google"],
+        trustedProviders: ["github"],
         // Prevent locking yourself out — must have ≥1 auth method remaining
         allowUnlinkingAll: false,
       },
@@ -75,10 +73,6 @@ export async function getAuth() {
       github: {
         clientId: cfEnv.GITHUB_CLIENT_ID,
         clientSecret: cfEnv.GITHUB_CLIENT_SECRET,
-      },
-      google: {
-        clientId: cfEnv.GOOGLE_CLIENT_ID,
-        clientSecret: cfEnv.GOOGLE_CLIENT_SECRET,
       },
     },
     databaseHooks: {
