@@ -76,7 +76,7 @@ export default function SignInPage() {
 
         {/* GitHub SSO */}
         <button
-          onClick={() => signIn.social({ provider: "github", callbackURL: "/dashboard" })}
+          onClick={() => signIn.social({ provider: "github", callbackURL: `${window.location.origin}/dashboard` })}
           style={{
             width: "100%",
             display: "flex",
