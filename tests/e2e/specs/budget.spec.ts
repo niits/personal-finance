@@ -8,12 +8,12 @@ test.describe("Budget — existing budget view", () => {
   });
 
   test("shows monthly budget amount", async ({ page }) => {
-    await page.goto("/dashboard/budget");
+    await page.goto("/budget");
     await expect(page.getByText("5.000.000₫").first()).toBeVisible();
   });
 
   test("shows adjust budget button", async ({ page }) => {
-    await page.goto("/dashboard/budget");
+    await page.goto("/budget");
     await expect(page.getByRole("button", { name: /Điều chỉnh ngân sách/ })).toBeVisible();
   });
 });
@@ -25,13 +25,13 @@ test.describe("Budget — monthly budget creation", () => {
   });
 
   test("shows create form when no monthly budget exists", async ({ page }) => {
-    await page.goto("/dashboard/budget");
+    await page.goto("/budget");
     await expect(page.getByText("Chưa đặt ngân sách")).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole("textbox")).toBeVisible();
   });
 
   test("creates monthly budget with a preset amount", async ({ page }) => {
-    await page.goto("/dashboard/budget");
+    await page.goto("/budget");
     await page.getByRole("button", { name: "5tr" }).click();
     await page.getByRole("button", { name: "Xác nhận ngân sách" }).click();
     await expect(page.getByText("5.000.000₫").first()).toBeVisible({ timeout: 5000 });

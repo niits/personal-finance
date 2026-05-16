@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { STORAGE_STATE } from "../global-setup";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -23,12 +24,12 @@ test.describe("Sign-in page — layout", () => {
 });
 
 test.describe("Sign-in page — email/password auth", () => {
-  test("signs in with valid credentials and redirects to dashboard", async ({ page }) => {
+  test("signs in with valid credentials and redirects to home", async ({ page }) => {
     await page.goto("/sign-in");
     await page.locator("input[type='email']").fill("e2e@test.local");
     await page.locator("input[type='password']").fill("e2e-test-password-123");
     await page.locator("main").getByRole("button", { name: "Đăng nhập" }).click();
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 8000 });
+    await expect(page).toHaveURL(/\/$/, { timeout: 8000 });
   });
 
   test("shows error on wrong password", async ({ page }) => {
@@ -40,8 +41,22 @@ test.describe("Sign-in page — email/password auth", () => {
     await expect(page).toHaveURL(/\/sign-in/);
   });
 
-  test("unauthenticated visit to /dashboard redirects to /sign-in", async ({ page }) => {
-    await page.goto("/dashboard");
+  test("unauthenticated visit to / redirects to /sign-in", async ({ page }) => {
+    await page.goto("/");
     await expect(page).toHaveURL(/\/sign-in/, { timeout: 5000 });
+  });
+});
+
+test.describe("Sign-in page — authenticated redirects", () => {
+  test.use({ storageState: STORAGE_STATE });
+
+  test("authenticated visit to /sign-in redirects to home", async ({ page }) => {
+    await page.goto("/sign-in");
+    await expect(page).toHaveURL(/\/$/, { timeout: 5000 });
+  });
+
+  test("authenticated visit to /forgot-password redirects to home", async ({ page }) => {
+    await page.goto("/forgot-password");
+    await expect(page).toHaveURL(/\/$/, { timeout: 5000 });
   });
 });

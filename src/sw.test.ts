@@ -36,9 +36,9 @@ describe("SW routing logic", () => {
     it("routes navigation to network-only (never cached)", () => {
       // This is the critical fix: HTML pages must never be cache-first
       expect(routeRequest("/")).toBe("network-only");
-      expect(routeRequest("/dashboard")).toBe("network-only");
-      expect(routeRequest("/dashboard/categories")).toBe("network-only");
-      expect(routeRequest("/dashboard/budget")).toBe("network-only");
+      expect(routeRequest("/categories")).toBe("network-only");
+      expect(routeRequest("/budget")).toBe("network-only");
+      expect(routeRequest("/account")).toBe("network-only");
     });
 
     it("routes static assets outside _next to network-only", () => {

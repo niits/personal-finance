@@ -33,7 +33,7 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (session?.user) router.replace("/dashboard");
+    if (session?.user) router.replace("/");
   }, [session, router]);
 
   async function handleSubmit(e: React.FormEvent) {
