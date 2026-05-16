@@ -53,6 +53,8 @@ Every `/api/*` route (except `/api/auth/*`) must:
 2. If no session → return `401 Unauthorized`
 3. Scope every DB query to `user_id = session.user.id`
 
+For optimistic route guarding outside API handlers, use Better Auth's cookie helper instead of manually parsing cookie names. The route guard should rely on `getSessionCookie(request)` from `better-auth/cookies`, while real authorization remains enforced by `auth.api.getSession(...)` inside protected server boundaries and API routes.
+
 ---
 
 ## 2. Data Model

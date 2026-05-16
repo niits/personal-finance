@@ -26,7 +26,7 @@ export default function DashboardPage() {
       fetch(`/api/transactions${q}`),
     ]);
     if (dashRes.status === 401 || txnRes.status === 401) {
-      replace("/");
+      replace("/sign-in");
       return;
     }
     const [dr, tr] = await Promise.all([

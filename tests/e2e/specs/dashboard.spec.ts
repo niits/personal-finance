@@ -8,23 +8,23 @@ test.describe("Dashboard — transaction list", () => {
   });
 
   test("shows existing transaction after seed", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await expect(page.getByText("Bún bò buổi trưa")).toBeVisible();
   });
 
   test("shows budget bar when monthly budget exists", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await expect(page.getByText(/Ngân sách/)).toBeVisible();
   });
 
   test("shows income/savings panel when income exists", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await expect(page.getByText("Thu nhập")).toBeVisible();
     await expect(page.getByText("Tiết kiệm")).toBeVisible();
   });
 
   test("previous month button navigates to prior month", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     const monthLabel = page.getByText(/Tháng \d+\/\d+/).first();
     const currentLabel = await monthLabel.textContent();
     expect(currentLabel).toBeTruthy();
@@ -41,14 +41,14 @@ test.describe("Dashboard — action sheet", () => {
   });
 
   test("opens action sheet on transaction tap", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await page.getByText("Bún bò buổi trưa").first().click();
     await expect(page.getByRole("button", { name: "Sửa" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Xoá" })).toBeVisible();
   });
 
   test("edit flow pre-fills form with existing transaction data", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await page.getByText("Bún bò buổi trưa").first().click();
     await page.getByRole("button", { name: "Sửa" }).click();
     await expect(page.getByText("Sửa giao dịch")).toBeVisible();
@@ -63,7 +63,7 @@ test.describe("Dashboard — add transaction", () => {
   });
 
   test("opens form via FAB and creates an expense", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await page.locator("button", { hasText: "+" }).click();
     await expect(page.getByText("Chi tiêu").first()).toBeVisible();
 
@@ -76,14 +76,14 @@ test.describe("Dashboard — add transaction", () => {
   });
 
   test("shows validation error when amount is missing", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await page.locator("button", { hasText: "+" }).click();
     await page.locator("button", { hasText: "Lưu giao dịch" }).click();
     await expect(page.getByText("Nhập số tiền hợp lệ")).toBeVisible();
   });
 
   test("shows validation error when category is not selected", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await page.locator("button", { hasText: "+" }).click();
     await page.locator("input[inputmode='numeric']").fill("50000");
     await page.locator("button", { hasText: "Lưu giao dịch" }).click();
@@ -97,7 +97,7 @@ test.describe("Dashboard — delete transaction", () => {
   });
 
   test("delete removes transaction from list", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await page.getByText("Bún bò buổi trưa").first().click();
     await page.getByRole("button", { name: "Xoá" }).click();
     await expect(page.getByText("Bún bò buổi trưa").first()).not.toBeVisible();

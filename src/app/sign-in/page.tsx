@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { signIn, authClient } from "@/lib/auth-client";
 
 const GitHubIcon = () => (
@@ -20,36 +19,13 @@ const GoogleIcon = () => (
   </svg>
 );
 
-type Mode = "sign-in" | "sign-up";
-
 export default function SignInPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("sign-in");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data: session } = authClient.useSession();
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      if (mode === "sign-in") {
-        const res = await signIn.email({ email, password, callbackURL: "/dashboard" });
-        if (res.error) throw new Error(res.error.message ?? "Đăng nhập thất bại");
-      } else {
-        const res = await authClient.signUp.email({ email, password, name, callbackURL: "/dashboard" });
-        if (res.error) throw new Error(res.error.message ?? "Tạo tài khoản thất bại");
-      }
-      router.replace("/dashboard");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    if (session?.user) router.replace("/");
+  }, [session, router]);
 
   return (
     <main style={{
@@ -80,13 +56,12 @@ export default function SignInPage() {
             color: "var(--ink)",
             letterSpacing: -0.28,
           }}>
-            {mode === "sign-in" ? "Đăng nhập" : "Tạo tài khoản"}
+            Đăng nhập
           </h1>
         </div>
 
-        {/* GitHub SSO */}
         <button
-          onClick={() => signIn.social({ provider: "github", callbackURL: `${window.location.origin}/dashboard` })}
+          onClick={() => signIn.social({ provider: "github", callbackURL: `${window.location.origin}/` })}
           style={{
             width: "100%",
             display: "flex",
@@ -109,148 +84,97 @@ export default function SignInPage() {
           Tiếp tục với GitHub
         </button>
 
-        {/* Google SSO */}
-        <button
-          onClick={() => signIn.social({ provider: "google", callbackURL: `${window.location.origin}/dashboard` })}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            padding: "12px 20px",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--hairline)",
-            background: "var(--surface-white)",
-            color: "var(--ink)",
-            fontFamily: "var(--font-body)",
-            fontSize: 15,
-            fontWeight: 500,
-            cursor: "pointer",
-            marginBottom: 20,
-          }}
-        >
-          <GoogleIcon />
-          Tiếp tục với Google
-        </button>
-
-        {/* Divider */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 20,
-        }}>
-          <div style={{ flex: 1, height: 1, background: "var(--hairline)" }} />
-          <span style={{
-            fontFamily: "var(--font-body)",
-            fontSize: 12,
-            color: "var(--ink-muted-48)",
-          }}>hoặc</span>
-          <div style={{ flex: 1, height: 1, background: "var(--hairline)" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 18 }}>
+          <ComingSoonCard
+            icon={<GoogleIcon />}
+            title="Google đang tạm dừng"
+            description="Đăng nhập và liên kết Google sẽ quay lại sau khi hệ thống ổn định hơn."
+          />
+          <ComingSoonCard
+            title="Email & mật khẩu đang tạm dừng"
+            description="Đăng ký, đăng nhập và khôi phục mật khẩu bằng email sẽ có lại trong thời gian tới."
+          />
         </div>
-
-        {/* Email/password form */}
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {mode === "sign-up" && (
-            <input
-              type="text"
-              placeholder="Tên hiển thị"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              required
-              style={inputStyle}
-            />
-          )}
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            style={inputStyle}
-          />
-          <input
-            type="password"
-            placeholder="Mật khẩu"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            minLength={8}
-            style={inputStyle}
-          />
-
-          {mode === "sign-in" && (
-            <div style={{ textAlign: "right", marginTop: -4 }}>
-              <Link href="/sign-in/forgot-password" style={{
-                fontFamily: "var(--font-body)",
-                fontSize: 13,
-                color: "var(--ink-muted-48)",
-              }}>
-                Quên mật khẩu?
-              </Link>
-            </div>
-          )}
-
-          {error && (
-            <p style={{
-              fontFamily: "var(--font-body)",
-              fontSize: 13,
-              color: "var(--danger)",
-              textAlign: "center",
-            }}>
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary"
-            style={{ width: "100%", justifyContent: "center", marginTop: 4 }}
-          >
-            {loading ? "…" : mode === "sign-in" ? "Đăng nhập" : "Tạo tài khoản"}
-          </button>
-        </form>
-
-        {/* Toggle mode */}
-        <p style={{
-          textAlign: "center",
-          fontFamily: "var(--font-body)",
-          fontSize: 14,
-          color: "var(--ink-muted-48)",
-          marginTop: 24,
-        }}>
-          {mode === "sign-in" ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
-          <button
-            onClick={() => { setMode(mode === "sign-in" ? "sign-up" : "sign-in"); setError(null); }}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--primary)",
-              fontFamily: "var(--font-body)",
-              fontSize: 14,
-              cursor: "pointer",
-              padding: 0,
-            }}
-          >
-            {mode === "sign-in" ? "Đăng ký" : "Đăng nhập"}
-          </button>
-        </p>
       </div>
     </main>
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 16px",
-  borderRadius: "var(--radius-md)",
-  border: "1px solid var(--hairline)",
-  background: "var(--surface-white)",
+function ComingSoonCard({
+  icon,
+  title,
+  description,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div style={{
+      borderRadius: "var(--radius-lg)",
+      border: "1px solid var(--hairline)",
+      background: "linear-gradient(180deg, var(--surface-white) 0%, var(--canvas-parchment) 100%)",
+      padding: "18px 18px 16px",
+    }}>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        marginBottom: 10,
+      }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          color: "var(--ink)",
+          fontFamily: "var(--font-body)",
+          fontSize: 15,
+          fontWeight: 600,
+        }}>
+          {icon ? (
+            <span style={{
+              width: 28,
+              height: 28,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--canvas)",
+              color: "var(--ink-muted-80)",
+              flexShrink: 0,
+            }}>
+              {icon}
+            </span>
+          ) : null}
+          <span>{title}</span>
+        </div>
+        <span style={badgeStyle}>Sắp có lại</span>
+      </div>
+      <p style={{
+        margin: 0,
+        fontFamily: "var(--font-body)",
+        fontSize: 14,
+        lineHeight: 1.6,
+        color: "var(--ink-muted-48)",
+      }}>
+        {description}
+      </p>
+    </div>
+  );
+}
+
+const badgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 28,
+  padding: "0 10px",
+  borderRadius: 999,
+  background: "var(--canvas)",
+  color: "var(--ink-muted-48)",
   fontFamily: "var(--font-body)",
-  fontSize: 16,
-  color: "var(--ink)",
-  outline: "none",
-  boxSizing: "border-box",
+  fontSize: 12,
+  fontWeight: 600,
+  flexShrink: 0,
 };

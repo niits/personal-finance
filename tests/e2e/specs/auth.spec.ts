@@ -10,14 +10,14 @@ test.describe("Auth — API protection", () => {
     expect(res.status()).toBe(401);
   });
 
-  test("home page is accessible without auth", async ({ page }) => {
+  test("root redirects to sign-in when not authenticated", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveURL(/localhost:8787/);
+    await expect(page).toHaveURL(/\/sign-in/, { timeout: 5000 });
   });
 
-  test("dashboard redirects to sign-in when not authenticated", async ({ page }) => {
-    await page.goto("/dashboard");
-    await expect(page).not.toHaveURL(/\/dashboard/);
+  test("budget redirects to sign-in when not authenticated", async ({ page }) => {
+    await page.goto("/budget");
+    await expect(page).toHaveURL(/\/sign-in/, { timeout: 5000 });
   });
 
   test("/api/test/reset does not exist in production build", async ({ request }) => {
