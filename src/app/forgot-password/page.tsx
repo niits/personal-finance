@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
     try {
       const res = await authClientFetch("/request-password-reset", {
         method: "POST",
-        body: { email, redirectTo: `${window.location.origin}/sign-in/reset-password` },
+        body: { email, redirectTo: `${window.location.origin}/reset-password` },
       });
       if (res.error) throw new Error(res.error.message ?? "Đã có lỗi xảy ra");
       setSent(true);

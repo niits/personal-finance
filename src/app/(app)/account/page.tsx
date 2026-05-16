@@ -174,7 +174,7 @@ export default function AccountPage() {
   }
 
   async function handleLinkGitHub() {
-    await linkSocial({ provider: "github", callbackURL: "/dashboard/account" });
+    await linkSocial({ provider: "github", callbackURL: "/account" });
   }
 
   async function handleUnlinkGitHub() {
@@ -189,7 +189,7 @@ export default function AccountPage() {
   }
 
   async function handleLinkGoogle() {
-    await linkSocial({ provider: "google", callbackURL: "/dashboard/account" });
+    await linkSocial({ provider: "google", callbackURL: "/account" });
   }
 
   async function handleUnlinkGoogle() {
@@ -435,7 +435,7 @@ export default function AccountPage() {
         {/* Sign out */}
         <SectionGroup label="Phiên đăng nhập">
           <button
-            onClick={() => signOut({ fetchOptions: { onSuccess: () => router.replace("/") } })}
+            onClick={() => signOut({ fetchOptions: { onSuccess: () => router.replace("/sign-in") } })}
             style={{
               width: "100%",
               padding: "14px var(--space-md)",

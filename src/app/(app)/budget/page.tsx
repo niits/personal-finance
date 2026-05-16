@@ -26,7 +26,7 @@ export default function BudgetPage() {
       fetch("/api/custom-budgets"),
     ]);
     if (mRes.status === 401 || cRes.status === 401) {
-      replace("/");
+      replace("/sign-in");
       return;
     }
     const mData = await mRes.json() as BudgetPageData;
