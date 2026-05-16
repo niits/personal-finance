@@ -87,20 +87,16 @@ jobs:
         if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: npm ci
 
-      # On pull_request events the action fetches the base branch itself.
-      # On push events (no github.base_ref) we must fetch manually first.
-      - name: Fetch base ref for diff (push events only)
-        if: github.event_name != 'pull_request'
-        run: |
-          BASE="${{ github.base_ref || 'main' }}"
-          git fetch origin "${BASE}:${BASE}" || true
+      # Fetch base branch so react-doctor can diff against it
+      - name: Fetch base ref for diff
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: git fetch origin "${BASE_REF}:${BASE_REF}" || true
 
-      - uses: millionco/react-doctor@main
-        with:
-          diff: ${{ github.base_ref || 'main' }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          fail-on: error
-          offline: 'true'
+      - name: Run React Doctor
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: npx -y react-doctor@latest . --fail-on error --offline --diff "$BASE_REF"
 
   e2e:
     name: E2E Tests
