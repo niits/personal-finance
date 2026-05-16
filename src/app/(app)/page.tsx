@@ -20,27 +20,39 @@ export default function DashboardPage() {
   const { replace } = useRouter();
 
   const load = useCallback(async (month?: string) => {
-    const q = month ? `?month=${month}` : "";
-    const [dashRes, txnRes] = await Promise.all([
-      fetch(`/api/dashboard${q}`),
-      fetch(`/api/transactions${q}`),
-    ]);
-    if (dashRes.status === 401 || txnRes.status === 401) {
-      replace("/sign-in");
-      return;
+    try {
+      const q = month ? `?month=${month}` : "";
+      const [dashRes, txnRes] = await Promise.all([
+        fetch(`/api/dashboard${q}`),
+        fetch(`/api/transactions${q}`),
+      ]);
+      if (dashRes.status === 401 || txnRes.status === 401) {
+        replace("/sign-in");
+        return;
+      }
+      const [dr, tr] = await Promise.all([
+        dashRes.json() as Promise<DashboardData>,
+        txnRes.json() as Promise<{ transactions: Transaction[] }>,
+      ]);
+      setData(dr);
+      setTxns(tr.transactions ?? []);
+      if (!currentMonthRef.current) currentMonthRef.current = dr.month;
+      setSelectedMonth(dr.month);
+    } finally {
+      setLoading(false);
     }
-    const [dr, tr] = await Promise.all([
-      dashRes.json() as Promise<DashboardData>,
-      txnRes.json() as Promise<{ transactions: Transaction[] }>,
-    ]);
-    setData(dr);
-    setTxns(tr.transactions ?? []);
-    if (!currentMonthRef.current) currentMonthRef.current = dr.month;
-    setSelectedMonth(dr.month);
-    setLoading(false);
   }, [replace]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reload when the PWA/tab is brought back to the foreground after being suspended
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [load]);
 
   async function handleDelete(txn: Transaction) {
     setDeleting(true);
