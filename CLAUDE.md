@@ -58,8 +58,11 @@ git push origin --tags
 ### Workflow
 
 ```bash
-# 1. Always branch from an up-to-date main
+# 1. Always branch from an up-to-date staging
+#    First ensure staging is in sync with main
 git checkout main && git pull
+git checkout staging && git pull
+git merge --ff-only main  # fast-forward only — if this fails, rebase staging on main first
 git checkout -b feature/<name>
 
 # 2. Commit often with Conventional Commits
