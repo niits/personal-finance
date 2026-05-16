@@ -20,11 +20,19 @@ test.describe("Account page — linked accounts", () => {
     await expect(page.getByText("GitHub")).toBeVisible();
   });
 
-  test("shows password action button after accounts load", async ({ page }) => {
+  test("shows reset password action for credential accounts", async ({ page }) => {
     await page.goto("/account");
-    await page.waitForTimeout(800);
+    await expect(page.getByRole("button", { name: "Đặt lại mật khẩu" })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByRole("button", { name: "Đặt mật khẩu" })).toHaveCount(0);
+  });
+
+  test("can trigger the reset password flow from account page", async ({ page }) => {
+    await page.goto("/account");
+    await page.getByRole("button", { name: "Đặt lại mật khẩu" }).click();
     await expect(
-      page.locator("button").filter({ hasText: /Đặt mật khẩu|Đổi mật khẩu/ })
+      page.getByText(`Nếu địa chỉ email ${TEST_EMAIL} tồn tại trong hệ thống, email hướng dẫn đặt lại mật khẩu đã được gửi.`),
     ).toBeVisible({ timeout: 5000 });
   });
 });
