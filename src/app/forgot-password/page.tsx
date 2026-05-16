@@ -1,34 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { getAuthClientErrorMessage, requestPasswordResetEmail } from "@/lib/auth-client";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await requestPasswordResetEmail({
-        email,
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      const errorMessage = getAuthClientErrorMessage(res);
-      if (errorMessage) throw new Error(errorMessage);
-      setSent(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <main style={{
       minHeight: "100svh",
@@ -60,85 +34,41 @@ export default function ForgotPasswordPage() {
             Quên mật khẩu
           </h1>
         </div>
-
-        {sent ? (
-          <div style={{
-            background: "var(--surface-white)",
-            borderRadius: "var(--radius-lg)",
-            padding: "24px 20px",
-            textAlign: "center",
+        <div style={{
+          background: "var(--surface-white)",
+          borderRadius: "var(--radius-lg)",
+          padding: "24px 20px",
+          textAlign: "center",
+          border: "1px solid var(--hairline)",
+        }}>
+          <p style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 15,
+            color: "var(--ink)",
+            lineHeight: 1.6,
+            margin: "0 0 10px",
           }}>
-            <p style={{
-              fontFamily: "var(--font-body)",
-              fontSize: 15,
-              color: "var(--ink)",
-              lineHeight: 1.6,
-              marginBottom: 20,
-            }}>
-              Nếu địa chỉ email <strong>{email}</strong> tồn tại trong hệ thống,
-              bạn sẽ nhận được email hướng dẫn đặt lại mật khẩu.
-            </p>
-            <Link href="/sign-in" style={{
-              fontFamily: "var(--font-body)",
-              fontSize: 14,
-              color: "var(--primary)",
-              fontWeight: 500,
-            }}>
-              Quay lại đăng nhập
-            </Link>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoFocus
-              style={inputStyle}
-            />
-
-            {error && (
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--danger)", margin: 0 }}>
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary"
-              style={{ width: "100%", padding: "13px 20px", fontSize: 15 }}
-            >
-              {loading ? "Đang gửi…" : "Gửi link đặt lại mật khẩu"}
-            </button>
-
-            <p style={{ textAlign: "center", marginTop: 8 }}>
-              <Link href="/sign-in" style={{
-                fontFamily: "var(--font-body)",
-                fontSize: 14,
-                color: "var(--ink-muted-48)",
-              }}>
-                Quay lại đăng nhập
-              </Link>
-            </p>
-          </form>
-        )}
+            Tính năng khôi phục mật khẩu đang được tạm dừng.
+          </p>
+          <p style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 14,
+            color: "var(--ink-muted-48)",
+            lineHeight: 1.6,
+            margin: "0 0 20px",
+          }}>
+            Chúng tôi sẽ mở lại sau khi hoàn tất đợt ổn định hệ thống sắp tới.
+          </p>
+          <Link href="/sign-in" style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 14,
+            color: "var(--primary)",
+            fontWeight: 500,
+          }}>
+            Quay lại đăng nhập
+          </Link>
+        </div>
       </div>
     </main>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "13px 16px",
-  borderRadius: "var(--radius-md)",
-  border: "1px solid var(--hairline)",
-  background: "var(--surface-white)",
-  fontFamily: "var(--font-body)",
-  fontSize: 15,
-  color: "var(--ink)",
-  outline: "none",
-  boxSizing: "border-box",
-};

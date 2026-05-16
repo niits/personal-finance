@@ -20,20 +20,16 @@ test.describe("Account page — linked accounts", () => {
     await expect(page.getByText("GitHub")).toBeVisible();
   });
 
-  test("shows reset password action for credential accounts", async ({ page }) => {
+  test("shows password features as coming soon", async ({ page }) => {
     await page.goto("/account");
-    await expect(page.getByRole("button", { name: "Đặt lại mật khẩu" })).toBeVisible({
-      timeout: 5000,
-    });
-    await expect(page.getByRole("button", { name: "Đặt mật khẩu" })).toHaveCount(0);
+    await expect(page.getByText("Email và mật khẩu đang được tạm dừng.")).toBeVisible();
+    await expect(page.getByText("Sắp có lại")).toHaveCount(2);
   });
 
-  test("can trigger the reset password flow from account page", async ({ page }) => {
+  test("shows Google auth as temporarily disabled", async ({ page }) => {
     await page.goto("/account");
-    await page.getByRole("button", { name: "Đặt lại mật khẩu" }).click();
-    await expect(
-      page.getByText(`Nếu địa chỉ email ${TEST_EMAIL} tồn tại trong hệ thống, email hướng dẫn đặt lại mật khẩu đã được gửi.`),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Google")).toBeVisible();
+    await expect(page.getByText("Tạm dừng")).toBeVisible();
   });
 });
 
