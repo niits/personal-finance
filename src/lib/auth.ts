@@ -16,9 +16,33 @@ export async function getAuth() {
   const cfEnv = env as unknown as Cloudflare.Env & {
     GITHUB_CLIENT_ID: string;
     GITHUB_CLIENT_SECRET: string;
+    GOOGLE_CLIENT_ID: string;
+    GOOGLE_CLIENT_SECRET: string;
     BETTER_AUTH_SECRET: string;
     BETTER_AUTH_URL: string;
+    RESEND_API_KEY?: string;
   };
+
+  async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
+    if (cfEnv.RESEND_API_KEY) {
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${cfEnv.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "no-reply@personal-finance.niits.dev",
+          to,
+          subject,
+          html,
+        }),
+      });
+    } else {
+      // Dev fallback: log to console so the URL is visible in wrangler preview
+      console.log(`[DEV EMAIL] To: ${to} | Subject: ${subject}\n${html}`);
+    }
+  }
 
   authInstance = betterAuth({
     secret: cfEnv.BETTER_AUTH_SECRET,
@@ -26,10 +50,23 @@ export async function getAuth() {
     database: cfEnv.DB,
     emailAndPassword: {
       enabled: true,
+      sendResetPassword: async ({ user, url }) => {
+        await sendEmail({
+          to: user.email,
+          subject: "Đặt lại mật khẩu — Personal Finance",
+          html: `<p>Xin chào ${user.name ?? user.email},</p>
+<p>Nhấn vào liên kết bên dưới để đặt lại mật khẩu của bạn. Liên kết có hiệu lực trong 1 giờ.</p>
+<p><a href="${url}">${url}</a></p>
+<p>Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>`,
+        });
+      },
     },
     account: {
       accountLinking: {
         enabled: true,
+        // Auto-merge accounts when the same verified email is used across
+        // multiple social providers (e.g. GitHub + Google with same email).
+        trustedProviders: ["github", "google"],
         // Prevent locking yourself out — must have ≥1 auth method remaining
         allowUnlinkingAll: false,
       },
@@ -38,6 +75,10 @@ export async function getAuth() {
       github: {
         clientId: cfEnv.GITHUB_CLIENT_ID,
         clientSecret: cfEnv.GITHUB_CLIENT_SECRET,
+      },
+      google: {
+        clientId: cfEnv.GOOGLE_CLIENT_ID,
+        clientSecret: cfEnv.GOOGLE_CLIENT_SECRET,
       },
     },
     databaseHooks: {
