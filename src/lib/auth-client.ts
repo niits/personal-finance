@@ -11,3 +11,33 @@ export const authClient = createAuthClient({
 
 export const { signIn, signOut, useSession, linkSocial, unlinkAccount, changePassword } = authClient;
 export const authClientFetch = authClient.$fetch;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function getAuthClientErrorMessage(result: unknown): string | null {
+  if (!isRecord(result) || !isRecord(result.error)) {
+    return null;
+  }
+
+  return typeof result.error.message === "string" ? result.error.message : null;
+}
+
+export function setAccountPassword(input: { newPassword: string }) {
+  return authClientFetch("/set-password", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export function requestPasswordResetEmail(input: { email: string; redirectTo?: string }) {
+  return authClientFetch("/request-password-reset", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export function listLinkedAccounts() {
+  return authClientFetch("/list-accounts");
+}
