@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardTemplate } from "@/components/templates/DashboardTemplate";
 import type { DashboardData, Transaction } from "@/components/templates/DashboardTemplate";
+import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -15,6 +16,8 @@ export default function DashboardPage() {
   const [editTxn, setEditTxn] = useState<Transaction | undefined>(undefined);
   const [actionTxn, setActionTxn] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [organizeState, setOrganizeState] = useState<"idle" | "loading" | "review" | "applying">("idle");
+  const [organizePreview, setOrganizePreview] = useState<OrganizePreview | null>(null);
   const { replace } = useRouter();
 
   const load = useCallback(async (month?: string) => {
@@ -69,6 +72,44 @@ export default function DashboardPage() {
     return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
   }
 
+  async function handleOrganize() {
+    setOrganizeState("loading");
+    try {
+      const r = await fetch("/api/ai/organize", { method: "POST" });
+      if (!r.ok) { setOrganizeState("idle"); return; }
+      const preview = await r.json() as OrganizePreview;
+      setOrganizePreview(preview);
+      setOrganizeState("review");
+    } catch {
+      setOrganizeState("idle");
+    }
+  }
+
+  async function handleOrganizeApply(selection: OrganizeSelection) {
+    setOrganizeState("applying");
+    try {
+      const r = await fetch("/api/ai/organize/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selection),
+      });
+      if (r.ok) {
+        setOrganizeState("idle");
+        setOrganizePreview(null);
+        load(selectedMonth);
+      } else {
+        setOrganizeState("review");
+      }
+    } catch {
+      setOrganizeState("review");
+    }
+  }
+
+  function handleOrganizeClose() {
+    setOrganizeState("idle");
+    setOrganizePreview(null);
+  }
+
   function navigate(m: string) {
     setSelectedMonth(m);
     load(m);
@@ -94,6 +135,11 @@ export default function DashboardPage() {
       onCloseForm={() => { setFormOpen(false); setEditTxn(undefined); }}
       onSaved={() => load(selectedMonth)}
       onDelete={handleDelete}
+      organizeState={organizeState}
+      organizePreview={organizePreview}
+      onOrganize={handleOrganize}
+      onOrganizeApply={handleOrganizeApply}
+      onOrganizeClose={handleOrganizeClose}
     />
   );
 }

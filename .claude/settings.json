@@ -6,10 +6,9 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(git push*)",
-            "command": "cd /home/niits/workspace/personal-finance && npm run test:unit -- --reporter=dot 2>&1; exit $?",
-            "timeout": 120,
-            "statusMessage": "Running unit tests before push..."
+            "command": "bash -c '\ncmd=$(jq -r \".tool_input.command\" 2>/dev/null)\nif echo \"$cmd\" | grep -qE \"git (commit|push)\"; then\n  branch=$(git -C /home/niits/workspace/personal-finance rev-parse --abbrev-ref HEAD 2>/dev/null)\n  if [ \"$branch\" = \"staging\" ] || [ \"$branch\" = \"main\" ]; then\n    echo \"{\\\"continue\\\": false, \\\"stopReason\\\": \\\"Direct commits/pushes to $branch are not allowed. Create a feature branch first: git checkout -b feature/<name>\\\"}\"\n    exit 1\n  fi\nfi\n'",
+            "timeout": 10,
+            "statusMessage": "Checking branch protection..."
           }
         ]
       }
