@@ -58,7 +58,7 @@ export async function getOpenAIModel(): Promise<LanguageModel> {
   const cfEnv = env as Cloudflare.Env;
   const openai = createOpenAI({
     apiKey: "cloudflare",
-    baseURL: `https://gateway.ai.cloudflare.com/v1/${cfEnv.CLOUDFLARE_ACCOUNT_ID}/personal-finance/openai`,
+    baseURL: `https://gateway.ai.cloudflare.com/v1/${cfEnv.CLOUDFLARE_ACCOUNT_ID}/default/openai`,
     headers: { "cf-aig-authorization": `Bearer ${cfEnv.CF_AIG_TOKEN}` },
   });
   return openai("gpt-4o-mini");
