@@ -3,7 +3,8 @@ import { z } from "zod";
 import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { runAIObject } from "@/lib/llm";
+import { getOpenAIModel } from "@/lib/llm";
+import { generateObject } from "ai";
 
 type CategoryRow = { id: number; name: string; type: "income" | "expense"; level: number; emoji: string | null };
 type TransactionRow = { id: number; note: string; type: "income" | "expense"; category_id: number; cat_name: string };
@@ -79,7 +80,9 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
 
   let result: z.infer<typeof OrganizeSchema>;
   try {
-    result = await runAIObject({ schema: OrganizeSchema, system: SYSTEM_PROMPT, prompt: userContent });
+    const model = await getOpenAIModel();
+    const { object } = await generateObject({ model, schema: OrganizeSchema, system: SYSTEM_PROMPT, prompt: userContent, maxOutputTokens: 4096 });
+    result = object;
   } catch (err) {
     console.error("[ai/organize] AI error:", err);
     return Response.json({ error: "AI_ERROR" }, { status: 502 });
