@@ -22,6 +22,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.64",
     "@anthropic-ai/sdk": "^0.93.0",
     "@better-auth/cli": "^1.4.21",
     "@opentelemetry/sdk-trace-base": "^2.7.1",
