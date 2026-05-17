@@ -15,8 +15,6 @@ export default function DashboardPage() {
   const [editTxn, setEditTxn] = useState<Transaction | undefined>(undefined);
   const [actionTxn, setActionTxn] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [suggestingId, setSuggestingId] = useState<number | null>(null);
-  const [suggestedIds, setSuggestedIds] = useState<Set<number>>(new Set());
   const { replace } = useRouter();
 
   const load = useCallback(async (month?: string) => {
@@ -71,38 +69,6 @@ export default function DashboardPage() {
     return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
   }
 
-  async function handleSuggest(id: number) {
-    if (suggestingId !== null) return;
-    setSuggestingId(id);
-    try {
-      const r = await fetch(`/api/transactions/${id}/suggest`, { method: "POST" });
-      if (!r.ok) { setSuggestingId(null); return; }
-      const d = await r.json() as {
-        suggested_category_id: number | null;
-        suggested_category_name: string | null;
-        category_reason: string | null;
-        emoji: string | null;
-      };
-
-      const patches: Record<string, unknown> = {};
-      if (d.suggested_category_id) patches.category_id = d.suggested_category_id;
-      if (d.emoji) patches.emoji = d.emoji;
-
-      if (Object.keys(patches).length > 0) {
-        await fetch(`/api/transactions/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patches),
-        });
-        load(selectedMonth);
-      }
-
-      setSuggestedIds((prev) => new Set([...prev, id]));
-    } finally {
-      setSuggestingId(null);
-    }
-  }
-
   function navigate(m: string) {
     setSelectedMonth(m);
     load(m);
@@ -128,9 +94,6 @@ export default function DashboardPage() {
       onCloseForm={() => { setFormOpen(false); setEditTxn(undefined); }}
       onSaved={() => load(selectedMonth)}
       onDelete={handleDelete}
-      onSuggest={handleSuggest}
-      suggestingId={suggestingId}
-      suggestedIds={suggestedIds}
     />
   );
 }
