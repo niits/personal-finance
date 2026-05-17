@@ -2,7 +2,7 @@ import { z } from "zod";
 import { sql } from "kysely";
 import { tool, stepCountIs } from "ai";
 import { getKysely } from "@/lib/db";
-import { runAIObject, getWorkersAIModel, generateText } from "@/lib/llm";
+import { getOpenAIModel, generateText } from "@/lib/llm";
 import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate } from "@/lib/validators";
 
 export type InsightType = "analysis" | "recommendation" | "alert";
@@ -250,14 +250,14 @@ Then call generate_insights with 3–5 insights based on what you found.
 
   // ── Real tool-calling loop ─────────────────────────────────────────────────
   let capturedInsights: Insight[] | null = null as Insight[] | null;
-  const model = await getWorkersAIModel();
+  const model = await getOpenAIModel();
 
   try {
     await generateText({
       model,
       system: SYSTEM,
       stopWhen: stepCountIs(8),
-      maxOutputTokens: 16000,
+      maxOutputTokens: 4096,
       prompt: `Analyze spending for period ${periodKey} (${periodStart} to ${effectiveEnd}). Prior months for context: ${JSON.stringify(priorSummaries)}`,
       tools: {
         get_budget_status: tool({
@@ -327,35 +327,6 @@ Then call generate_insights with 3–5 insights based on what you found.
     });
   } catch (agentErr) {
     console.error("[stats-agent] generateText error:", agentErr);
-    // Fall through to fallback below — don't rethrow yet
-  }
-
-  // ── Fallback: if agent didn't call generate_insights, use pre-fetched data ─
-  // This handles "lazy" Llama behavior where it answers in text instead of tools.
-  if (!capturedInsights || capturedInsights.length === 0) {
-    console.warn("[stats-agent] no insights from tool-calling — falling back to generateObject");
-    emit?.({ type: "tool_call", tool: "analyze", label: "AI đang phân tích (fallback)" });
-
-    const fallbackResult = await runAIObject({
-      schema: insightSchema,
-      schemaName: "FinanceInsightsReport",
-      schemaDescription: "A structured personal finance report with 3–5 insights.",
-      system: SYSTEM,
-      traceName: "statistics-insights-fallback",
-      userId,
-      maxOutputTokens: 16000,
-      prompt: JSON.stringify({
-        period: { key: periodKey, start: periodStart, end: effectiveEnd },
-        budget_status: budgetStatus,
-        expense_by_category: expenseByCategory.slice(0, 12),
-        notable_transactions: notableTransactions.slice(0, 12),
-        daily_trend: dailyTrend.slice(-20),
-        prior_periods: priorSummaries,
-      }),
-    });
-
-    capturedInsights = fallbackResult.insights;
-    emit?.({ type: "tool_result", tool: "analyze", rows: capturedInsights.length });
   }
 
   if (!capturedInsights || capturedInsights.length === 0) {

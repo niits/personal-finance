@@ -1,6 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateText, generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { ZodType } from "zod";
 
 const MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
@@ -47,8 +48,20 @@ export async function runAIObject<T>(opts: {
 
 export async function getWorkersAIModel(): Promise<LanguageModel> {
   const { env } = await getCloudflareContext({ async: true });
-  const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
+  const workersai = createWorkersAI({ binding: (env as Cloudflare.Env).AI });
   return workersai(MODEL);
+}
+
+// gpt-4o-mini via Cloudflare AI Gateway unified billing — no separate OpenAI key needed
+export async function getOpenAIModel(): Promise<LanguageModel> {
+  const { env } = await getCloudflareContext({ async: true });
+  const cfEnv = env as Cloudflare.Env;
+  const openai = createOpenAI({
+    apiKey: "cloudflare",
+    baseURL: `https://gateway.ai.cloudflare.com/v1/${cfEnv.CLOUDFLARE_ACCOUNT_ID}/personal-finance/openai`,
+    headers: { "cf-aig-authorization": `Bearer ${cfEnv.CF_AIG_TOKEN}` },
+  });
+  return openai("gpt-4o-mini");
 }
 
 export { generateText };
