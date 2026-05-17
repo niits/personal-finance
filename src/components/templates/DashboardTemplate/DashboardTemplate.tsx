@@ -51,9 +51,6 @@ export type DashboardTemplateProps = {
   onCloseForm: () => void;
   onSaved: () => void;
   onDelete: (txn: Transaction) => void;
-  onSuggest?: (id: number) => void;
-  suggestingId?: number | null;
-  suggestedIds?: Set<number>;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -154,9 +151,6 @@ export function DashboardTemplate({
   onCloseForm,
   onSaved,
   onDelete,
-  onSuggest,
-  suggestingId,
-  suggestedIds,
 }: DashboardTemplateProps) {
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
 
