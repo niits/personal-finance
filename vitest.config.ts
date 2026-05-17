@@ -1,5 +1,6 @@
 import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
 import type { Plugin } from "vite";
+import path from "path";
 
 // Stub node:inspector — Next.js's console-dim.external.js imports it at startup
 // but it's not available in the Cloudflare Workers runtime. The module is only
@@ -20,6 +21,9 @@ function stubNodeInspector(): Plugin {
 
 export default defineWorkersConfig({
   plugins: [stubNodeInspector()],
+  resolve: {
+    alias: { "@": path.resolve(__dirname, "src") },
+  },
   test: {
     globalSetup: ["./tests/integration/global-setup.ts"],
     include: ["tests/integration/**/*.test.ts"],
