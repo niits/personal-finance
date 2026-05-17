@@ -34,6 +34,7 @@ One file per feature or topic. Accumulates as features are designed and built.
 | [ai-category-suggestions.md](./specs/ai-category-suggestions.md) | Superseded | AI-powered new category suggestions — superseded by EPIC_3_AI_REFACTOR.md |
 | [transaction-recategorize.md](./specs/transaction-recategorize.md) | Superseded | AI-powered transaction recategorization — superseded by EPIC_3_AI_REFACTOR.md |
 | [EPIC_3_AI_REFACTOR.md](./EPIC_3_AI_REFACTOR.md) | Active | Epic 3 design: AI Organize button, statistics agent upgrade, model migration |
+| [ai-organize.md](./specs/ai-organize.md) | Active | CDD component design for the AI Organize button and review sheet (Epic 3 Part 2) |
 
 ### Dev Logs (`dev_logs/`)
 

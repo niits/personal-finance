@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
+import { OrganizeReviewSheet } from "@/components/organisms/OrganizeReviewSheet";
+import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -51,6 +53,11 @@ export type DashboardTemplateProps = {
   onCloseForm: () => void;
   onSaved: () => void;
   onDelete: (txn: Transaction) => void;
+  organizeState: "idle" | "loading" | "review" | "applying";
+  organizePreview: OrganizePreview | null;
+  onOrganize: () => void;
+  onOrganizeApply: (selection: OrganizeSelection) => void;
+  onOrganizeClose: () => void;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -151,6 +158,11 @@ export function DashboardTemplate({
   onCloseForm,
   onSaved,
   onDelete,
+  organizeState,
+  organizePreview,
+  onOrganize,
+  onOrganizeApply,
+  onOrganizeClose,
 }: DashboardTemplateProps) {
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
 
@@ -271,6 +283,30 @@ export function DashboardTemplate({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Organize button ── */}
+      {isCurrentMonth && organizeState !== "review" && organizeState !== "applying" && (
+        <div style={{ padding: "8px 16px 0", display: "flex", justifyContent: "flex-end" }}>
+          <button
+            onClick={onOrganize}
+            disabled={organizeState === "loading"}
+            style={{
+              background: "none",
+              border: "1px solid var(--hairline)",
+              borderRadius: 99,
+              padding: "5px 14px",
+              fontFamily: "var(--font-body)",
+              fontSize: 13,
+              fontWeight: 500,
+              color: organizeState === "loading" ? "var(--ink-muted-48)" : "var(--primary)",
+              cursor: organizeState === "loading" ? "default" : "pointer",
+              letterSpacing: -0.08,
+            }}
+          >
+            {organizeState === "loading" ? "Đang phân tích…" : "Tổ chức ✦"}
+          </button>
         </div>
       )}
 
@@ -414,6 +450,14 @@ export function DashboardTemplate({
         onClose={onCloseForm}
         onSaved={onSaved}
         transaction={editTxn}
+      />
+
+      <OrganizeReviewSheet
+        open={organizeState === "review" || organizeState === "applying"}
+        preview={organizePreview}
+        applying={organizeState === "applying"}
+        onApply={onOrganizeApply}
+        onClose={onOrganizeClose}
       />
     </div>
   );
