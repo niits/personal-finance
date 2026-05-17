@@ -75,6 +75,9 @@ Meaningful combinations of atoms. No side effects — pure props in, JSX out.
 | `PaceChip` | Badge | Under / over / no_budget status pill with color coding |
 | `MonthStepper` | Button | Prev arrow + month label + next arrow (disabled when current month) |
 | `StatCard` | CurrencyDisplay, Badge | Single KPI tile: label, value, optional change indicator |
+| `OrganizeSectionHeader` | Badge | Section title + count badge inside the AI Organize review sheet |
+| `NewCategoryRow` | Badge, EmojiIcon | Checkable row for an AI-proposed new category |
+| `RecategorizationRow` | Badge | Checkable row for an AI-proposed transaction reclassification |
 
 ### 2.4 Organisms
 
@@ -92,6 +95,7 @@ Complete, self-contained UI sections. May hold local UI state (open/closed, acti
 | `CategoryTree` | Hierarchical category list with add/edit/delete actions |
 | `EmojiPicker` | Modal grid for selecting an emoji |
 | `VegaChart` | Vega-Lite chart wrapper (handles CSP-safe interpreter, locale, theme) |
+| `OrganizeReviewSheet` | Bottom sheet: lists AI-proposed category/emoji/reclassification changes with checkboxes before applying |
 
 ### 2.5 Templates
 
