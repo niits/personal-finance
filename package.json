@@ -29,7 +29,6 @@
     "better-auth": "^1.6.9",
     "kysely": "^0.28.16",
     "kysely-d1": "^0.4.0",
-    "langfuse-vercel": "^3.38.20",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
