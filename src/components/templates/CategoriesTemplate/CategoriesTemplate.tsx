@@ -119,6 +119,7 @@ export function CategoriesTemplate({
 
   // AI suggest sheet
   const [showSuggest, setShowSuggest] = useState(false);
+  const [sheetMode, setSheetMode] = useState<"menu" | "suggest" | "fillEmoji">("menu");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [applying, setApplying] = useState(false);
   const [recatSelected, setRecatSelected] = useState<Set<number>>(new Set());
@@ -147,13 +148,14 @@ export function CategoriesTemplate({
 
   function openSuggest() {
     setShowSuggest(true);
+    setSheetMode("menu");
     setSelected(new Set());
     setRecatSelected(new Set());
-    onLoadSuggestions();
   }
 
   function closeSheet() {
     setShowSuggest(false);
+    setSheetMode("menu");
     setSelected(new Set());
     setRecatSelected(new Set());
   }
@@ -238,6 +240,86 @@ export function CategoriesTemplate({
   }
 
   function renderSuggestSheet() {
+    if (sheetMode === "menu") {
+      return (
+        <div style={{ padding: "16px 20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={() => { setSheetMode("suggest"); onLoadSuggestions(); }}
+            style={{
+              display: "flex", alignItems: "center", gap: 14,
+              padding: "16px 18px", borderRadius: 12,
+              border: "1px solid var(--hairline)", background: "var(--canvas-parchment)",
+              cursor: "pointer", textAlign: "left",
+            }}
+          >
+            <span style={{ fontSize: 24 }}>✦</span>
+            <div>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 2 }}>
+                Gợi ý danh mục
+              </p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>
+                Phân tích giao dịch và đề xuất danh mục mới
+              </p>
+            </div>
+          </button>
+          <button
+            onClick={() => { setSheetMode("fillEmoji"); onFillEmoji(); }}
+            disabled={fillEmojiState === "loading"}
+            style={{
+              display: "flex", alignItems: "center", gap: 14,
+              padding: "16px 18px", borderRadius: 12,
+              border: "1px solid var(--hairline)", background: "var(--canvas-parchment)",
+              cursor: fillEmojiState === "loading" ? "wait" : "pointer", textAlign: "left",
+              opacity: fillEmojiState === "loading" ? 0.6 : 1,
+            }}
+          >
+            <span style={{ fontSize: 24 }}>
+              {fillEmojiState === "done" ? "✓" : fillEmojiState === "loading" ? "⏳" : "😀"}
+            </span>
+            <div>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 2 }}>
+                {fillEmojiState === "done" ? "Đã điền emoji" : "Fill emoji"}
+              </p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>
+                Tự động gán emoji cho danh mục chưa có
+              </p>
+            </div>
+          </button>
+        </div>
+      );
+    }
+
+    if (sheetMode === "fillEmoji") {
+      if (fillEmojiState === "loading") {
+        return (
+          <div style={{ padding: "40px 22px", textAlign: "center" }}>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)" }}>
+              Đang điền emoji…
+            </p>
+          </div>
+        );
+      }
+      if (fillEmojiState === "error") {
+        return (
+          <div style={{ padding: "32px 22px", textAlign: "center" }}>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "#ff453a", marginBottom: 16 }}>
+              Không thể điền emoji lúc này. Thử lại sau.
+            </p>
+            <button onClick={closeSheet} style={ghostBtnStyle}>Đóng</button>
+          </div>
+        );
+      }
+      return (
+        <div style={{ padding: "32px 22px", textAlign: "center" }}>
+          <p style={{ fontSize: 40, marginBottom: 12 }}>✓</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", marginBottom: 20 }}>
+            Đã điền emoji cho tất cả danh mục
+          </p>
+          <button onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
+        </div>
+      );
+    }
+
     if (suggestState === "loading") {
       return (
         <div style={{ padding: "40px 22px", textAlign: "center" }}>
@@ -513,24 +595,6 @@ export function CategoriesTemplate({
             ✦ Gợi ý
           </button>
           <button
-            onClick={onFillEmoji}
-            disabled={fillEmojiState === "loading"}
-            style={{
-              background: "transparent",
-              color: fillEmojiState === "done" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.75)",
-              border: "1px solid rgba(255,255,255,0.25)",
-              borderRadius: 999,
-              padding: "8px 16px",
-              fontFamily: "var(--font-body)",
-              fontSize: 14,
-              fontWeight: 400,
-              cursor: fillEmojiState === "loading" ? "wait" : "pointer",
-              opacity: fillEmojiState === "loading" ? 0.6 : 1,
-            }}
-          >
-            {fillEmojiState === "loading" ? "⏳ Đang điền…" : fillEmojiState === "done" ? "✓ Đã điền emoji" : "✦ Fill emoji"}
-          </button>
-          <button
             onClick={() => setShowForm(!showForm)}
             style={{
               background: "var(--primary)",
@@ -771,7 +835,11 @@ export function CategoriesTemplate({
                 borderBottom: "1px solid var(--hairline)",
               }}>
                 <span style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
-                  {recatState === "done" || recatState === "loading" || recatState === "error"
+                  {sheetMode === "menu"
+                    ? "✦ Gợi ý"
+                    : sheetMode === "fillEmoji"
+                    ? "✦ Fill emoji"
+                    : recatState === "done" || recatState === "loading" || recatState === "error"
                     ? "Kiểm tra danh mục"
                     : "✦ Gợi ý danh mục"}
                 </span>

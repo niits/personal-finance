@@ -42,6 +42,8 @@ export const Default: Story = {
     onAcceptRecat: noop,
     onLoadSuggestions: () => {},
     onLoadRecatSuggestions: () => {},
+    fillEmojiState: "idle",
+    onFillEmoji: () => {},
   },
 };
 
