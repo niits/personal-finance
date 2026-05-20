@@ -116,6 +116,10 @@ export default function DashboardPage() {
     setOrganizePreview(null);
   }
 
+  async function handleFillEmoji() {
+    await fetch("/api/categories/fill-emoji", { method: "POST" });
+  }
+
   function navigate(m: string) {
     setSelectedMonth(m);
     load(m);
@@ -162,6 +166,7 @@ export default function DashboardPage() {
       onOrganize={handleOrganize}
       onOrganizeApply={handleOrganizeApply}
       onOrganizeClose={handleOrganizeClose}
+      onFillEmoji={handleFillEmoji}
     />
   );
 }
