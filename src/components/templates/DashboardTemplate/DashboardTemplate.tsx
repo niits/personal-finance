@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
-import { OrganizeReviewSheet } from "@/components/organisms/OrganizeReviewSheet";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -215,20 +214,9 @@ export function DashboardTemplate({
           </p>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
-            {loading ? "—" : `${fmt(data?.total_expense ?? 0)}₫`}
-          </p>
-          {onFillEmoji && (
-            <button
-              onClick={onFillEmoji}
-              style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, flexShrink: 0, marginTop: 2 }}
-              title="Gợi ý emoji"
-            >
-              ✦
-            </button>
-          )}
-        </div>
+        <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
+          {loading ? "—" : `${fmt(data?.total_expense ?? 0)}₫`}
+        </p>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 4, letterSpacing: -0.224 }}>
           đã chi tháng này
         </p>
@@ -441,13 +429,6 @@ export function DashboardTemplate({
         transaction={editTxn}
       />
 
-      <OrganizeReviewSheet
-        open={organizeState === "review" || organizeState === "applying"}
-        preview={organizePreview}
-        applying={organizeState === "applying"}
-        onApply={onOrganizeApply}
-        onClose={onOrganizeClose}
-      />
     </div>
   );
 }
