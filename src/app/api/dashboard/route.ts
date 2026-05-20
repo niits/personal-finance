@@ -100,7 +100,12 @@ export async function GET(request: NextRequest) {
   // must-revalidate ensures the browser always sends the session cookie to
   // revalidate with the server even for cached past-month data — preventing
   // stale authenticated responses from being shown after sign-out.
-  const cacheHeader = isCurrentBudgetMonth ? "no-store" : "private, max-age=86400, must-revalidate";
+  // stale-while-revalidate lets the browser serve cached data instantly on PWA resume
+  // (iOS network stack isn't ready immediately after suspension), while still
+  // revalidating in the background. Past months are stable so cache for 24h.
+  const cacheHeader = isCurrentBudgetMonth
+    ? "private, max-age=30, stale-while-revalidate=300"
+    : "private, max-age=86400, must-revalidate";
 
   return Response.json({
     month,
