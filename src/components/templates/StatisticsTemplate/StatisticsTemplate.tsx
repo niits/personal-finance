@@ -372,23 +372,30 @@ const INSIGHT_TYPE_STYLE: Record<string, { label: string; color: string; bg: str
   alert:          { label: "Cảnh báo",      color: "#b94a05", bg: "rgba(255,69,58,0.08)" },
 };
 
-function InsightCard({ insight }: { insight: Insight }) {
+function InsightCard({ insight, featured }: { insight: Insight; featured?: boolean }) {
   const spec = buildVegaLiteSpec(insight);
   const badge = insight.type ? INSIGHT_TYPE_STYLE[insight.type] ?? null : null;
   const [vegaError, setVegaError] = useState<string | null>(null);
   return (
-    <div style={{ background: "var(--canvas)", borderRadius: 18, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)" }}>
+    <div style={{
+      background: featured ? "var(--surface-black)" : "var(--canvas)",
+      borderRadius: 18,
+      padding: "20px",
+      boxShadow: featured
+        ? "0 4px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12)"
+        : "0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)",
+    }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-        <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.374, margin: 0, flex: 1 }}>
+        <p style={{ fontFamily: "var(--font-display)", fontSize: featured ? 20 : 17, fontWeight: 600, color: featured ? "#ffffff" : "var(--ink)", letterSpacing: -0.374, margin: 0, flex: 1 }}>
           {insight.title}
         </p>
         {badge && (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: badge.color, background: badge.bg, borderRadius: 8, padding: "3px 8px", flexShrink: 0, marginTop: 1 }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: featured ? "#ffffff" : badge.color, background: featured ? "rgba(255,255,255,0.15)" : badge.bg, borderRadius: 8, padding: "3px 8px", flexShrink: 0, marginTop: 1 }}>
             {badge.label}
           </span>
         )}
       </div>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", lineHeight: 1.5, marginBottom: spec ? 16 : 0 }}>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: featured ? "rgba(255,255,255,0.6)" : "var(--ink-muted-48)", lineHeight: 1.5, marginBottom: spec ? 16 : 0 }}>
         {insight.summary}
       </p>
       {spec && (
@@ -525,8 +532,8 @@ export function StatisticsTemplate({
 
         {status === "ready" && report && report.insights.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, opacity: refreshing ? 0.6 : 1, transition: "opacity 0.2s" }}>
-            {report.insights.map((insight) => (
-              <InsightCard key={insight.title} insight={insight} />
+            {report.insights.map((insight, i) => (
+              <InsightCard key={insight.title} insight={insight} featured={i === 0} />
             ))}
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 8 }}>
