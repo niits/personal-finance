@@ -51,16 +51,15 @@ export default function DashboardPage() {
   useEffect(() => { load(); }, [load]);
 
   // Reload when the PWA/tab is brought back to the foreground after being suspended.
-  // Only show loading spinner if there's no data yet (first open); otherwise refresh silently.
+  // HTTP cache (stale-while-revalidate) serves instantly on resume, so revalidation
+  // happens silently — no loading spinner needed.
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState !== "visible") return;
-      if (!data) setLoading(true);
-      load();
+      if (document.visibilityState === "visible") load();
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [load, data]);
+  }, [load]);
 
   async function handleDelete(txn: Transaction) {
     setDeleting(true);
