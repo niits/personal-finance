@@ -1,7 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateText, generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { ZodType } from "zod";
 
 const MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
@@ -52,16 +52,17 @@ export async function getWorkersAIModel(): Promise<LanguageModel> {
   return workersai(MODEL);
 }
 
-// gpt-4o-mini via Cloudflare AI Gateway unified billing — no separate OpenAI key needed
+// gpt-4o-mini via Cloudflare AI Gateway /compat endpoint using openai-compatible provider
+// (avoids @ai-sdk/openai v3 Responses API which compat endpoint doesn't support)
 export async function getOpenAIModel(): Promise<LanguageModel> {
   const { env } = await getCloudflareContext({ async: true });
   const cfEnv = env as Cloudflare.Env;
-  const openai = createOpenAI({
-    apiKey: "cloudflare",
-    baseURL: `https://gateway.ai.cloudflare.com/v1/${cfEnv.CLOUDFLARE_ACCOUNT_ID}/default/openai`,
-    headers: { "cf-aig-authorization": `Bearer ${cfEnv.CF_AIG_TOKEN}` },
+  const provider = createOpenAICompatible({
+    name: "cloudflare-aig",
+    apiKey: cfEnv.CF_AIG_TOKEN,
+    baseURL: `https://gateway.ai.cloudflare.com/v1/${cfEnv.CLOUDFLARE_ACCOUNT_ID}/default/compat`,
   });
-  return openai("gpt-4o-mini");
+  return provider("openai/gpt-4o-mini");
 }
 
 export { generateText };

@@ -267,10 +267,10 @@ export function DashboardTemplate({
         )}
       </div>
 
-      {/* ── Category chips ── */}
-      {topRoots.length > 0 && (
-        <div style={{ display: "flex", gap: 8, padding: "10px 16px", background: "var(--canvas)", borderBottom: "1px solid var(--hairline)" }}>
-          {(["Tất cả", ...topRoots] as string[]).map((label) => {
+      {/* ── Category chips + Organize button ── */}
+      {(topRoots.length > 0 || (isCurrentMonth && organizeState !== "review" && organizeState !== "applying")) && (
+        <div style={{ display: "flex", gap: 8, padding: "10px 16px", background: "var(--canvas)", borderBottom: "1px solid var(--hairline)", alignItems: "center" }}>
+          {topRoots.length > 0 && (["Tất cả", ...topRoots] as string[]).map((label) => {
             const isAll = label === "Tất cả";
             const active = isAll ? selectedRoot === null : selectedRoot === label;
             return (
@@ -283,6 +283,27 @@ export function DashboardTemplate({
               </button>
             );
           })}
+          {isCurrentMonth && organizeState !== "review" && organizeState !== "applying" && (
+            <button
+              onClick={onOrganize}
+              disabled={organizeState === "loading"}
+              style={{
+                flexShrink: 0,
+                background: "none",
+                border: "1px solid var(--hairline)",
+                borderRadius: 99,
+                padding: "5px 14px",
+                fontFamily: "var(--font-body)",
+                fontSize: 13,
+                fontWeight: 500,
+                color: organizeState === "loading" ? "var(--ink-muted-48)" : "var(--primary)",
+                cursor: organizeState === "loading" ? "default" : "pointer",
+                letterSpacing: -0.08,
+              }}
+            >
+              {organizeState === "loading" ? "Đang phân tích…" : "Tổ chức ✦"}
+            </button>
+          )}
         </div>
       )}
 
