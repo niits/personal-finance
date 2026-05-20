@@ -223,7 +223,7 @@ export async function generateStatisticsReport(
   });
 
   const insightSchema = z.object({
-    insights: z.array(insightItemSchema).min(1).max(5),
+    insights: z.array(insightItemSchema).min(3).max(5),
   });
 
   const objectiveLine = budget?.objective
@@ -234,17 +234,19 @@ export async function generateStatisticsReport(
 
 You have tools to fetch spending data. Use them to explore the data, then call generate_insights with your findings.
 
-IMPORTANT: You MUST call tools first before generate_insights. Call at least:
-- get_budget_status
-- get_expense_by_category
-Then call generate_insights with 3–5 insights based on what you found.
+IMPORTANT: You MUST call at least 3 tools before generate_insights:
+1. get_budget_status
+2. get_expense_by_category
+3. get_notable_transactions OR get_daily_trend
+Then call generate_insights with exactly 3–5 insights. NEVER call generate_insights with fewer than 3 insights.
 
 ## Insight rules
 - Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.
   ❌ "Chi tiêu theo danh mục" ✅ "Ăn uống chiếm 35% — tăng 12% so tháng trước"
 - Summary = adds context the chart cannot show (max 160 chars, Vietnamese)
+- Mix types: include at least 1 "analysis", 1 "recommendation", and 1 "alert" (if data warrants it)
 - Never use pie charts — use bar (sorted desc) instead
-- chart_data values are raw integers, no formatting
+- chart_data values MUST be EXACT integers copied from tool results. Never round, estimate, or recalculate.
 - Cap bar charts at 5 rows, group tail as "Khác"
 - For bar chart names: ≤ 12 chars, abbreviate if needed`;
 
