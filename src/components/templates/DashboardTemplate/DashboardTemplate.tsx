@@ -58,6 +58,7 @@ export type DashboardTemplateProps = {
   onOrganize: () => void;
   onOrganizeApply: (selection: OrganizeSelection) => void;
   onOrganizeClose: () => void;
+  onFillEmoji?: () => void;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -163,6 +164,7 @@ export function DashboardTemplate({
   onOrganize,
   onOrganizeApply,
   onOrganizeClose,
+  onFillEmoji,
 }: DashboardTemplateProps) {
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
 
@@ -213,9 +215,20 @@ export function DashboardTemplate({
           </p>
         )}
 
-        <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
-          {loading ? "—" : `${fmt(data?.total_expense ?? 0)}₫`}
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
+            {loading ? "—" : `${fmt(data?.total_expense ?? 0)}₫`}
+          </p>
+          {onFillEmoji && (
+            <button
+              onClick={onFillEmoji}
+              style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, flexShrink: 0, marginTop: 2 }}
+              title="Gợi ý emoji"
+            >
+              ✦
+            </button>
+          )}
+        </div>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 4, letterSpacing: -0.224 }}>
           đã chi tháng này
         </p>
@@ -267,10 +280,10 @@ export function DashboardTemplate({
         )}
       </div>
 
-      {/* ── Category chips + Organize button ── */}
-      {(topRoots.length > 0 || (isCurrentMonth && organizeState !== "review" && organizeState !== "applying")) && (
+      {/* ── Category chips ── */}
+      {topRoots.length > 0 && (
         <div style={{ display: "flex", gap: 8, padding: "10px 16px", background: "var(--canvas)", borderBottom: "1px solid var(--hairline)", alignItems: "center" }}>
-          {topRoots.length > 0 && (["Tất cả", ...topRoots] as string[]).map((label) => {
+          {(["Tất cả", ...topRoots] as string[]).map((label) => {
             const isAll = label === "Tất cả";
             const active = isAll ? selectedRoot === null : selectedRoot === label;
             return (
@@ -283,51 +296,6 @@ export function DashboardTemplate({
               </button>
             );
           })}
-          {isCurrentMonth && organizeState !== "review" && organizeState !== "applying" && (
-            <button
-              onClick={onOrganize}
-              disabled={organizeState === "loading"}
-              style={{
-                flexShrink: 0,
-                background: "none",
-                border: "1px solid var(--hairline)",
-                borderRadius: 99,
-                padding: "5px 14px",
-                fontFamily: "var(--font-body)",
-                fontSize: 13,
-                fontWeight: 500,
-                color: organizeState === "loading" ? "var(--ink-muted-48)" : "var(--primary)",
-                cursor: organizeState === "loading" ? "default" : "pointer",
-                letterSpacing: -0.08,
-              }}
-            >
-              {organizeState === "loading" ? "Đang phân tích…" : "Tổ chức ✦"}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ── Organize button ── */}
-      {isCurrentMonth && organizeState !== "review" && organizeState !== "applying" && (
-        <div style={{ padding: "8px 16px 0", display: "flex", justifyContent: "flex-end" }}>
-          <button
-            onClick={onOrganize}
-            disabled={organizeState === "loading"}
-            style={{
-              background: "none",
-              border: "1px solid var(--hairline)",
-              borderRadius: 99,
-              padding: "5px 14px",
-              fontFamily: "var(--font-body)",
-              fontSize: 13,
-              fontWeight: 500,
-              color: organizeState === "loading" ? "var(--ink-muted-48)" : "var(--primary)",
-              cursor: organizeState === "loading" ? "default" : "pointer",
-              letterSpacing: -0.08,
-            }}
-          >
-            {organizeState === "loading" ? "Đang phân tích…" : "Tổ chức ✦"}
-          </button>
         </div>
       )}
 
