@@ -18,9 +18,11 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState(false);
   const [organizeState, setOrganizeState] = useState<"idle" | "loading" | "review" | "applying">("idle");
   const [organizePreview, setOrganizePreview] = useState<OrganizePreview | null>(null);
+  const [error, setError] = useState(false);
   const { replace } = useRouter();
 
   const load = useCallback(async (month?: string) => {
+    setError(false);
     try {
       const q = month ? `?month=${month}` : "";
       const [dashRes, txnRes] = await Promise.all([
@@ -39,6 +41,8 @@ export default function DashboardPage() {
       setTxns(tr.transactions ?? []);
       if (!currentMonthRef.current) currentMonthRef.current = dr.month;
       setSelectedMonth(dr.month);
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -46,14 +50,17 @@ export default function DashboardPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Reload when the PWA/tab is brought back to the foreground after being suspended
+  // Reload when the PWA/tab is brought back to the foreground after being suspended.
+  // Only show loading spinner if there's no data yet (first open); otherwise refresh silently.
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState !== "visible") return;
+      if (!data) setLoading(true);
+      load();
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [load]);
+  }, [load, data]);
 
   async function handleDelete(txn: Transaction) {
     setDeleting(true);
@@ -116,6 +123,22 @@ export default function DashboardPage() {
   }
 
   const isCurrentMonth = selectedMonth === currentMonthRef.current;
+
+  if (error && !data) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60svh", gap: 16, padding: 24 }}>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)", textAlign: "center" }}>
+          Không tải được dữ liệu. Kiểm tra kết nối mạng và thử lại.
+        </p>
+        <button
+          onClick={() => { setLoading(true); load(); }}
+          style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--primary)", background: "none", border: "none", cursor: "pointer", padding: "8px 16px" }}
+        >
+          Thử lại
+        </button>
+      </div>
+    );
+  }
 
   return (
     <DashboardTemplate
