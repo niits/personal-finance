@@ -307,6 +307,30 @@ export function DashboardTemplate({
         </div>
       )}
 
+      {/* ── Organize button ── */}
+      {isCurrentMonth && organizeState !== "review" && organizeState !== "applying" && (
+        <div style={{ padding: "8px 16px 0", display: "flex", justifyContent: "flex-end" }}>
+          <button
+            onClick={onOrganize}
+            disabled={organizeState === "loading"}
+            style={{
+              background: "none",
+              border: "1px solid var(--hairline)",
+              borderRadius: 99,
+              padding: "5px 14px",
+              fontFamily: "var(--font-body)",
+              fontSize: 13,
+              fontWeight: 500,
+              color: organizeState === "loading" ? "var(--ink-muted-48)" : "var(--primary)",
+              cursor: organizeState === "loading" ? "default" : "pointer",
+              letterSpacing: -0.08,
+            }}
+          >
+            {organizeState === "loading" ? "Đang phân tích…" : "Tổ chức ✦"}
+          </button>
+        </div>
+      )}
+
       {/* ── Transaction list ── */}
       <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
 

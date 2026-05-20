@@ -1,7 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateText, generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
-import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { ZodType } from "zod";
 
