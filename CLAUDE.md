@@ -23,12 +23,17 @@ This project follows a simplified GitLab Flow. `main` is always stable and deplo
 
 **Hotfix branches** (`hotfix/*`) target `main` directly, then `staging` is rebased on top of main:
 ```bash
+# Creating a hotfix branch — always base on main, not staging
+git checkout main && git pull
+git checkout -b hotfix/<name>
+
+# After PR is merged → main, sync staging
 gh pr merge <pr> --merge --delete-branch   # merge hotfix → main
 git checkout staging && git rebase origin/main
 git push --force origin staging
 ```
 
-**Always merge PRs automatically** (`gh pr merge --merge --delete-branch`) after pushing, unless told otherwise.
+**Always merge PRs automatically** (`gh pr merge --merge --delete-branch`) after pushing, unless told otherwise. **Exception: release branches** — never pass `--delete-branch` for `release/*` PRs; those branches are permanent snapshots.
 
 **Before starting any task, ask:** "Is this a hotfix (targets `main` directly) or part of an epic (targets `staging`)?" — do not assume, always confirm. Use the answer to pick the correct base branch and PR target.
 
@@ -90,7 +95,7 @@ The `release/<epic-name>` branch is **never deleted** — it marks exactly what 
 #    First ensure staging is in sync with main
 git checkout main && git pull
 git checkout staging && git pull
-git merge --ff-only main  # fast-forward only — if this fails, rebase staging on main first
+git rebase origin/main    # replay staging commits on top of main (handles diverged history)
 git checkout -b feature/<name>
 
 # 2. Commit often with Conventional Commits
@@ -195,13 +200,12 @@ Use `/frontend-design` skill when building any UI component or page.
 - **Deployment**: Cloudflare Workers via `@opennextjs/cloudflare`
 - **Database**: Cloudflare D1 (SQLite) via Kysely
 - **Auth**: better-auth (GitHub OAuth)
-- **AI**: Anthropic SDK + Workers AI
+- **AI**: Anthropic SDK + Workers AI (Llama) + OpenAI gpt-4o-mini via Cloudflare AI Gateway
 - **Charts**: Vega-Lite via react-vega
 - **Component dev**: Storybook (CSF3 format)
 - **Target**: Mobile-first (iPhone primary), responsive to laptop
 
 Use `/wrangler` skill before running any `wrangler` commands.
-Use `/cloudflare` skill for platform decisions (storage, routing, AI bindings).
 
 ---
 
@@ -222,6 +226,7 @@ npm run build-storybook  # Static Storybook build
 npm run test:unit        # Vitest unit tests
 npm run test:integration # Vitest integration tests (Cloudflare pool)
 npm run test             # Both
+npx playwright test      # Playwright E2E tests
 ```
 
 ## E2E Testing Principle
