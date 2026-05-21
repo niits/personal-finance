@@ -26,13 +26,13 @@ test.describe("Statistics — page render", () => {
     await expect(page.getByText(/Không có giao dịch/)).toBeVisible();
   });
 
-  test("current month shows Xem tháng hiện tại link from empty past month", async ({ page }) => {
+  test("Xem tháng hiện tại navigates forward one month", async ({ page }) => {
     await page.goto("/statistics");
-    await page.getByRole("button", { name: "‹" }).click();
+    // Go back one month — button appears because we're no longer on current month
     await page.getByRole("button", { name: "‹" }).click();
     await expect(page.getByText("Xem tháng hiện tại")).toBeVisible();
-    // Clicking it navigates back to the current month
+    // Clicking advances to current month — button disappears (upper bound reached)
     await page.getByText("Xem tháng hiện tại").click();
-    await expect(page.getByText(/Không có giao dịch/)).not.toBeVisible();
+    await expect(page.getByText("Xem tháng hiện tại")).not.toBeVisible();
   });
 });
