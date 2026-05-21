@@ -96,7 +96,7 @@ function vegaUnitSuffix(unit?: Insight["value_unit"]): string {
   return " ₫";
 }
 
-function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
+function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec | null {
   const data = insight.chart_data;
   if (!data || data.length === 0 || !insight.chart_type) return null;
   const unit = insight.value_unit;
@@ -104,11 +104,15 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
   const suffix = vegaUnitSuffix(unit);
   const valueTitle = unit === "percent" ? "Tỷ lệ" : unit === "count" ? "Số lượng" : "Số tiền";
 
+  const onDark = !!featured;
+  const axisLabelColor = onDark ? "rgba(255,255,255,0.55)" : INK_MUTED;
+  const legendLabelColor = onDark ? "rgba(255,255,255,0.85)" : INK;
+
   const baseAxis = {
     labelFont: FONT_BODY,
     titleFont: FONT_BODY,
-    labelColor: INK_MUTED,
-    titleColor: INK_MUTED,
+    labelColor: axisLabelColor,
+    titleColor: axisLabelColor,
     labelFontSize: 11,
     titleFontSize: 11,
     labelFontWeight: 400 as const,
@@ -120,11 +124,11 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
     view: { stroke: null },
     axis: baseAxis,
     axisX: { ...baseAxis },
-    axisY: { ...baseAxis, grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] },
+    axisY: { ...baseAxis, grid: true, gridColor: onDark ? "rgba(255,255,255,0.12)" : HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] },
     legend: {
       labelFont: FONT_BODY,
       titleFont: FONT_BODY,
-      labelColor: INK,
+      labelColor: legendLabelColor,
       labelFontSize: 12,
       symbolSize: 72,
       symbolType: "circle" as const,
@@ -174,7 +178,7 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
       height: 150,
       layer: [
         {
-          mark: { type: "line", strokeWidth: 2, interpolate: "step-after" },
+          mark: { type: "line", strokeWidth: 2, interpolate: "monotone" },
           encoding: {
             x: {
               field: "name",
@@ -185,7 +189,7 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
                 format: "%d/%m",
                 labelAngle: 0,
                 labelFont: FONT_BODY,
-                labelColor: INK_MUTED,
+                labelColor: axisLabelColor,
                 labelFontSize: 11,
                 grid: false,
                 domain: false,
@@ -415,7 +419,7 @@ const INSIGHT_TYPE_STYLE: Record<string, { label: string; color: string; bg: str
 };
 
 function InsightCard({ insight, featured }: { insight: Insight; featured?: boolean }) {
-  const spec = buildVegaLiteSpec(insight);
+  const spec = buildVegaLiteSpec(insight, featured);
   const badge = insight.type ? INSIGHT_TYPE_STYLE[insight.type] ?? null : null;
   const [vegaError, setVegaError] = useState<string | null>(null);
   return (

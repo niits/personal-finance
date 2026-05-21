@@ -128,7 +128,7 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
       height: 150,
       layer: [
         {
-          mark: { type: "line", strokeWidth: 2, interpolate: "step-after" },
+          mark: { type: "line", strokeWidth: 2, interpolate: "monotone" },
           encoding: {
             x: {
               field: "name",
