@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
+import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -51,9 +52,12 @@ export type DashboardTemplateProps = {
   onCloseForm: () => void;
   onSaved: () => void;
   onDelete: (txn: Transaction) => void;
-  onSuggest?: (id: number) => void;
-  suggestingId?: number | null;
-  suggestedIds?: Set<number>;
+  organizeState: "idle" | "loading" | "review" | "applying";
+  organizePreview: OrganizePreview | null;
+  onOrganize: () => void;
+  onOrganizeApply: (selection: OrganizeSelection) => void;
+  onOrganizeClose: () => void;
+  onFillEmoji?: () => void;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -154,9 +158,12 @@ export function DashboardTemplate({
   onCloseForm,
   onSaved,
   onDelete,
-  onSuggest,
-  suggestingId,
-  suggestedIds,
+  organizeState,
+  organizePreview,
+  onOrganize,
+  onOrganizeApply,
+  onOrganizeClose,
+  onFillEmoji,
 }: DashboardTemplateProps) {
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
 
@@ -176,6 +183,34 @@ export function DashboardTemplate({
   const filteredTxns = selectedRoot ? transactions.filter((t) => t.root_category_name === selectedRoot) : transactions;
   const groups = groupByDate(filteredTxns);
   const dates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+  const totalExpense = data?.total_expense ?? 0;
+  const filteredExpense = filteredTxns
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + t.amount, 0);
+  const targetAmount = loading ? 0 : (selectedRoot ? filteredExpense : totalExpense);
+
+  const [displayedAmount, setDisplayedAmount] = useState(targetAmount);
+  const animRef = useRef<number | null>(null);
+  const prevAmountRef = useRef(targetAmount);
+
+  useEffect(() => {
+    const start = prevAmountRef.current;
+    const target = targetAmount;
+    if (start === target) return;
+    const duration = 350;
+    const startTime = performance.now();
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    function tick(now: number) {
+      const p = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplayedAmount(Math.round(start + (target - start) * eased));
+      if (p < 1) { animRef.current = requestAnimationFrame(tick); }
+      else { prevAmountRef.current = target; }
+    }
+    animRef.current = requestAnimationFrame(tick);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, [targetAmount]);
 
   const chevronStyle = (disabled?: boolean): React.CSSProperties => ({
     background: "none", border: "none", cursor: disabled ? "default" : "pointer",
@@ -207,11 +242,24 @@ export function DashboardTemplate({
           </p>
         )}
 
-        <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
-          {loading ? "—" : `${fmt(data?.total_expense ?? 0)}₫`}
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
+            {loading ? "—" : `${fmt(displayedAmount)}₫`}
+          </p>
+          {onFillEmoji && (
+            <button
+              onClick={onFillEmoji}
+              style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, flexShrink: 0, marginTop: 2 }}
+              title="Gợi ý emoji"
+            >
+              ✦
+            </button>
+          )}
+        </div>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 4, letterSpacing: -0.224 }}>
-          đã chi tháng này
+          {selectedRoot && !loading
+            ? <span>trong tổng <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>{fmt(totalExpense)}₫</span> đã chi tháng này</span>
+            : "đã chi tháng này"}
         </p>
 
         {/* Budget bar with pace background */}
@@ -263,7 +311,7 @@ export function DashboardTemplate({
 
       {/* ── Category chips ── */}
       {topRoots.length > 0 && (
-        <div style={{ display: "flex", gap: 8, padding: "10px 16px", background: "var(--canvas)", borderBottom: "1px solid var(--hairline)" }}>
+        <div style={{ display: "flex", gap: 8, padding: "10px 16px", background: "var(--canvas)", borderBottom: "1px solid var(--hairline)", alignItems: "center" }}>
           {(["Tất cả", ...topRoots] as string[]).map((label) => {
             const isAll = label === "Tất cả";
             const active = isAll ? selectedRoot === null : selectedRoot === label;
@@ -421,6 +469,7 @@ export function DashboardTemplate({
         onSaved={onSaved}
         transaction={editTxn}
       />
+
     </div>
   );
 }

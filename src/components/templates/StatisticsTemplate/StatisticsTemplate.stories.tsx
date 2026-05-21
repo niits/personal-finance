@@ -63,8 +63,8 @@ export const Generating: Story = {
     status: "generating",
     report: null,
     agentSteps: [
-      { id: 1, type: "tool_call" as const, tool: "get_expense_by_category", label: "Truy vấn giao dịch tháng 5" },
-      { id: 2, type: "tool_result" as const, tool: "get_expense_by_category", rows: 42 },
+      { id: 1, type: "tool_call" as const, tool: "get_expense_by_category", label: "Truy vấn giao dịch tháng 5", callId: "abc1", stepIndex: 0 },
+      { id: 2, type: "tool_result" as const, tool: "get_expense_by_category", rows: 42, callId: "abc1", durationMs: 320 },
     ],
   },
 };

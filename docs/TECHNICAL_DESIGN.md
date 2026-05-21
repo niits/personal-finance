@@ -855,46 +855,76 @@ type ChartDatum = {
 
 ---
 
-### 4.10 AI Suggestion Runs
+### 4.10 AI Endpoints
 
-#### `POST /api/categories/suggest`
+> **Epic 3 note:** The per-screen AI endpoints below (`/api/categories/suggest`, `/api/transactions/recategorize`, `/api/categories/fill-emoji`, `/api/ai-suggestion-runs/:id`) are retained in the backend but are **no longer called from the UI**. They are used internally by the new `/api/ai/organize` endpoint. The single-transaction suggest endpoint (`/api/transactions/:id/suggest`) has been **removed**.
+>
+> See `docs/EPIC_3_AI_REFACTOR.md` for the full design.
 
-See `specs/ai-category-suggestions.md` for the full spec. Summary:
-- Analyzes transactions with notes since the last completed run
-- Creates an `ai_suggestion_run` record with `status = 'pending'`
-- Returns `{ suggestions: Suggestion[], run_id: number }`
-- Returns `{ suggestions: [], run_id }` (not a 400 error) when there are no new transactions to analyze
+#### `POST /api/ai/organize` *(Epic 3)*
 
-#### `PATCH /api/ai-suggestion-runs/:id`
+Analyzes all user data (categories + transaction notes) and returns a combined preview of changes. **No writes to DB.**
 
-Transitions a suggestion run from `pending` → `available`. Called after the user reviews and accepts the suggestions from `/api/categories/suggest`.
+**Response `200`:**
+```typescript
+{
+  new_categories: {
+    temp_id: string;           // e.g. "new:0" — referenced in recategorizations
+    name: string;
+    type: "income" | "expense";
+    parent_category_id: number | null;
+    parent_category_name: string | null;
+    example_notes: string[];
+  }[];
+  emoji_assignments: {
+    category_id: number;
+    category_name: string;
+    emoji: string;
+  }[];
+  recategorizations: {
+    transaction_id: number;
+    note: string;
+    current_category_id: number;
+    current_category_name: string;
+    suggested_category_id: number | string;  // string = temp_id for new categories
+    suggested_category_name: string;
+    reason: string;
+  }[];
+}
+```
+
+#### `POST /api/ai/organize/apply` *(Epic 3)*
+
+Writes the user-selected subset of changes from the preview.
 
 **Request:**
-```json
-{ "status": "available" }
+```typescript
+{
+  new_categories: { temp_id: string; name: string; type: string; parent_category_id: number | null; emoji: string | null }[];
+  emoji_assignments: { category_id: number; emoji: string }[];
+  recategorizations: { transaction_id: number; category_id: number | string }[];
+}
 ```
 
-**Validations:**
-- Run must exist, belong to current user, and currently have `status = 'pending'`
+Apply order: create categories → update emoji → resolve temp_ids → update transactions.
 
-**Response `200`:** `{ "ok": true }`
+**Response `200`:** `{ created_categories: number, emoji_updated: number, transactions_moved: number }`
 
-**Errors:** `400` if `status` is not `"available"`; `404` if run not found or not in `pending` state.
+#### `POST /api/categories/suggest` *(internal)*
 
-#### `POST /api/transactions/recategorize`
+Retained. Called internally by `/api/ai/organize`. Not user-facing in Epic 3+.
 
-See `specs/transaction-recategorize.md` for the full spec. Summary:
-- Finds the most recent run with `status = 'available'` for the current user
-- Sends transactions in that run's window to the AI with only leaf categories
-- Marks the run `done` **before** the LLM call (window is committed regardless of AI outcome)
-- Returns `{ suggestions: RecategorizeSuggestion[] }`
+#### `PATCH /api/ai-suggestion-runs/:id` *(internal)*
 
-**`ai_suggestion_run` status flow:**
-```
-POST /api/categories/suggest    → creates run with status = 'pending'
-PATCH /api/ai-suggestion-runs/:id { status: "available" }  → pending → available
-POST /api/transactions/recategorize  → available → done
-```
+Retained. Called internally to manage run state. Not user-facing in Epic 3+.
+
+#### `POST /api/transactions/recategorize` *(internal)*
+
+Retained. Called internally by `/api/ai/organize`. Not user-facing in Epic 3+.
+
+#### ~~`POST /api/transactions/:id/suggest`~~ *(removed in Epic 3)*
+
+Removed. Replaced by `/api/ai/organize` batch flow.
 
 ---
 
