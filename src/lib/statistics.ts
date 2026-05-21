@@ -149,7 +149,15 @@ Then call get_notable_transactions and generate_insights with 3–5 insights.
 - chart_data values MUST be EXACT integers copied from tool results. Never round, estimate, or recalculate.
 - Cap bar charts at 5 rows, group tail as "Khác"
 - For bar chart names: ≤ 12 chars, abbreviate if needed
-- budget_remaining, budget_used_pct etc. come from query_metrics — NEVER compute them yourself`;
+- budget_remaining, budget_used_pct etc. come from query_metrics — NEVER compute them yourself
+
+## Forecast insight chart rules
+When reporting a forecast or spending trend over time, use chart_type="line" with:
+- time series data: query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"day"}]) for each day
+- chart_data rows: [{name: "2026-05-01", value: 500000, series: "Thực tế"}, ...]
+- Add ONE extra row per day for the budget daily pace as series="Ngân sách":
+  budget daily = round(budget_amount / days_total); get budget_amount from query_metrics(["budget_remaining"]) result
+- Use bar_grouped or line chart, NOT a bar chart mixing different metric types (projected_total, budget_remaining, daily_pace in one chart is WRONG)`;
 
   // ── Tool schemas derived from catalog ─────────────────────────────────────
 
