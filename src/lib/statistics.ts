@@ -237,23 +237,7 @@ export async function generateStatisticsReport(
     ? `\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
     : "";
 
-  const SYSTEM = `You are a trusted personal finance advisor.${objectiveLine}
-
-You have tools to fetch spending data. Use them to explore the data, then call generate_insights with your findings.
-
-IMPORTANT: You MUST call tools first before generate_insights. Call at least:
-- get_budget_status
-- get_expense_by_category
-Then call generate_insights with 3–5 insights based on what you found.
-
-## Insight rules
-- Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.
-  ❌ "Chi tiêu theo danh mục" ✅ "Ăn uống chiếm 35% — tăng 12% so tháng trước"
-- Summary = adds context the chart cannot show (max 160 chars, Vietnamese)
-- Never use pie charts — use bar (sorted desc) instead
-- chart_data values are raw integers, no formatting
-- Cap bar charts at 5 rows, group tail as "Khác"
-- For bar chart names: ≤ 12 chars, abbreviate if needed`;
+  const SYSTEM = `You are a trusted personal finance advisor.${objectiveLine}\n\nYou have tools to fetch spending data. Use them to explore the data, then call generate_insights with your findings.\n\nIMPORTANT: You MUST call tools first before generate_insights. Call at least:\n- get_budget_status\n- get_expense_by_category\nThen call generate_insights with 3–5 insights based on what you found.\n\n## Insight rules\n- Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.\n  ❌ "Chi tiêu theo danh mục" ✅ "Ăn uống chiếm 35% — tăng 12% so tháng trước"\n- Summary = adds context the chart cannot show (max 160 chars, Vietnamese)\n- Never use pie charts — use bar (sorted desc) instead\n- chart_data values are raw integers, no formatting\n- Cap bar charts at 5 rows, group tail as "Khác"\n- For bar chart names: ≤ 12 chars, abbreviate if needed`;
 
   // ── Real tool-calling loop ─────────────────────────────────────────────────
   let capturedInsights: Insight[] | null = null as Insight[] | null;
@@ -295,7 +279,8 @@ Then call generate_insights with 3–5 insights based on what you found.
           execute: async () => {
             emit?.({ type: "tool_call", tool: "get_notable_transactions", label: "Giao dịch đáng chú ý" });
             const result = notableTransactions.slice(0, 12);
-            emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: result.length });            return result;
+            emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: result.length });
+            return result;
           },
         }),
         get_daily_trend: tool({
