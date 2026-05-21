@@ -166,6 +166,52 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
     } as TopLevelSpec;
   }
 
+  if (insight.chart_type === "forecast_line") {
+    const meta = insight.forecast_meta;
+    if (!meta) return null;
+    return {
+      ...base,
+      height: 150,
+      layer: [
+        {
+          mark: { type: "line", strokeWidth: 2, interpolate: "step-after" },
+          encoding: {
+            x: {
+              field: "name",
+              type: "temporal" as const,
+              title: null,
+              axis: {
+                values: [meta.period_start, meta.today, meta.next_period_start],
+                format: "%d/%m",
+                labelAngle: 0,
+                labelFont: FONT_BODY,
+                labelColor: INK_MUTED,
+                labelFontSize: 11,
+                grid: false,
+                domain: false,
+                ticks: false,
+                title: null,
+              },
+            },
+            y: {
+              field: "value",
+              type: "quantitative" as const,
+              title: null,
+              axis: null,
+              scale: { zero: true },
+            },
+            color: {
+              field: "series",
+              type: "nominal" as const,
+              scale: { domain: ["Thực tế", "Ngân sách"], range: ["#30d158", PRIMARY] },
+              legend: { title: null },
+            },
+          },
+        },
+      ],
+    } as TopLevelSpec;
+  }
+
   if (insight.chart_type === "line") {
     const isDate = data.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.name));
     const xEnc = isDate

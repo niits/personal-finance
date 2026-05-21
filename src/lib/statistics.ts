@@ -7,9 +7,15 @@ import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate
 
 export type InsightType = "analysis" | "recommendation" | "alert";
 
-export type ChartType = "pie" | "bar" | "line" | "bar_grouped";
+export type ChartType = "pie" | "bar" | "line" | "bar_grouped" | "forecast_line";
 
 export type ChartDatum = { name: string; value: number; series?: string };
+
+export type ForecastMeta = {
+  period_start: string;
+  today: string;
+  next_period_start: string;
+};
 
 export type Insight = {
   type?: InsightType;
@@ -18,6 +24,7 @@ export type Insight = {
   chart_type?: ChartType;
   chart_data?: ChartDatum[];
   value_unit?: "currency" | "percent" | "count";
+  forecast_meta?: ForecastMeta;
 };
 
 export type AgentEvent =
@@ -288,8 +295,7 @@ Then call generate_insights with 3–5 insights based on what you found.
           execute: async () => {
             emit?.({ type: "tool_call", tool: "get_notable_transactions", label: "Giao dịch đáng chú ý" });
             const result = notableTransactions.slice(0, 12);
-            emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: result.length });
-            return result;
+            emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: result.length });            return result;
           },
         }),
         get_daily_trend: tool({
@@ -362,7 +368,80 @@ Then call generate_insights with 3–5 insights based on what you found.
     throw new Error("AI không tạo được nhận xét — thử lại sau");
   }
 
-  await saveReport(db, userId, periodType, periodKey, capturedInsights, now);
+  // Pre-build the forecast line chart so it always uses accurate cumsum data,
+  // not the AI's approximation (which caused NaN y-axis labels).
+  const nextPeriodStart = (() => {
+    const d = new Date(periodEnd + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().substring(0, 10);
+  })();
+  const periodLengthDays =
+    Math.round(
+      (new Date(periodEnd + "T00:00:00Z").getTime() -
+        new Date(periodStart + "T00:00:00Z").getTime()) /
+        86400000,
+    ) + 1;
+
+  let forecastInsight: Insight | null = null;
+  if (budget?.amount) {
+    const actualCumData: ChartDatum[] = [];
+    let cumsum = 0;
+    for (let i = 0; i < periodLengthDays; i++) {
+      const d = new Date(periodStart + "T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + i);
+      const dateStr = d.toISOString().substring(0, 10);
+      if (dateStr > effectiveEnd) break;
+      cumsum += byDate.get(dateStr)?.expense ?? 0;
+      actualCumData.push({ name: dateStr, value: cumsum, series: "Thực tế" });
+    }
+
+    const budgetCumData: ChartDatum[] = [];
+    for (let i = 0; i < periodLengthDays; i++) {
+      const d = new Date(periodStart + "T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + i);
+      const dateStr = d.toISOString().substring(0, 10);
+      budgetCumData.push({
+        name: dateStr,
+        value: Math.round((budget.amount / periodLengthDays) * (i + 1)),
+        series: "Ngân sách",
+      });
+    }
+
+    const projTotal = budgetStatus.projected_total;
+    const isOver = projTotal > budget.amount;
+    const diff = Math.abs(projTotal - budget.amount);
+    const compactVND = (n: number) =>
+      n >= 1_000_000
+        ? `${Math.round(n / 1_000_000)}tr`
+        : `${Math.round(n / 1_000)}k`;
+    const fmtVND = new Intl.NumberFormat("vi-VN");
+
+    forecastInsight = {
+      type: isOver ? "alert" : "analysis",
+      title: isOver
+        ? `Dự báo vượt ${compactVND(diff)}`
+        : `Dự báo tiết kiệm ${compactVND(diff)}`,
+      summary: isOver
+        ? `Nếu duy trì tốc độ hiện tại, bạn sẽ vượt quá ngân sách với chi tiêu dự kiến đạt ${fmtVND.format(projTotal)} VND. Cân đối chi tiêu để tránh thiếu hụt.`
+        : `Chi tiêu đang trong ngân sách. Dự kiến tiết kiệm được ${fmtVND.format(budget.amount - projTotal)} VND cuối tháng.`,
+      chart_type: "forecast_line",
+      chart_data: [...actualCumData, ...budgetCumData],
+      value_unit: "currency",
+      forecast_meta: { period_start: periodStart, today, next_period_start: nextPeriodStart },
+    };
+  }
+
+  // Prepend forecast insight; drop any AI-generated insight that has both
+  // "Ngân sách" + "Thực tế" series (those are duplicate budget-pace charts).
+  const aiInsights = capturedInsights.filter((ins) => {
+    const seriesNames = new Set(ins.chart_data?.map((d) => d.series).filter(Boolean));
+    return !(seriesNames.has("Ngân sách") && seriesNames.has("Thực tế"));
+  });
+  const finalInsights: Insight[] = forecastInsight
+    ? [forecastInsight, ...aiInsights]
+    : capturedInsights;
+
+  await saveReport(db, userId, periodType, periodKey, finalInsights, now);
 }
 
 async function saveReport(
