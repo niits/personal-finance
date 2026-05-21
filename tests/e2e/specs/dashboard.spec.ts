@@ -103,3 +103,55 @@ test.describe("Dashboard — delete transaction", () => {
     await expect(page.getByText("Bún bò buổi trưa").first()).not.toBeVisible();
   });
 });
+
+// PR #74: remove organize buttons, add ✦ sparkle button
+// PR #75: hide all AI features from transaction screen
+test.describe("Dashboard — AI surface controls", () => {
+  test.beforeAll(async () => {
+    await resetTestData("full");
+  });
+
+  test("sparkle button (Gợi ý emoji) is visible in header", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTitle("Gợi ý emoji")).toBeVisible();
+  });
+
+  test("no Tổ chức button on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: /Tổ chức/ })).not.toBeVisible();
+  });
+});
+
+// PR #78: animate total on category filter + context subtitle
+test.describe("Dashboard — category filter subtitle", () => {
+  test.beforeAll(async () => {
+    await resetTestData("full");
+  });
+
+  test("subtitle changes to 'trong tổng' when category chip is active", async ({ page }) => {
+    await page.goto("/");
+    // Wait for data to load (default subtitle visible first)
+    await expect(page.getByText("đã chi tháng này")).toBeVisible();
+    // Subtitle should NOT show "trong tổng" before filtering
+    await expect(page.getByText(/trong tổng/)).not.toBeVisible();
+
+    // Click the Ăn uống chip (seeded category)
+    await page.getByRole("button", { name: "Ăn uống" }).first().click();
+    // Subtitle now shows breakdown context
+    await expect(page.getByText(/trong tổng/)).toBeVisible();
+    await expect(page.getByText(/đã chi tháng này/)).toBeVisible();
+  });
+
+  test("subtitle resets when All chip is clicked", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("đã chi tháng này")).toBeVisible();
+
+    await page.getByRole("button", { name: "Ăn uống" }).first().click();
+    await expect(page.getByText(/trong tổng/)).toBeVisible();
+
+    // Click "Tất cả" to deselect
+    await page.getByRole("button", { name: /Tất cả/ }).click();
+    await expect(page.getByText(/trong tổng/)).not.toBeVisible();
+    await expect(page.getByText("đã chi tháng này")).toBeVisible();
+  });
+});

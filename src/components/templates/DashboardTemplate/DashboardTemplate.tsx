@@ -242,9 +242,20 @@ export function DashboardTemplate({
           </p>
         )}
 
-        <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
-          {loading ? "—" : `${fmt(displayedAmount)}₫`}
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
+            {loading ? "—" : `${fmt(displayedAmount)}₫`}
+          </p>
+          {onFillEmoji && (
+            <button
+              onClick={onFillEmoji}
+              style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, flexShrink: 0, marginTop: 2 }}
+              title="Gợi ý emoji"
+            >
+              ✦
+            </button>
+          )}
+        </div>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 4, letterSpacing: -0.224 }}>
           {selectedRoot && !loading
             ? <span>trong tổng <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>{fmt(totalExpense)}₫</span> đã chi tháng này</span>
