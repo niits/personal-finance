@@ -157,6 +157,8 @@ Then call get_notable_transactions and generate_insights with 3–5 insights.
 - Cap bar charts at 5 rows, group tail as "Khác"
 - For bar chart names: ≤ 12 chars, abbreviate if needed
 - budget_remaining, budget_used_pct etc. come from query_metrics — NEVER compute them yourself
+- ALL values in chart_data MUST match value_unit: if value_unit="percent" every value must be 0–100; if value_unit="currency" every value must be a VND amount (≥ 1000). NEVER mix different unit types in one chart (e.g. budget_remaining in VND alongside budget_used_pct as percent is WRONG — pick one metric type only).
+- For a budget insight showing usage, use ONLY budget_used_pct with value_unit="percent" — do NOT add budget_remaining (a VND amount) to the same chart
 
 ## Forecast insight chart rules
 When reporting a forecast or spending trend over time, use chart_type="line" with:
@@ -395,9 +397,20 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
     const seriesNames = new Set(ins.chart_data?.map((d) => d.series).filter(Boolean));
     return !(seriesNames.has("Ngân sách") && seriesNames.has("Thực tế"));
   });
+
+  // Strip charts where the AI mixed metric units (e.g. VND amounts in a percent chart).
+  // A percent chart with any value > 1000 is certainly carrying a VND amount by mistake.
+  const sanitizedAiInsights = aiInsights.map((ins) => {
+    if (ins.value_unit === "percent" && ins.chart_data?.some((d) => Math.abs(d.value) > 1000)) {
+      const { chart_type: _ct, chart_data: _cd, ...rest } = ins;
+      return rest as Insight;
+    }
+    return ins;
+  });
+
   const finalInsights: Insight[] = forecastInsight
-    ? [forecastInsight, ...aiInsights]
-    : capturedInsights;
+    ? [forecastInsight, ...sanitizedAiInsights]
+    : sanitizedAiInsights;
 
   await saveReport(db, userId, periodType, periodKey, finalInsights, now);
 }
