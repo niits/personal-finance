@@ -240,7 +240,9 @@ export class AnalyticsService {
         }
 
         // GROUP BY — must repeat full expression (SQLite rejects alias in GROUP BY)
-        q = q.groupBy(dimExprs.map((d) => d.expr));
+        for (const d of dimExprs) {
+          q = q.groupBy(d.expr);
+        }
 
         // ORDER BY
         if (order_by?.length) {
@@ -361,15 +363,15 @@ export class AnalyticsService {
       ELSE (COALESCE(p2.name, '') || ' > ' || COALESCE(p1.name, '') || ' > ' || c.name)
     END`;
     if (name === "category__name") return sql`c.name`;
-    if (name === "transaction__type") return sql`transaction.type`;
+    if (name === "transaction__type") return sql`"transaction".type`;
     return sql`NULL`;
   }
 
   private _timeDimExpr(grain: TimeGrain): RawBuilder<string> {
-    if (grain === "week") return sql<string>`strftime('%Y-W%W', transaction.date)`;
-    if (grain === "month") return sql<string>`strftime('%Y-%m', transaction.date)`;
-    if (grain === "day_of_week") return sql<string>`strftime('%w', transaction.date)`;
-    return sql<string>`transaction.date`;
+    if (grain === "week") return sql<string>`strftime('%Y-W%W', "transaction".date)`;
+    if (grain === "month") return sql<string>`strftime('%Y-%m', "transaction".date)`;
+    if (grain === "day_of_week") return sql<string>`strftime('%w', "transaction".date)`;
+    return sql<string>`"transaction".date`;
   }
 }
 
