@@ -1,6 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateText, generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { ZodType } from "zod";
 
 const MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
@@ -47,8 +48,21 @@ export async function runAIObject<T>(opts: {
 
 export async function getWorkersAIModel(): Promise<LanguageModel> {
   const { env } = await getCloudflareContext({ async: true });
-  const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
+  const workersai = createWorkersAI({ binding: (env as Cloudflare.Env).AI });
   return workersai(MODEL);
+}
+
+// gpt-4o-mini via Cloudflare AI Gateway /compat endpoint using openai-compatible provider
+// (avoids @ai-sdk/openai v3 Responses API which compat endpoint doesn't support)
+export async function getOpenAIModel(): Promise<LanguageModel> {
+  const { env } = await getCloudflareContext({ async: true });
+  const cfEnv = env as Cloudflare.Env;
+  const provider = createOpenAICompatible({
+    name: "cloudflare-aig",
+    apiKey: cfEnv.CF_AIG_TOKEN,
+    baseURL: `https://gateway.ai.cloudflare.com/v1/${cfEnv.CLOUDFLARE_ACCOUNT_ID}/default/compat`,
+  });
+  return provider("openai/gpt-4o");
 }
 
 export { generateText };

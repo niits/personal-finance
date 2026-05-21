@@ -4,6 +4,60 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent Principles
+
+### 1. Think Before Coding
+Don't assume. Don't hide confusion. Surface tradeoffs.
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them — don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### 2. Simplicity First
+Minimum code that solves the problem. Nothing speculative.
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+- Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### 3. Surgical Changes
+Touch only what you must. Clean up only your own mess.
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it — don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+- The test: every changed line should trace directly to the user's request.
+
+### 4. Goal-Driven Execution
+Define success criteria. Loop until verified.
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+These guidelines are working if: fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
 ## Language
 
 - **Code, comments, docs, commit messages, PR/issue titles/descriptions, epic names, release notes**: English
@@ -23,12 +77,17 @@ This project follows a simplified GitLab Flow. `main` is always stable and deplo
 
 **Hotfix branches** (`hotfix/*`) target `main` directly, then `staging` is rebased on top of main:
 ```bash
+# Creating a hotfix branch — always base on main, not staging
+git checkout main && git pull
+git checkout -b hotfix/<name>
+
+# After PR is merged → main, sync staging
 gh pr merge <pr> --merge --delete-branch   # merge hotfix → main
 git checkout staging && git rebase origin/main
 git push --force origin staging
 ```
 
-**Always merge PRs automatically** (`gh pr merge --merge --delete-branch`) after pushing, unless told otherwise.
+**Always merge PRs automatically** (`gh pr merge --merge --delete-branch`) after pushing, unless told otherwise. **Exception: release branches** — never pass `--delete-branch` for `release/*` PRs; those branches are permanent snapshots.
 
 **Before starting any task, ask:** "Is this a hotfix (targets `main` directly) or part of an epic (targets `staging`)?" — do not assume, always confirm. Use the answer to pick the correct base branch and PR target.
 
@@ -90,7 +149,7 @@ The `release/<epic-name>` branch is **never deleted** — it marks exactly what 
 #    First ensure staging is in sync with main
 git checkout main && git pull
 git checkout staging && git pull
-git merge --ff-only main  # fast-forward only — if this fails, rebase staging on main first
+git rebase origin/main    # replay staging commits on top of main (handles diverged history)
 git checkout -b feature/<name>
 
 # 2. Commit often with Conventional Commits
@@ -195,13 +254,12 @@ Use `/frontend-design` skill when building any UI component or page.
 - **Deployment**: Cloudflare Workers via `@opennextjs/cloudflare`
 - **Database**: Cloudflare D1 (SQLite) via Kysely
 - **Auth**: better-auth (GitHub OAuth)
-- **AI**: Anthropic SDK + Workers AI
+- **AI**: Anthropic SDK + Workers AI (Llama) + OpenAI gpt-4o-mini via Cloudflare AI Gateway
 - **Charts**: Vega-Lite via react-vega
 - **Component dev**: Storybook (CSF3 format)
 - **Target**: Mobile-first (iPhone primary), responsive to laptop
 
 Use `/wrangler` skill before running any `wrangler` commands.
-Use `/cloudflare` skill for platform decisions (storage, routing, AI bindings).
 
 ---
 
@@ -222,6 +280,7 @@ npm run build-storybook  # Static Storybook build
 npm run test:unit        # Vitest unit tests
 npm run test:integration # Vitest integration tests (Cloudflare pool)
 npm run test             # Both
+npx playwright test      # Playwright E2E tests
 ```
 
 ## E2E Testing Principle

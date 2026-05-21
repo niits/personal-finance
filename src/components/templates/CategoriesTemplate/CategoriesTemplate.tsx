@@ -150,6 +150,7 @@ export function CategoriesTemplate({
     setSelected(new Set());
     setRecatSelected(new Set());
     onLoadSuggestions();
+    onFillEmoji();
   }
 
   function closeSheet() {
@@ -511,24 +512,6 @@ export function CategoriesTemplate({
             }}
           >
             ✦ Gợi ý
-          </button>
-          <button
-            onClick={onFillEmoji}
-            disabled={fillEmojiState === "loading"}
-            style={{
-              background: "transparent",
-              color: fillEmojiState === "done" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.75)",
-              border: "1px solid rgba(255,255,255,0.25)",
-              borderRadius: 999,
-              padding: "8px 16px",
-              fontFamily: "var(--font-body)",
-              fontSize: 14,
-              fontWeight: 400,
-              cursor: fillEmojiState === "loading" ? "wait" : "pointer",
-              opacity: fillEmojiState === "loading" ? 0.6 : 1,
-            }}
-          >
-            {fillEmojiState === "loading" ? "⏳ Đang điền…" : fillEmojiState === "done" ? "✓ Đã điền emoji" : "✦ Fill emoji"}
           </button>
           <button
             onClick={() => setShowForm(!showForm)}

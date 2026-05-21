@@ -31,8 +31,10 @@ One file per feature or topic. Accumulates as features are designed and built.
 |----------|--------|-------------|
 | [flows.md](./specs/flows.md) | Draft | Sequence diagrams for all user-facing and system flows |
 | [home-screen.md](./specs/home-screen.md) | Implemented | Home tab: budget bar, category filter chips, transaction feed |
-| [ai-category-suggestions.md](./specs/ai-category-suggestions.md) | Implemented | AI-powered new category suggestions from transaction history |
-| [transaction-recategorize.md](./specs/transaction-recategorize.md) | Stub | AI-powered transaction recategorization — needs full spec |
+| [ai-category-suggestions.md](./specs/ai-category-suggestions.md) | Superseded | AI-powered new category suggestions — superseded by EPIC_3_AI_REFACTOR.md |
+| [transaction-recategorize.md](./specs/transaction-recategorize.md) | Superseded | AI-powered transaction recategorization — superseded by EPIC_3_AI_REFACTOR.md |
+| [EPIC_3_AI_REFACTOR.md](./EPIC_3_AI_REFACTOR.md) | Active | Epic 3 design: AI Organize button, statistics agent upgrade, model migration |
+| [ai-organize.md](./specs/ai-organize.md) | Active | CDD component design for the AI Organize button and review sheet (Epic 3 Part 2) |
 
 ### Dev Logs (`dev_logs/`)
 
