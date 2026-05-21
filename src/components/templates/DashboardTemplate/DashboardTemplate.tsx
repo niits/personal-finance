@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
 
@@ -184,6 +184,34 @@ export function DashboardTemplate({
   const groups = groupByDate(filteredTxns);
   const dates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
 
+  const totalExpense = data?.total_expense ?? 0;
+  const filteredExpense = filteredTxns
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + t.amount, 0);
+  const targetAmount = loading ? 0 : (selectedRoot ? filteredExpense : totalExpense);
+
+  const [displayedAmount, setDisplayedAmount] = useState(targetAmount);
+  const animRef = useRef<number | null>(null);
+  const prevAmountRef = useRef(targetAmount);
+
+  useEffect(() => {
+    const start = prevAmountRef.current;
+    const target = targetAmount;
+    if (start === target) return;
+    const duration = 350;
+    const startTime = performance.now();
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    function tick(now: number) {
+      const p = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplayedAmount(Math.round(start + (target - start) * eased));
+      if (p < 1) { animRef.current = requestAnimationFrame(tick); }
+      else { prevAmountRef.current = target; }
+    }
+    animRef.current = requestAnimationFrame(tick);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, [targetAmount]);
+
   const chevronStyle = (disabled?: boolean): React.CSSProperties => ({
     background: "none", border: "none", cursor: disabled ? "default" : "pointer",
     color: disabled ? "transparent" : "rgba(255,255,255,0.5)",
@@ -215,10 +243,12 @@ export function DashboardTemplate({
         )}
 
         <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
-          {loading ? "—" : `${fmt(data?.total_expense ?? 0)}₫`}
+          {loading ? "—" : `${fmt(displayedAmount)}₫`}
         </p>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 4, letterSpacing: -0.224 }}>
-          đã chi tháng này
+          {selectedRoot && !loading
+            ? <span>trong tổng <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>{fmt(totalExpense)}₫</span> đã chi tháng này</span>
+            : "đã chi tháng này"}
         </p>
 
         {/* Budget bar with pace background */}
