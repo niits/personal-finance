@@ -175,26 +175,40 @@ function buildVegaLiteSpec(insight: Insight, dark?: boolean): TopLevelSpec | nul
   if (insight.chart_type === "line") {
     const isDate = data.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.name));
     const xEnc = isDate
-      ? { field: "name", type: "temporal" as const, title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 5 } }
-      : { field: "name", type: "ordinal" as const, title: null, axis: { labelAngle: 0 } };
-    const yEnc = { field: "value", type: "quantitative" as const, title: null, axis: { format, labelExpr: valueLabelExpr } };
+      ? { field: "name", type: "temporal" as const, title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 5, labelColor } }
+      : { field: "name", type: "ordinal" as const, title: null, axis: { labelAngle: 0, labelColor } };
+    // cumsum field computed by Vega-Lite window transform (per series if present)
+    const yField = "cumsum";
+    const yEnc = { field: yField, type: "quantitative" as const, title: null, axis: { format, labelExpr: valueLabelExpr.replace(/datum\.value/g, "datum.cumsum"), labelColor } };
+    const hasSeries = data.some((d) => d.series);
+    const colorEnc = hasSeries
+      ? { field: "series", type: "nominal" as const, legend: { title: null, labelColor: inkColor, labelFont: FONT_BODY, orient: "bottom" as const } }
+      : { value: PRIMARY };
     const lineTooltip = [
       isDate
         ? { field: "name", type: "temporal" as const, title: "Ngày", format: "%d/%m/%Y" }
         : { field: "name", type: "ordinal" as const, title: "Mục" },
-      { field: "value", type: "quantitative" as const, title: valueTitle, format },
+      { field: yField, type: "quantitative" as const, title: "Luỹ kế", format },
     ];
+    // Window transform: cumulative sum sorted by name, partitioned by series
+    const windowTransform = {
+      sort: [{ field: "name", order: "ascending" as const }],
+      window: [{ op: "sum" as const, field: "value", as: "cumsum" }],
+      frame: [null, 0] as [null, number],
+      ...(hasSeries ? { groupby: ["series"] } : {}),
+    };
     return {
       ...base,
       height: 200,
+      transform: [windowTransform],
       layer: [
         {
-          mark: { type: "line", color: PRIMARY, strokeWidth: 2, interpolate: "monotone" },
-          encoding: { x: xEnc, y: yEnc, tooltip: lineTooltip },
+          mark: { type: "line", strokeWidth: 2, interpolate: "monotone" as const },
+          encoding: { x: xEnc, y: yEnc, color: colorEnc, tooltip: lineTooltip },
         },
         {
-          mark: { type: "point", color: PRIMARY, filled: true, size: 48, opacity: 0 },
-          encoding: { x: { ...xEnc, axis: null }, y: { field: "value", type: "quantitative" as const }, tooltip: lineTooltip },
+          mark: { type: "point", filled: true, size: 36, opacity: 1 },
+          encoding: { x: { ...xEnc, axis: null }, y: { field: yField, type: "quantitative" as const }, color: colorEnc, tooltip: lineTooltip },
         },
       ],
     } as TopLevelSpec;
