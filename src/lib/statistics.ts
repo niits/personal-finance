@@ -3,7 +3,10 @@ import { sql } from "kysely";
 import { tool, stepCountIs } from "ai";
 import { getKysely } from "@/lib/db";
 import { getOpenAIModel, generateText } from "@/lib/llm";
-import { getBudgetPeriod, getBudgetMonthForDate, currentBudgetMonth, currentDate } from "@/lib/validators";
+import { getBudgetPeriod, currentDate } from "@/lib/validators";
+import { createAnalyticsService } from "@/lib/analytics/service";
+import { METRIC_NAMES, METRIC_CATALOG, DIMENSION_NAMES, TIME_GRAINS } from "@/lib/analytics/metrics";
+import { getBudgetMonthForDate, currentBudgetMonth } from "@/lib/validators";
 
 export type InsightType = "analysis" | "recommendation" | "alert";
 
@@ -21,8 +24,9 @@ export type Insight = {
 };
 
 export type AgentEvent =
-  | { type: "tool_call"; tool: string; label: string }
-  | { type: "tool_result"; tool: string; rows: number }
+  | { type: "tool_call"; tool: string; label: string; callId: string; stepIndex: number }
+  | { type: "tool_result"; tool: string; rows: number; callId: string; durationMs: number }
+  | { type: "tool_error"; tool: string; message: string; callId: string }
   | { type: "done" }
   | { type: "error"; message: string };
 
@@ -34,19 +38,6 @@ function prevMonthKey(key: string): string {
     : `${y}-${String(pm).padStart(2, "0")}`;
 }
 
-function resolveCategoryPath(
-  catId: number,
-  catMap: Map<number, { name: string; level: number; parent_id: number | null }>,
-): string {
-  const c = catMap.get(catId);
-  if (!c) return "Unknown";
-  if (c.level === 1) return c.name;
-  const p1 = c.parent_id ? catMap.get(c.parent_id) : null;
-  if (c.level === 2) return p1 ? `${p1.name} > ${c.name}` : c.name;
-  const p2 = p1?.parent_id ? catMap.get(p1.parent_id) : null;
-  return [p2?.name, p1?.name, c.name].filter(Boolean).join(" > ");
-}
-
 export async function generateStatisticsReport(
   userId: string,
   periodType: "monthly",
@@ -54,6 +45,7 @@ export async function generateStatisticsReport(
   emit?: (event: AgentEvent) => void,
 ): Promise<void> {
   const db = await getKysely();
+  const analyticsService = createAnalyticsService(db);
 
   const budget = await db
     .selectFrom("monthly_budget")
@@ -70,8 +62,6 @@ export async function generateStatisticsReport(
     return d.toISOString().substring(0, 10);
   })();
 
-  // Clip to yesterday for any period whose window includes today — reports
-  // describe completed days only, so the in-progress day is never analysed.
   const today = currentDate();
   const yesterday = (() => {
     const d = new Date(today + "T00:00:00Z");
@@ -81,130 +71,26 @@ export async function generateStatisticsReport(
   const effectiveEnd = periodEnd < today ? periodEnd : yesterday;
   const now = Math.floor(Date.now() / 1000);
 
-  // Period hasn't started yet (e.g. viewing this month on its first day) — store
-  // an empty report so the UI can render an empty state without re-triggering AI.
   if (effectiveEnd < periodStart) {
     await saveReport(db, userId, periodType, periodKey, [], now);
     return;
   }
 
-  const txns = await db
+  const txCount = await db
     .selectFrom("transaction")
-    .select(["amount", "type", "category_id", "note", "date"])
+    .select((eb) => eb.fn.countAll<number>().as("cnt"))
     .where("user_id", "=", userId)
     .where("date", ">=", periodStart)
     .where("date", "<=", effectiveEnd)
-    .orderBy("date", "asc")
-    .execute();
+    .executeTakeFirst();
 
-  // No data to analyse — skip the LLM call entirely and persist an empty report.
-  if (txns.length === 0) {
+  if ((txCount?.cnt ?? 0) === 0) {
     await saveReport(db, userId, periodType, periodKey, [], now);
     return;
   }
 
-  const rawCats = await db
-    .selectFrom("category")
-    .select(["id", "name", "level", "parent_id", "type"])
-    .where("user_id", "=", userId)
-    .execute();
+  // ── Schemas ───────────────────────────────────────────────────────────────
 
-  const catMap = new Map(rawCats.map((c) => [c.id, c]));
-
-  const priorSummaries = await Promise.all(
-    [prevMonthKey(periodKey), prevMonthKey(prevMonthKey(periodKey))].map(async (priorKey) => {
-      const pp = getBudgetPeriod(priorKey);
-      const pb = await db
-        .selectFrom("monthly_budget")
-        .select(["start_date", "end_date"])
-        .where("user_id", "=", userId)
-        .where("month", "=", priorKey)
-        .executeTakeFirst();
-      const ps = pb?.start_date ?? pp.start;
-      const pe = pb?.end_date ?? (() => {
-        const d = new Date(pp.end + "T00:00:00Z");
-        d.setUTCDate(d.getUTCDate() - 1);
-        return d.toISOString().substring(0, 10);
-      })();
-      const s = await db
-        .selectFrom("transaction")
-        .select([
-          sql<number>`COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0)`.as("total_expense"),
-          sql<number>`COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END),0)`.as("total_income"),
-        ])
-        .where("user_id", "=", userId)
-        .where("date", ">=", ps)
-        .where("date", "<=", pe)
-        .executeTakeFirst();
-      return { key: priorKey, total_expense: s?.total_expense ?? 0, total_income: s?.total_income ?? 0 };
-    }),
-  );
-
-  // ── Pre-compute data that tools will serve on demand ──────────────────────
-  const allTxRows = await db
-    .selectFrom("transaction")
-    .select(["amount", "category_id", "type", "date", "note"])
-    .where("user_id", "=", userId)
-    .where("date", ">=", periodStart)
-    .where("date", "<=", effectiveEnd)
-    .orderBy("date", "asc")
-    .execute();
-
-  const expenseTotals = new Map<string, number>();
-  const byDate = new Map<string, { expense: number; income: number }>();
-  let grandExpense = 0;
-  let grandIncome = 0;
-  for (const r of allTxRows) {
-    const d = byDate.get(r.date) ?? { expense: 0, income: 0 };
-    if (r.type === "expense") {
-      d.expense += r.amount;
-      grandExpense += r.amount;
-      const cat = resolveCategoryPath(r.category_id, catMap);
-      expenseTotals.set(cat, (expenseTotals.get(cat) ?? 0) + r.amount);
-    } else {
-      d.income += r.amount;
-      grandIncome += r.amount;
-    }
-    byDate.set(r.date, d);
-  }
-
-  const grandTotal = grandExpense || 1;
-  const expenseByCategory = [...expenseTotals.entries()]
-    .map(([category, total]) => ({ category, total, pct: Math.round((total / grandTotal) * 100) }))
-    .sort((a, b) => b.total - a.total);
-
-  const notableTransactions = allTxRows
-    .filter((r) => r.note || r.type === "expense")
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 20)
-    .map((r) => ({
-      date: r.date,
-      amount: r.amount,
-      type: r.type,
-      category: resolveCategoryPath(r.category_id, catMap),
-      note: r.note ?? null,
-    }));
-
-  const startD = new Date(periodStart + "T00:00:00Z");
-  const endD = new Date(effectiveEnd + "T00:00:00Z");
-  const todayD = new Date(currentDate() + "T00:00:00Z");
-  const totalDays = Math.round((endD.getTime() - startD.getTime()) / 86400000) + 1;
-  const elapsedDays = Math.min(totalDays, Math.round((todayD.getTime() - startD.getTime()) / 86400000) + 1);
-  const dailyPace = elapsedDays > 0 ? Math.round(grandExpense / elapsedDays) : 0;
-  const budgetStatus = {
-    total_expense: grandExpense,
-    total_income: grandIncome,
-    tx_count: allTxRows.length,
-    budget_amount: budget?.amount ?? null,
-    budget_used_pct: budget?.amount ? Math.round((grandExpense / budget.amount) * 100) : null,
-    days_elapsed: elapsedDays,
-    days_total: totalDays,
-    daily_pace: dailyPace,
-    projected_total: dailyPace * totalDays,
-  };
-  const dailyTrend = [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
-
-  // ── Schemas ────────────────────────────────────────────────────────────────
   const chartDatumSchema = z.object({
     name: z.string().describe("Category label or ISO date — never the key 'category'"),
     value: z.number().describe("Raw numeric amount (no formatting, no units)"),
@@ -226,19 +112,33 @@ export async function generateStatisticsReport(
     insights: z.array(insightItemSchema).min(3).max(5),
   });
 
+  // Build catalog description dynamically from METRIC_CATALOG
+  const catalogText = Object.entries(METRIC_CATALOG)
+    .map(([name, m]) => {
+      const parts = [`- **${name}**: ${m.description}`];
+      if (m.validBreakdowns.length) parts.push(`breakdowns: ${m.validBreakdowns.join(", ")}`);
+      if (m.validTimeGrains.length) parts.push(`grains: ${m.validTimeGrains.join(", ")}`);
+      if (m.supportsMoM) parts.push("compare_previous_period=true available");
+      return parts.join(" | ");
+    })
+    .join("\n");
+
   const objectiveLine = budget?.objective
     ? `\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
     : "";
 
   const SYSTEM = `You are a trusted personal finance advisor.${objectiveLine}
 
-You have tools to fetch spending data. Use them to explore the data, then call generate_insights with your findings.
+## Available metrics
+${catalogText}
 
-IMPORTANT: You MUST call at least 3 tools before generate_insights:
-1. get_budget_status
-2. get_expense_by_category
-3. get_notable_transactions OR get_daily_trend
-Then call generate_insights with exactly 3–5 insights. NEVER call generate_insights with fewer than 3 insights.
+## Instructions
+Call query_metrics at least 3 times with DIFFERENT metrics or group_by to explore multiple angles.
+Suggested sequence:
+1. query_metrics(["budget_remaining", "budget_used_pct", "daily_pace", "projected_total"]) — budget overview
+2. query_metrics(["total_expense"], group_by=[{name:"category__path"}], limit=8, compare_previous_period=true) — category breakdown with MoM
+3. query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"week"}]) — weekly trend
+Then call get_notable_transactions and generate_insights with 3–5 insights.
 
 ## Insight rules
 - Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.
@@ -248,77 +148,140 @@ Then call generate_insights with exactly 3–5 insights. NEVER call generate_ins
 - Never use pie charts — use bar (sorted desc) instead
 - chart_data values MUST be EXACT integers copied from tool results. Never round, estimate, or recalculate.
 - Cap bar charts at 5 rows, group tail as "Khác"
-- For bar chart names: ≤ 12 chars, abbreviate if needed`;
+- For bar chart names: ≤ 12 chars, abbreviate if needed
+- budget_remaining, budget_used_pct etc. come from query_metrics — NEVER compute them yourself`;
 
-  // ── Real tool-calling loop ─────────────────────────────────────────────────
+  // ── Tool schemas derived from catalog ─────────────────────────────────────
+
+  const GroupBySchema = z.object({
+    name: z.enum(DIMENSION_NAMES),
+    grain: z.enum(TIME_GRAINS).optional()
+      .describe("Required when name='metric_time'. Default: day"),
+  });
+
+  const WhereSchema = z.object({
+    dimension: z.enum(DIMENSION_NAMES),
+    operator: z.enum(["=", "!=", ">", ">=", "<", "<="]),
+    value: z.union([z.string(), z.number()]),
+  });
+
+  const OrderBySchema = z.object({
+    name: z.enum(METRIC_NAMES),
+    descending: z.boolean().default(false),
+  });
+
+  // ── Agent loop ─────────────────────────────────────────────────────────────
+
   let capturedInsights: Insight[] | null = null as Insight[] | null;
+  let stepIndex = 0;
   const model = await getOpenAIModel();
 
   try {
     await generateText({
       model,
       system: SYSTEM,
-      stopWhen: stepCountIs(8),
+      stopWhen: stepCountIs(10),
       maxOutputTokens: 4096,
-      prompt: `Analyze spending for period ${periodKey} (${periodStart} to ${effectiveEnd}). Prior months for context: ${JSON.stringify(priorSummaries)}`,
+      prompt: `Analyze spending for period ${periodKey} (${periodStart} to ${effectiveEnd}). Prior months: ${prevMonthKey(periodKey)}, ${prevMonthKey(prevMonthKey(periodKey))}.`,
       tools: {
-        get_budget_status: tool({
-          description: "Get budget and overall spending summary for the period",
+        list_metrics: tool({
+          description: "List all available metrics with their valid dimensions and time grains. Call this first to discover what you can query.",
           inputSchema: z.object({}),
-          outputSchema: z.unknown(),
           execute: async () => {
-            emit?.({ type: "tool_call", tool: "get_budget_status", label: "Tổng quan ngân sách" });
-            emit?.({ type: "tool_result", tool: "get_budget_status", rows: 1 });
-            return { period: { key: periodKey, start: periodStart, end: effectiveEnd }, ...budgetStatus };
+            const callId = Math.random().toString(36).slice(2, 10);
+            emit?.({ type: "tool_call", tool: "list_metrics", label: "Danh sách metrics", callId, stepIndex });
+            emit?.({ type: "tool_result", tool: "list_metrics", rows: Object.keys(METRIC_CATALOG).length, callId, durationMs: 0 });
+            return METRIC_CATALOG;
           },
         }),
-        get_expense_by_category: tool({
-          description: "Get expense totals grouped by category, sorted by amount descending",
-          inputSchema: z.object({}),
-          outputSchema: z.unknown(),
-          execute: async () => {
-            emit?.({ type: "tool_call", tool: "get_expense_by_category", label: "Chi tiêu theo danh mục" });
-            const result = expenseByCategory.slice(0, 12);
-            emit?.({ type: "tool_result", tool: "get_expense_by_category", rows: result.length });
-            return result;
+
+        query_metrics: tool({
+          description: `Query financial metrics with optional grouping, filtering, and ordering.
+Use list_metrics first to discover valid dimensions per metric.
+For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_total): no group_by allowed.`,
+          inputSchema: z.object({
+            metrics: z.array(z.enum(METRIC_NAMES)).min(1).max(4),
+            group_by: z.array(GroupBySchema).optional(),
+            where: z.array(WhereSchema).optional(),
+            order_by: z.array(OrderBySchema).optional(),
+            limit: z.number().int().min(1).max(20).optional(),
+            compare_previous_period: z.boolean().optional()
+              .describe("Adds prior period values. Only for metrics with supportsMoM=true"),
+          }),
+          execute: async (args) => {
+            const callId = Math.random().toString(36).slice(2, 10);
+            const label = args.group_by?.length
+              ? `${args.metrics.join("+")} by ${args.group_by.map((g) => g.grain ? `${g.name}(${g.grain})` : g.name).join(",")}`
+              : args.metrics.join("+");
+            const startMs = Date.now();
+            emit?.({ type: "tool_call", tool: "query_metrics", label, callId, stepIndex });
+            try {
+              const result = await analyticsService.queryMetricsForPeriod({
+                userId,
+                periodKey,
+                ...args,
+              });
+              emit?.({ type: "tool_result", tool: "query_metrics", rows: result.rows.length, callId, durationMs: Date.now() - startMs });
+              return result;
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              emit?.({ type: "tool_error", tool: "query_metrics", message: msg, callId });
+              throw err;
+            }
           },
         }),
+
         get_notable_transactions: tool({
-          description: "Get top transactions by amount for the period",
-          inputSchema: z.object({}),
-          outputSchema: z.unknown(),
-          execute: async () => {
-            emit?.({ type: "tool_call", tool: "get_notable_transactions", label: "Giao dịch đáng chú ý" });
-            const result = notableTransactions.slice(0, 12);
-            emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: result.length });
-            return result;
+          description: "Get top N transactions by amount for the period with full category path",
+          inputSchema: z.object({
+            limit: z.number().int().min(1).max(20).default(10),
+          }),
+          execute: async (args) => {
+            const callId = Math.random().toString(36).slice(2, 10);
+            const startMs = Date.now();
+            emit?.({ type: "tool_call", tool: "get_notable_transactions", label: "Giao dịch đáng chú ý", callId, stepIndex });
+            const rows = await db
+              .selectFrom("transaction as t")
+              .innerJoin("category as c", "c.id", "t.category_id")
+              .leftJoin("category as p1", "p1.id", "c.parent_id" as any)
+              .leftJoin("category as p2", "p2.id", "p1.parent_id" as any)
+              .select([
+                "t.amount",
+                "t.type",
+                "t.date",
+                "t.note",
+                sql<string>`CASE
+                  WHEN c.level = 1 THEN c.name
+                  WHEN c.level = 2 THEN (COALESCE(p1.name, '') || ' > ' || c.name)
+                  ELSE (COALESCE(p2.name, '') || ' > ' || COALESCE(p1.name, '') || ' > ' || c.name)
+                END`.as("category_path"),
+              ])
+              .where("t.user_id", "=", userId)
+              .where("t.date", ">=", periodStart)
+              .where("t.date", "<=", effectiveEnd)
+              .orderBy("t.amount", "desc")
+              .limit(args.limit)
+              .execute();
+            emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: rows.length, callId, durationMs: Date.now() - startMs });
+            return rows;
           },
         }),
-        get_daily_trend: tool({
-          description: "Get daily expense and income totals for the period",
-          inputSchema: z.object({}),
-          outputSchema: z.unknown(),
-          execute: async () => {
-            emit?.({ type: "tool_call", tool: "get_daily_trend", label: "Xu hướng chi tiêu theo ngày" });
-            const result = dailyTrend.slice(-20);
-            emit?.({ type: "tool_result", tool: "get_daily_trend", rows: result.length });
-            return result;
-          },
-        }),
+
         generate_insights: tool({
-          description: "Generate the final structured finance report with 3-5 insights. Call this LAST after fetching data.",
+          description: "Generate the final structured finance report with 3–5 insights. Call this LAST after querying data.",
           inputSchema: insightSchema,
           outputSchema: z.object({ status: z.string(), count: z.number() }),
           execute: async (args) => {
             capturedInsights = (args as z.infer<typeof insightSchema>).insights as Insight[];
-            emit?.({ type: "tool_call", tool: "generate_insights", label: "Tổng hợp nhận xét" });
-            emit?.({ type: "tool_result", tool: "generate_insights", rows: capturedInsights.length });
+            const callId = Math.random().toString(36).slice(2, 10);
+            emit?.({ type: "tool_call", tool: "generate_insights", label: "Tổng hợp nhận xét", callId, stepIndex });
+            emit?.({ type: "tool_result", tool: "generate_insights", rows: capturedInsights.length, callId, durationMs: 0 });
             return { status: "saved", count: capturedInsights.length };
           },
         }),
       },
       onStepFinish({ stepNumber, toolCalls, finishReason, text }) {
-        // Debug: log each step to diagnose if the model skips tool calling
+        stepIndex = stepNumber;
         console.log("[stats-agent] step", {
           stepNumber,
           finishReason,
