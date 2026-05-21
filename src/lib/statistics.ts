@@ -10,9 +10,15 @@ import { getBudgetMonthForDate, currentBudgetMonth } from "@/lib/validators";
 
 export type InsightType = "analysis" | "recommendation" | "alert";
 
-export type ChartType = "pie" | "bar" | "line" | "bar_grouped";
+export type ChartType = "pie" | "bar" | "line" | "bar_grouped" | "forecast_line";
 
 export type ChartDatum = { name: string; value: number; series?: string };
+
+export type ForecastMeta = {
+  period_start: string;
+  today: string;
+  next_period_start: string;
+};
 
 export type Insight = {
   type?: InsightType;
@@ -21,6 +27,7 @@ export type Insight = {
   chart_type?: ChartType;
   chart_data?: ChartDatum[];
   value_unit?: "currency" | "percent" | "count";
+  forecast_meta?: ForecastMeta;
 };
 
 export type AgentEvent =
@@ -89,7 +96,7 @@ export async function generateStatisticsReport(
     return;
   }
 
-  // ── Schemas ───────────────────────────────────────────────────────────────
+  // ── Schemas ────────────────────────────────────────────────────────────────
 
   const chartDatumSchema = z.object({
     name: z.string().describe("Category label or ISO date — never the key 'category'"),
@@ -127,39 +134,9 @@ export async function generateStatisticsReport(
     ? `\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
     : "";
 
-  const SYSTEM = `You are a trusted personal finance advisor.${objectiveLine}
+  const SYSTEM = `You are a trusted personal finance advisor.${objectiveLine}\n\n## Available metrics\n${catalogText}\n\n## Instructions\nCall query_metrics at least 3 times with DIFFERENT metrics or group_by to explore multiple angles.\nSuggested sequence:\n1. query_metrics(["budget_remaining", "budget_used_pct", "daily_pace", "projected_total"]) — budget overview\n2. query_metrics(["total_expense"], group_by=[{name:"category__path"}], limit=8, compare_previous_period=true) — category breakdown with MoM\n3. query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"week"}]) — weekly trend\nThen call get_notable_transactions and generate_insights with 3–5 insights.\n\n## Insight rules\n- Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.\n  ❌ "Chi tiêu theo danh mục" ✅ "Ăn uống chiếm 35% — tăng 12% so tháng trước"\n- Summary = adds context the chart cannot show (max 160 chars, Vietnamese)\n- Mix types: include at least 1 "analysis", 1 "recommendation", and 1 "alert" (if data warrants it)\n- Never use pie charts — use bar (sorted desc) instead\n- chart_data values MUST be EXACT integers copied from tool results. Never round, estimate, or recalculate.\n- Cap bar charts at 5 rows, group tail as "Khác"\n- For bar chart names: ≤ 12 chars, abbreviate if needed\n- budget_remaining, budget_used_pct etc. come from query_metrics — NEVER compute them yourself\n\n## Forecast insight chart rules\nWhen reporting a forecast or spending trend over time, use chart_type="line" with:\n- time series data: query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"day"}]) for each day\n- chart_data rows: [{name: "2026-05-01", value: 500000, series: "Thực tế"}, ...]\n- Add ONE extra row per day for the budget daily pace as series="Ngân sách":\n  budget daily = round(budget_amount / days_total); get budget_amount from query_metrics(["budget_remaining"]) result\n- Use bar_grouped or line chart, NOT a bar chart mixing different metric types (projected_total, budget_remaining, daily_pace in one chart is WRONG)`;
 
-## Available metrics
-${catalogText}
-
-## Instructions
-Call query_metrics at least 3 times with DIFFERENT metrics or group_by to explore multiple angles.
-Suggested sequence:
-1. query_metrics(["budget_remaining", "budget_used_pct", "daily_pace", "projected_total"]) — budget overview
-2. query_metrics(["total_expense"], group_by=[{name:"category__path"}], limit=8, compare_previous_period=true) — category breakdown with MoM
-3. query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"week"}]) — weekly trend
-Then call get_notable_transactions and generate_insights with 3–5 insights.
-
-## Insight rules
-- Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.
-  ❌ "Chi tiêu theo danh mục" ✅ "Ăn uống chiếm 35% — tăng 12% so tháng trước"
-- Summary = adds context the chart cannot show (max 160 chars, Vietnamese)
-- Mix types: include at least 1 "analysis", 1 "recommendation", and 1 "alert" (if data warrants it)
-- Never use pie charts — use bar (sorted desc) instead
-- chart_data values MUST be EXACT integers copied from tool results. Never round, estimate, or recalculate.
-- Cap bar charts at 5 rows, group tail as "Khác"
-- For bar chart names: ≤ 12 chars, abbreviate if needed
-- budget_remaining, budget_used_pct etc. come from query_metrics — NEVER compute them yourself
-
-## Forecast insight chart rules
-When reporting a forecast or spending trend over time, use chart_type="line" with:
-- time series data: query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"day"}]) for each day
-- chart_data rows: [{name: "2026-05-01", value: 500000, series: "Thực tế"}, ...]
-- Add ONE extra row per day for the budget daily pace as series="Ngân sách":
-  budget daily = round(budget_amount / days_total); get budget_amount from query_metrics(["budget_remaining"]) result
-- Use bar_grouped or line chart, NOT a bar chart mixing different metric types (projected_total, budget_remaining, daily_pace in one chart is WRONG)`;
-
-  // ── Tool schemas derived from catalog ─────────────────────────────────────
+  // ── Tool schemas derived from catalog ─────────────────────────────────────────
 
   const GroupBySchema = z.object({
     name: z.enum(DIMENSION_NAMES),
@@ -178,7 +155,7 @@ When reporting a forecast or spending trend over time, use chart_type="line" wit
     descending: z.boolean().default(false),
   });
 
-  // ── Agent loop ─────────────────────────────────────────────────────────────
+  // ── Agent loop ─────────────────────────────────────────────────────────────────
 
   let capturedInsights: Insight[] | null = null as Insight[] | null;
   let stepIndex = 0;
@@ -204,9 +181,7 @@ When reporting a forecast or spending trend over time, use chart_type="line" wit
         }),
 
         query_metrics: tool({
-          description: `Query financial metrics with optional grouping, filtering, and ordering.
-Use list_metrics first to discover valid dimensions per metric.
-For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_total): no group_by allowed.`,
+          description: `Query financial metrics with optional grouping, filtering, and ordering.\nUse list_metrics first to discover valid dimensions per metric.\nFor budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_total): no group_by allowed.`,
           inputSchema: z.object({
             metrics: z.array(z.enum(METRIC_NAMES)).min(1).max(4),
             group_by: z.array(GroupBySchema).optional(),
@@ -306,7 +281,97 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
     throw new Error("AI không tạo được nhận xét — thử lại sau");
   }
 
-  await saveReport(db, userId, periodType, periodKey, capturedInsights, now);
+  // Pre-build the forecast line chart so it always uses accurate cumsum data,
+  // not the AI's approximation (which caused NaN y-axis labels).
+  const nextPeriodStart = (() => {
+    const d = new Date(periodEnd + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().substring(0, 10);
+  })();
+  const periodLengthDays =
+    Math.round(
+      (new Date(periodEnd + "T00:00:00Z").getTime() -
+        new Date(periodStart + "T00:00:00Z").getTime()) /
+        86400000,
+    ) + 1;
+
+  let forecastInsight: Insight | null = null;
+  if (budget?.amount) {
+    // Fetch daily expense totals for the period to build accurate cumsum series.
+    const dailyRows = await db
+      .selectFrom("transaction")
+      .select(["date", sql<number>`COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0)`.as("expense")])
+      .where("user_id", "=", userId)
+      .where("date", ">=", periodStart)
+      .where("date", "<=", effectiveEnd)
+      .groupBy("date")
+      .execute();
+    const byDate = new Map(dailyRows.map((r) => [r.date, r.expense]));
+    const grandExpense = dailyRows.reduce((s, r) => s + r.expense, 0);
+    const startD = new Date(periodStart + "T00:00:00Z");
+    const todayD = new Date(today + "T00:00:00Z");
+    const totalDays = periodLengthDays;
+    const elapsedDays = Math.min(totalDays, Math.round((todayD.getTime() - startD.getTime()) / 86400000) + 1);
+    const dailyPace = elapsedDays > 0 ? Math.round(grandExpense / elapsedDays) : 0;
+    const projTotal = dailyPace * totalDays;
+
+    const actualCumData: ChartDatum[] = [];
+    let cumsum = 0;
+    for (let i = 0; i < periodLengthDays; i++) {
+      const d = new Date(periodStart + "T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + i);
+      const dateStr = d.toISOString().substring(0, 10);
+      if (dateStr > effectiveEnd) break;
+      cumsum += byDate.get(dateStr) ?? 0;
+      actualCumData.push({ name: dateStr, value: cumsum, series: "Thực tế" });
+    }
+
+    const budgetCumData: ChartDatum[] = [];
+    for (let i = 0; i < periodLengthDays; i++) {
+      const d = new Date(periodStart + "T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + i);
+      const dateStr = d.toISOString().substring(0, 10);
+      budgetCumData.push({
+        name: dateStr,
+        value: Math.round((budget.amount / periodLengthDays) * (i + 1)),
+        series: "Ngân sách",
+      });
+    }
+
+    const isOver = projTotal > budget.amount;
+    const diff = Math.abs(projTotal - budget.amount);
+    const compactVND = (n: number) =>
+      n >= 1_000_000
+        ? `${Math.round(n / 1_000_000)}tr`
+        : `${Math.round(n / 1_000)}k`;
+    const fmtVND = new Intl.NumberFormat("vi-VN");
+
+    forecastInsight = {
+      type: isOver ? "alert" : "analysis",
+      title: isOver
+        ? `Dự báo vượt ${compactVND(diff)}`
+        : `Dự báo tiết kiệm ${compactVND(diff)}`,
+      summary: isOver
+        ? `Nếu duy trì tốc độ hiện tại, bạn sẽ vượt quá ngân sách với chi tiêu dự kiến đạt ${fmtVND.format(projTotal)} VND. Cân đối chi tiêu để tránh thiếu hụt.`
+        : `Chi tiêu đang trong ngân sách. Dự kiến tiết kiệm được ${fmtVND.format(budget.amount - projTotal)} VND cuối tháng.`,
+      chart_type: "forecast_line",
+      chart_data: [...actualCumData, ...budgetCumData],
+      value_unit: "currency",
+      forecast_meta: { period_start: periodStart, today, next_period_start: nextPeriodStart },
+    };
+  }
+
+  // Prepend forecast insight; drop any AI-generated insight that has both
+  // "Ngân sách" + "Thực tế" series (those are duplicate budget-pace charts).
+  const aiInsights = capturedInsights.filter((ins) => {
+    const seriesNames = new Set(ins.chart_data?.map((d) => d.series).filter(Boolean));
+    return !(seriesNames.has("Ngân sách") && seriesNames.has("Thực tế"));
+  });
+  const finalInsights: Insight[] = forecastInsight
+    ? [forecastInsight, ...aiInsights]
+    : capturedInsights;
+
+  await saveReport(db, userId, periodType, periodKey, finalInsights, now);
 }
 
 async function saveReport(
