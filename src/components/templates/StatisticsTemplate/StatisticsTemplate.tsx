@@ -96,7 +96,7 @@ function vegaUnitSuffix(unit?: Insight["value_unit"]): string {
   return " ₫";
 }
 
-function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
+function buildVegaLiteSpec(insight: Insight, dark?: boolean): TopLevelSpec | null {
   const data = insight.chart_data;
   if (!data || data.length === 0 || !insight.chart_type) return null;
   const unit = insight.value_unit;
@@ -104,11 +104,16 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
   const suffix = vegaUnitSuffix(unit);
   const valueTitle = unit === "percent" ? "Tỷ lệ" : unit === "count" ? "Số lượng" : "Số tiền";
 
+  const labelColor = dark ? "rgba(255,255,255,0.5)" : INK_MUTED;
+  const inkColor = dark ? "#ffffff" : INK;
+  const hairlineColor = dark ? "rgba(255,255,255,0.12)" : HAIRLINE;
+  const bgColor = dark ? "transparent" : "transparent";
+
   const baseAxis = {
     labelFont: FONT_BODY,
     titleFont: FONT_BODY,
-    labelColor: INK_MUTED,
-    titleColor: INK_MUTED,
+    labelColor,
+    titleColor: labelColor,
     labelFontSize: 11,
     titleFontSize: 11,
     labelFontWeight: 400 as const,
@@ -117,14 +122,15 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
     ticks: false,
   };
   const config = {
+    background: bgColor,
     view: { stroke: null },
     axis: baseAxis,
     axisX: { ...baseAxis },
-    axisY: { ...baseAxis, grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] },
+    axisY: { ...baseAxis, grid: true, gridColor: hairlineColor, gridOpacity: 0.6, gridDash: [2, 4] },
     legend: {
       labelFont: FONT_BODY,
       titleFont: FONT_BODY,
-      labelColor: INK,
+      labelColor: inkColor,
       labelFontSize: 12,
       symbolSize: 72,
       symbolType: "circle" as const,
@@ -221,8 +227,8 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
           mark: { type: "bar", cornerRadiusEnd: 4, height: 28 },
           data: { values: actualData },
           encoding: {
-            y: { field: "name", type: "nominal", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK } },
-            x: { field: "value", type: "quantitative", title: null, axis: xAxisSpec },
+            y: { field: "name", type: "nominal", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: inkColor } },
+            x: { field: "value", type: "quantitative", title: null, axis: { ...xAxisSpec, gridColor: hairlineColor } },
             color: { value: PRIMARY },
             tooltip: [
               { field: "name", type: "nominal", title: "Mục" },
@@ -231,11 +237,11 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
           },
         },
         {
-          mark: { type: "rule", color: INK_MUTED, strokeDash: [4, 3], strokeWidth: 1.5 },
+          mark: { type: "rule", color: labelColor, strokeDash: [4, 3], strokeWidth: 1.5 },
           encoding: { x: { datum: refValue, type: "quantitative" as const } },
         },
         {
-          mark: { type: "text", align: "left", dx: 4, dy: 0, fontSize: 10, color: INK_MUTED, baseline: "top" as const },
+          mark: { type: "text", align: "left", dx: 4, dy: 0, fontSize: 10, color: labelColor, baseline: "top" as const },
           encoding: {
             x: { datum: refValue, type: "quantitative" as const },
             y: { value: 2 },
@@ -251,8 +257,8 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
     height: Math.max(180, Math.min(360, distinctNames * (grouped ? 32 : 28) + 40)),
     mark: { type: "bar", cornerRadiusEnd: 4 },
     encoding: {
-      y: { field: "name", type: "nominal", sort: "-x", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK, labelFontWeight: 400 } },
-      x: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: valueLabelExpr, tickCount: 3, grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] } },
+      y: { field: "name", type: "nominal", sort: "-x", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: inkColor, labelFontWeight: 400 } },
+      x: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: valueLabelExpr, tickCount: 3, grid: true, gridColor: hairlineColor, gridOpacity: 0.6, gridDash: [2, 4] } },
       ...(grouped
         ? {
             color: { field: "series", type: "nominal", legend: { title: null } },
@@ -373,7 +379,7 @@ const INSIGHT_TYPE_STYLE: Record<string, { label: string; color: string; bg: str
 };
 
 function InsightCard({ insight, featured }: { insight: Insight; featured?: boolean }) {
-  const spec = buildVegaLiteSpec(insight);
+  const spec = buildVegaLiteSpec(insight, featured);
   const badge = insight.type ? INSIGHT_TYPE_STYLE[insight.type] ?? null : null;
   const [vegaError, setVegaError] = useState<string | null>(null);
   return (
