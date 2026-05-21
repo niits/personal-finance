@@ -62,7 +62,7 @@ export async function getOpenAIModel(): Promise<LanguageModel> {
     apiKey: cfEnv.CF_AIG_TOKEN,
     baseURL: `https://gateway.ai.cloudflare.com/v1/${cfEnv.CLOUDFLARE_ACCOUNT_ID}/default/compat`,
   });
-  return provider("openai/gpt-4o-mini");
+  return provider("openai/gpt-4o");
 }
 
 export { generateText };

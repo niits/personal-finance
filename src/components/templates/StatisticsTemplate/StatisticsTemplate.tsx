@@ -480,12 +480,18 @@ export function StatisticsTemplate({
             {agentSteps.length > 0 && (
               <div style={{ background: "var(--canvas)", borderRadius: 14, padding: "14px 16px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", fontFamily: "var(--font-body)", fontSize: 14 }}>
                 {agentSteps.map((step) => (
-                  <div key={step.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", color: step.type === "tool_result" ? "var(--ink-muted-48)" : "var(--ink)" }}>
-                    <span style={{ flexShrink: 0, width: 16, textAlign: "center", fontSize: 12, color: step.type === "tool_result" ? "var(--primary)" : "var(--ink-muted-48)" }}>
-                      {step.type === "tool_call" ? "○" : "●"}
+                  <div key={step.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", color: step.type === "tool_result" ? "var(--ink-muted-48)" : step.type === "tool_error" ? "var(--danger, #c0392b)" : "var(--ink)" }}>
+                    <span style={{ flexShrink: 0, width: 16, textAlign: "center", fontSize: 12 }}>
+                      {step.type === "tool_call" ? "○" : step.type === "tool_error" ? "✗" : "●"}
                     </span>
                     <span style={{ flex: 1 }}>
-                      {step.type === "tool_call" ? step.label : step.type === "tool_result" ? `↳ ${step.rows} mục` : null}
+                      {step.type === "tool_call"
+                        ? step.label
+                        : step.type === "tool_result"
+                          ? `↳ ${step.rows > 0 ? `${step.rows} mục` : "Không có dữ liệu"}${step.durationMs > 0 ? ` · ${(step.durationMs / 1000).toFixed(1)}s` : ""}`
+                          : step.type === "tool_error"
+                            ? `✗ ${step.message}`
+                            : null}
                     </span>
                   </div>
                 ))}
