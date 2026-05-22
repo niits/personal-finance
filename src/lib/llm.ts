@@ -1,14 +1,18 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateText, generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
-import { createWorkersAI } from "workers-ai-provider";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { ZodType } from "zod";
 
-const MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+function createAIGatewayProvider(cfEnv: Cloudflare.Env) {
+  return createOpenAICompatible({
+    name: "cloudflare-aig",
+    apiKey: (cfEnv as Cloudflare.Env & { CF_AIG_TOKEN: string }).CF_AIG_TOKEN,
+    baseURL: `https://gateway.ai.cloudflare.com/v1/${(cfEnv as Cloudflare.Env & { CLOUDFLARE_ACCOUNT_ID: string }).CLOUDFLARE_ACCOUNT_ID}/default/compat`,
+  });
+}
 
-// Workers AI Llama 4 Scout hard limit — exceeding this causes error 3030
-const MAX_OUTPUT_TOKENS = 131000;
-
+// gpt-4.1-nano: cheapest OpenAI model, reliable structured output, used for
+// short-context tasks (fill-emoji, suggest categories, recategorize)
 export async function runAIObject<T>(opts: {
   schema: ZodType<T>;
   schemaName?: string;
@@ -20,10 +24,7 @@ export async function runAIObject<T>(opts: {
   userId?: string;
 }): Promise<T> {
   const { env } = await getCloudflareContext({ async: true });
-  const workersai = createWorkersAI({ binding: (env as Cloudflare.Env & { AI: Ai }).AI });
-  const model = workersai(MODEL);
-
-  const cappedTokens = Math.min(opts.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS);
+  const model = createAIGatewayProvider(env as Cloudflare.Env)("openai/gpt-4.1-nano");
 
   try {
     const { object } = await generateObject({
@@ -33,7 +34,7 @@ export async function runAIObject<T>(opts: {
       schemaDescription: opts.schemaDescription,
       system: opts.system,
       prompt: opts.prompt,
-      maxOutputTokens: cappedTokens,
+      maxOutputTokens: opts.maxOutputTokens ?? 4096,
     });
     return object;
   } catch (structuredErr) {
@@ -46,23 +47,10 @@ export async function runAIObject<T>(opts: {
   }
 }
 
-export async function getWorkersAIModel(): Promise<LanguageModel> {
-  const { env } = await getCloudflareContext({ async: true });
-  const workersai = createWorkersAI({ binding: (env as Cloudflare.Env).AI });
-  return workersai(MODEL);
-}
-
-// gpt-4o-mini via Cloudflare AI Gateway /compat endpoint using openai-compatible provider
-// (avoids @ai-sdk/openai v3 Responses API which compat endpoint doesn't support)
+// gpt-4o via Cloudflare AI Gateway — used for statistics agent (long context, streaming)
 export async function getOpenAIModel(): Promise<LanguageModel> {
   const { env } = await getCloudflareContext({ async: true });
-  const cfEnv = env as Cloudflare.Env;
-  const provider = createOpenAICompatible({
-    name: "cloudflare-aig",
-    apiKey: cfEnv.CF_AIG_TOKEN,
-    baseURL: `https://gateway.ai.cloudflare.com/v1/${cfEnv.CLOUDFLARE_ACCOUNT_ID}/default/compat`,
-  });
-  return provider("openai/gpt-4o");
+  return createAIGatewayProvider(env as Cloudflare.Env)("openai/gpt-4o");
 }
 
 export { generateText };
