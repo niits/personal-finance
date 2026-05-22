@@ -145,7 +145,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     return Errors.validation("Giao dịch thu nhập không thể gán vào Custom Budget");
 
   // Validate category
-  if (b.category_id !== undefined) {
+  if (b.category_id !== undefined && newCategoryId !== null) {
     const cat = await db
       .selectFrom("category")
       .select("id")
