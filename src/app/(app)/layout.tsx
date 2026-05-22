@@ -7,8 +7,8 @@ import { useEffect } from "react";
 const tabs = [
   { href: "/", label: "Tổng quan", icon: "◎" },
   { href: "/statistics", label: "Thống kê", icon: "◑" },
-  { href: "/categories", label: "Danh mục", icon: "⊞" },
-  { href: "/budget", label: "Ngân sách", icon: "◈" },
+  { href: "/debts", label: "Nợ", icon: "◈" },
+  { href: "/budget", label: "Ngân sách", icon: "⊟" },
   { href: "/account", label: "Tài khoản", icon: "◯" },
 ];
 
