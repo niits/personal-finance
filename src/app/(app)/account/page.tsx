@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   useSession,
   signOut,
@@ -350,6 +351,19 @@ export default function AccountPage() {
               <span style={disabledPillStyle}>Sắp có lại</span>
             </div>
           </div>
+        </SectionGroup>
+
+        {/* Master data */}
+        <SectionGroup label="Dữ liệu chính">
+          <Link href="/account/categories" style={{ textDecoration: "none" }}>
+            <ListRow
+              icon={<span style={{ fontSize: 16 }}>⊞</span>}
+              label="Danh mục"
+              value="Quản lý danh mục thu chi"
+              action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
+              isLast
+            />
+          </Link>
         </SectionGroup>
 
         {/* Export */}
