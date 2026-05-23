@@ -64,7 +64,7 @@ export interface TransactionTable {
   user_id: string;
   amount: number;
   type: "expense" | "income";
-  category_id: number;
+  category_id: number | null;
   note: string | null;
   emoji: string | null;
   date: string;

@@ -34,6 +34,7 @@ export function wipeUserData(userId: string): void {
   db.pragma("foreign_keys = OFF");
   db.transaction(() => {
     db.prepare(`DELETE FROM "transaction" WHERE user_id = ?`).run(userId);
+    db.prepare(`DELETE FROM debt WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM budget_adjustment WHERE monthly_budget_id IN (SELECT id FROM monthly_budget WHERE user_id = ?)`).run(userId);
     db.prepare(`DELETE FROM monthly_budget WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM custom_budget WHERE user_id = ?`).run(userId);
@@ -43,7 +44,7 @@ export function wipeUserData(userId: string): void {
   db.close();
 }
 
-export type SeedLevel = "minimal" | "categories" | "budget" | "full";
+export type SeedLevel = "minimal" | "categories" | "budget" | "full" | "debts";
 
 export function seedUserData(userId: string, seed: SeedLevel): void {
   if (seed === "minimal") return;
@@ -93,6 +94,42 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
   db.prepare(
     `INSERT INTO "transaction" (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES (?, 15000000, 'income', ?, 'Lương tháng 5', ?, NULL)`,
   ).run(userId, catIds["Lương"], today);
+
+  if (seed !== "debts") { db.close(); return; }
+
+  // Seed two open debts and one settled debt for the debt overview screen
+  const lendId = "e2e-debt-lend-1";
+  const borrowId = "e2e-debt-borrow-1";
+  const settledId = "e2e-debt-settled-1";
+
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO debt (id, user_id, type, party, amount, note) VALUES (?, ?, 'lend', 'Minh', 2000000, 'Cho mượn tiền học')`,
+    ).run(lendId, userId);
+    db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 2000000, 'expense', ?, ?)`,
+    ).run(userId, today, lendId);
+    db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, note) VALUES (?, 500000, 'income', ?, ?, 'Trả một phần')`,
+    ).run(userId, today, lendId);
+
+    db.prepare(
+      `INSERT INTO debt (id, user_id, type, party, amount) VALUES (?, ?, 'borrow', 'Chị Lan', 1000000)`,
+    ).run(borrowId, userId);
+    db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 1000000, 'income', ?, ?)`,
+    ).run(userId, today, borrowId);
+
+    db.prepare(
+      `INSERT INTO debt (id, user_id, type, party, amount, status) VALUES (?, ?, 'lend', 'Anh Tuấn', 500000, 'settled')`,
+    ).run(settledId, userId);
+    db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 500000, 'expense', ?, ?)`,
+    ).run(userId, today, settledId);
+    db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 500000, 'income', ?, ?)`,
+    ).run(userId, today, settledId);
+  })();
 
   db.close();
 }
