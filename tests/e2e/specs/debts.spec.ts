@@ -32,7 +32,7 @@ test.describe("Debts API — CRUD", () => {
     await page.goto("/");
     const cookies = await page.context().cookies();
     const sessionCookie = cookies.find((c) => c.name.startsWith("better-auth"));
-    const headers = sessionCookie
+    const headers: Record<string, string> = sessionCookie
       ? { Cookie: `${sessionCookie.name}=${sessionCookie.value}` }
       : {};
 
@@ -53,7 +53,7 @@ test.describe("Debts API — CRUD", () => {
     await page.goto("/");
     const cookies = await page.context().cookies();
     const sessionCookie = cookies.find((c) => c.name.startsWith("better-auth"));
-    const headers = sessionCookie
+    const headers: Record<string, string> = sessionCookie
       ? { Cookie: `${sessionCookie.name}=${sessionCookie.value}` }
       : {};
 
@@ -67,7 +67,7 @@ test.describe("Debts API — CRUD", () => {
     await page.goto("/");
     const cookies = await page.context().cookies();
     const sessionCookie = cookies.find((c) => c.name.startsWith("better-auth"));
-    const headers = sessionCookie
+    const headers: Record<string, string> = sessionCookie
       ? { Cookie: `${sessionCookie.name}=${sessionCookie.value}` }
       : {};
 
@@ -102,7 +102,7 @@ test.describe("Debts API — CRUD", () => {
     await page.goto("/");
     const cookies = await page.context().cookies();
     const sessionCookie = cookies.find((c) => c.name.startsWith("better-auth"));
-    const headers = sessionCookie
+    const headers: Record<string, string> = sessionCookie
       ? { Cookie: `${sessionCookie.name}=${sessionCookie.value}` }
       : {};
 

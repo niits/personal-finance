@@ -34,9 +34,10 @@ export class AnalyticsService {
     const metricExpr = METRICS[opts.metric];
 
     if (!opts.breakdown) {
+      // No category join needed for totals — debt transactions (NULL category_id)
+      // must be included in income/outcome sums per product decision.
       const row = await this.db
         .selectFrom("transaction")
-        .innerJoin("category", "category.id", "transaction.category_id")
         .select((eb) => [(metricExpr(eb as any) as any).as("value")])
         .where("transaction.user_id", "=", opts.userId)
         .where("transaction.date", ">=", opts.from)
