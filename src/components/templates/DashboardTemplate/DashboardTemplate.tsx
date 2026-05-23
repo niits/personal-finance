@@ -26,8 +26,9 @@ export type Transaction = {
   amount: number;
   type: "expense" | "income";
   emoji: string | null;
-  category: { id: number; name: string; emoji: string | null; path: string };
+  category: { id: number; name: string; emoji: string | null; path: string } | null;
   root_category_name: string;
+  debt_id: string | null;
   note: string | null;
   date: string;
   custom_budgets: { id: number; name: string }[];
@@ -113,7 +114,7 @@ function groupByDate(txns: Transaction[]) {
 
 function TxnIcon({ txn }: { txn: Transaction }) {
   const isExp = txn.type === "expense";
-  const displayEmoji = txn.emoji ?? txn.category.emoji;
+  const displayEmoji = txn.emoji ?? txn.category?.emoji;
   if (displayEmoji) {
     return (
       <div style={{
@@ -134,7 +135,7 @@ function TxnIcon({ txn }: { txn: Transaction }) {
       fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 600,
       color: isExp ? "#ff453a" : "#30d158",
     }}>
-      {txn.category.name.charAt(0).toUpperCase()}
+      {(txn.category?.name ?? "◈").charAt(0).toUpperCase()}
     </div>
   );
 }
@@ -377,7 +378,7 @@ export function DashboardTemplate({
                     <TxnIcon txn={txn} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", letterSpacing: -0.374, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
-                        {txn.category.name}
+                        {txn.category?.name ?? "Khoản nợ"}
                       </p>
                       <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, minHeight: "1em" }}>
                         {txn.note ?? ""}
@@ -429,7 +430,7 @@ export function DashboardTemplate({
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)" }} />
             </div>
             <div style={{ padding: "0 20px 16px", borderBottom: "1px solid var(--hairline)" }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginBottom: 2 }}>{actionTxn.category.path}</p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginBottom: 2 }}>{actionTxn.category?.path ?? "Khoản nợ"}</p>
               <p style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 600, color: actionTxn.type === "expense" ? "#ff453a" : "#30d158", letterSpacing: -0.3 }}>
                 {actionTxn.type === "expense" ? "−" : "+"}{fmt(actionTxn.amount)}₫
               </p>

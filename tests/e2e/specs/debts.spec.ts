@@ -1,10 +1,24 @@
 import { test, expect } from "@playwright/test";
 import { resetTestData } from "../helpers";
 
-test.describe("Debts — placeholder page", () => {
-  test("renders the placeholder from the Nợ tab", async ({ page }) => {
+test.describe("Debts — overview page", () => {
+  test.beforeAll(async () => {
+    await resetTestData("minimal");
+  });
+
+  test("renders the Nợ heading on /debts", async ({ page }) => {
     await page.goto("/debts");
-    await expect(page.getByText("Theo dõi nợ")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Nợ" }).or(page.getByText("Nợ").first())).toBeVisible();
+  });
+
+  test("shows empty state when no debts exist", async ({ page }) => {
+    await page.goto("/debts");
+    await expect(page.getByText("Chưa có khoản nợ nào")).toBeVisible();
+  });
+
+  test("shows + Thêm button", async ({ page }) => {
+    await page.goto("/debts");
+    await expect(page.getByRole("button", { name: /Thêm/ })).toBeVisible();
   });
 });
 

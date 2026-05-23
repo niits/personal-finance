@@ -33,6 +33,7 @@ export const EditMode: Story = {
       type: "expense",
       emoji: "🍜",
       category: { id: 3, name: "Ăn uống", path: "Sinh hoạt > Ăn uống" },
+      debt_id: null,
       note: "Bún bò hôm nay",
       date: "2026-05-15",
       custom_budgets: [{ id: 1, name: "Quỹ gia đình" }],

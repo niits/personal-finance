@@ -10,7 +10,8 @@ export type EditTransaction = {
   amount: number;
   type: "expense" | "income";
   emoji: string | null;
-  category: { id: number; name: string; path: string };
+  category: { id: number; name: string; path: string } | null;
+  debt_id: string | null;
   note: string | null;
   date: string;
   custom_budgets: { id: number; name: string }[];
@@ -26,6 +27,7 @@ type Category = {
 };
 
 type CustomBudget = { id: number; name: string; amount: number; is_active: number };
+type DebtItem = { id: string; type: "lend" | "borrow"; party: string; remaining: number };
 
 export type TransactionFormProps = {
   open: boolean;
@@ -363,7 +365,7 @@ export function TransactionForm({ open, onClose, onSaved, transaction }: Transac
   const isEdit = !!transaction;
   const [type, setType] = useState<"expense" | "income">(transaction?.type ?? "expense");
   const [amountStr, setAmountStr] = useState(transaction ? fmt(transaction.amount) : "");
-  const [categoryId, setCategoryId] = useState<number | null>(transaction?.category.id ?? null);
+  const [categoryId, setCategoryId] = useState<number | null>(transaction?.category?.id ?? null);
   const [date, setDate] = useState(transaction?.date ?? todayStr());
   const [note, setNote] = useState(transaction?.note ?? "");
   const [emoji, setEmoji] = useState<string | null>(transaction?.emoji ?? null);
@@ -372,6 +374,11 @@ export function TransactionForm({ open, onClose, onSaved, transaction }: Transac
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Debt link mode — only relevant in edit mode
+  // "keep": no change; "unlink": remove debt_id; "link": attach to a different debt
+  const [debtLinkMode, setDebtLinkMode] = useState<"keep" | "unlink" | "link">("keep");
+  const [linkDebtId, setLinkDebtId] = useState<string | null>(null);
 
   const [mounted, setMounted] = useState(false);
   const [show, setShow] = useState(false);
@@ -406,11 +413,13 @@ export function TransactionForm({ open, onClose, onSaved, transaction }: Transac
     if (transaction) {
       setType(transaction.type);
       setAmountStr(fmt(transaction.amount));
-      setCategoryId(transaction.category.id);
+      setCategoryId(transaction.category?.id ?? null);
       setDate(transaction.date);
       setNote(transaction.note ?? "");
       setEmoji(transaction.emoji ?? null);
       setSelectedCbIds(transaction.custom_budgets.map((cb) => cb.id));
+      setDebtLinkMode("keep");
+      setLinkDebtId(null);
     }
   }, [transaction]);
 
@@ -418,6 +427,12 @@ export function TransactionForm({ open, onClose, onSaved, transaction }: Transac
     open ? "/api/categories" : null,
     fetcher,
   );
+  const { data: debtsData } = useSWR<{ lending: DebtItem[]; borrowing: DebtItem[] }>(
+    open && isEdit && debtLinkMode === "link" ? "/api/debts" : null,
+    fetcher,
+  );
+  const openDebts = [...(debtsData?.lending ?? []), ...(debtsData?.borrowing ?? [])];
+
   const { data: cbData } = useSWR<{ custom_budgets: CustomBudget[] }>(
     open ? (isEdit ? "/api/custom-budgets" : "/api/custom-budgets?active_only=true") : null,
     fetcher,
@@ -442,6 +457,8 @@ export function TransactionForm({ open, onClose, onSaved, transaction }: Transac
     setEmoji(null);
     setSelectedCbIds([]);
     setError("");
+    setDebtLinkMode("keep");
+    setLinkDebtId(null);
   }
 
   function toggleCb(id: number) {
@@ -453,11 +470,28 @@ export function TransactionForm({ open, onClose, onSaved, transaction }: Transac
   async function submit() {
     const amount = parseInt(amountStr.replace(/[^\d]/g, ""), 10);
     if (!amount || amount <= 0) { setError("Nhập số tiền hợp lệ"); return; }
-    if (!categoryId) { setError("Chọn danh mục"); return; }
+
+    const isDebtTx = isEdit && transaction!.debt_id && debtLinkMode === "keep";
+    const isLinking = isEdit && debtLinkMode === "link";
+    const isUnlinking = isEdit && debtLinkMode === "unlink";
+
+    if (isLinking && !linkDebtId) { setError("Chọn khoản nợ để liên kết"); return; }
+    if (!isDebtTx && !isLinking && !categoryId) { setError("Chọn danh mục"); return; }
+
     setSaving(true);
     setError("");
-    const body: Record<string, unknown> = { amount, type, category_id: categoryId, note: note || null, date, emoji: emoji || null };
-    if (type === "expense") body.custom_budget_ids = selectedCbIds;
+    const body: Record<string, unknown> = { amount, type, note: note || null, date, emoji: emoji || null };
+
+    if (isLinking) {
+      body.link_debt_id = linkDebtId;
+    } else if (isUnlinking) {
+      body.link_debt_id = null;
+      body.category_id = categoryId;
+    } else {
+      body.category_id = categoryId;
+    }
+
+    if (!isDebtTx && !isLinking && type === "expense") body.custom_budget_ids = selectedCbIds;
     const url = isEdit ? `/api/transactions/${transaction!.id}` : "/api/transactions";
     const method = isEdit ? "PATCH" : "POST";
     const r = await fetch(url, {
@@ -651,11 +685,74 @@ export function TransactionForm({ open, onClose, onSaved, transaction }: Transac
               <DatePicker value={date} onChange={setDate} />
             </div>
 
+            {/* Debt link section — edit mode only */}
+            {isEdit && (
+              <div style={{ marginBottom: 16 }}>
+                {transaction!.debt_id && debtLinkMode === "keep" ? (
+                  // Currently a debt transaction
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: "var(--canvas-parchment)", border: "1px solid var(--hairline)" }}>
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-80)" }}>◈ Khoản nợ</span>
+                    <button
+                      onClick={() => setDebtLinkMode("unlink")}
+                      style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--destructive)", cursor: "pointer", fontWeight: 600 }}
+                    >
+                      Chuyển sang chi tiêu thường
+                    </button>
+                  </div>
+                ) : !transaction!.debt_id && debtLinkMode === "keep" ? (
+                  // Regular transaction — offer linking
+                  <button
+                    onClick={() => setDebtLinkMode("link")}
+                    style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--primary)", cursor: "pointer", padding: 0 }}
+                  >
+                    ◈ Đánh dấu là khoản nợ
+                  </button>
+                ) : debtLinkMode === "link" ? (
+                  // Pick a debt to link
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--canvas-parchment)", border: "1px solid var(--hairline)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>Chọn khoản nợ</span>
+                      <button onClick={() => { setDebtLinkMode("keep"); setLinkDebtId(null); }} style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", cursor: "pointer" }}>Huỷ</button>
+                    </div>
+                    {openDebts.length === 0 ? (
+                      <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>Không có khoản nợ đang mở</p>
+                    ) : openDebts.map((d) => (
+                      <button
+                        key={d.id}
+                        onClick={() => setLinkDebtId(d.id)}
+                        style={{
+                          display: "block", width: "100%", textAlign: "left",
+                          padding: "8px 10px", borderRadius: 8, marginBottom: 4,
+                          border: "none",
+                          background: linkDebtId === d.id ? "var(--primary)" : "var(--canvas-card)",
+                          color: linkDebtId === d.id ? "#fff" : "var(--ink)",
+                          fontFamily: "var(--font-body)", fontSize: 13, cursor: "pointer",
+                        }}
+                      >
+                        {d.party} · {d.type === "lend" ? "Cho vay" : "Đi vay"} · còn {(d.remaining / 1000).toLocaleString("vi-VN")}k
+                      </button>
+                    ))}
+                  </div>
+                ) : debtLinkMode === "unlink" ? (
+                  // Unlinking — show reminder + cancel
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: "#fff3cd", border: "1px solid #ffc107" }}>
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink)" }}>Chọn danh mục mới bên dưới</span>
+                    <button onClick={() => setDebtLinkMode("keep")} style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", cursor: "pointer" }}>Huỷ</button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {/* Category label — hide for debt transactions (unless unlinking) */}
+            {(!isEdit || !transaction!.debt_id || debtLinkMode === "unlink") && (
             <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
               Danh mục
             </p>
+            )}
           </div>
 
+          {/* Category picker — hide for debt transactions (unless unlinking) */}
+          {(!isEdit || !transaction!.debt_id || debtLinkMode === "unlink") && (
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto", marginBottom: 18 }}>
             <CategoryDrillDown
               cats={cats}
@@ -663,6 +760,10 @@ export function TransactionForm({ open, onClose, onSaved, transaction }: Transac
               onSelect={(id) => { setCategoryId(id); setError(""); }}
             />
           </div>
+          )}
+          {isEdit && transaction!.debt_id && debtLinkMode === "keep" && (
+            <div style={{ flex: 1, minHeight: 0 }} />
+          )}
 
           <div style={{ flexShrink: 0, paddingBottom: "max(28px, env(safe-area-inset-bottom))" }}>
             {type === "expense" && customBudgets.length > 0 && (
