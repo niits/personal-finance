@@ -21,12 +21,13 @@ type TxnRow = {
   emoji: string | null;
   date: string;
   monthly_budget_id: number | null;
+  debt_id: string | null;
   created_at: number;
   updated_at: number;
-  cat_id: number;
-  cat_name: string;
+  cat_id: number | null;
+  cat_name: string | null;
   cat_emoji: string | null;
-  cat_level: number;
+  cat_level: number | null;
   cat_parent_id: number | null;
   cat_p1_name: string | null;
   cat_p2_name: string | null;
@@ -34,13 +35,15 @@ type TxnRow = {
 
 type CbRow = { transaction_id: number; id: number; name: string };
 
-function buildCategoryPath(row: TxnRow) {
+function buildCategoryPath(row: TxnRow): string | null {
+  if (!row.cat_name) return null;
   if (row.cat_level === 1) return row.cat_name;
   if (row.cat_level === 2) return `${row.cat_p1_name} > ${row.cat_name}`;
   return `${row.cat_p2_name} > ${row.cat_p1_name} > ${row.cat_name}`;
 }
 
-function getRootCategoryName(row: TxnRow): string {
+function getRootCategoryName(row: TxnRow): string | null {
+  if (!row.cat_name) return null;
   if (row.cat_level === 1) return row.cat_name;
   if (row.cat_level === 2) return row.cat_p1_name ?? row.cat_name;
   return row.cat_p2_name ?? row.cat_p1_name ?? row.cat_name;
@@ -57,18 +60,17 @@ function buildCbMap(cbRows: CbRow[]): Map<number, { id: number; name: string }[]
 }
 
 function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: string }[]>) {
+  const catPath = buildCategoryPath(row);
   return {
     id: row.id,
     amount: row.amount,
     type: row.type,
     emoji: row.emoji ?? null,
-    category: {
-      id: row.cat_id,
-      name: row.cat_name,
-      emoji: row.cat_emoji ?? null,
-      path: buildCategoryPath(row),
-    },
+    category: row.cat_id
+      ? { id: row.cat_id, name: row.cat_name!, emoji: row.cat_emoji ?? null, path: catPath! }
+      : null,
     root_category_name: getRootCategoryName(row),
+    debt_id: row.debt_id ?? null,
     note: row.note,
     date: row.date,
     monthly_budget_id: row.monthly_budget_id,
@@ -104,7 +106,7 @@ export async function GET(request: NextRequest) {
 
   let query = db
     .selectFrom("transaction as t")
-    .innerJoin("category as c", "c.id", "t.category_id")
+    .leftJoin("category as c", "c.id", "t.category_id")
     .leftJoin("category as p1", "p1.id", "c.parent_id")
     .leftJoin("category as p2", "p2.id", "p1.parent_id")
     .select([
@@ -115,6 +117,7 @@ export async function GET(request: NextRequest) {
       "t.emoji",
       "t.date",
       "t.monthly_budget_id",
+      "t.debt_id",
       "t.created_at",
       "t.updated_at",
       "c.id as cat_id",
@@ -312,7 +315,7 @@ export async function POST(request: NextRequest) {
   // Fetch full transaction for response
   const txn = (await db
     .selectFrom("transaction as t")
-    .innerJoin("category as c", "c.id", "t.category_id")
+    .leftJoin("category as c", "c.id", "t.category_id")
     .leftJoin("category as p1", "p1.id", "c.parent_id")
     .leftJoin("category as p2", "p2.id", "p1.parent_id")
     .select([
@@ -323,6 +326,7 @@ export async function POST(request: NextRequest) {
       "t.emoji",
       "t.date",
       "t.monthly_budget_id",
+      "t.debt_id",
       "t.created_at",
       "c.id as cat_id",
       "c.name as cat_name",
