@@ -34,12 +34,14 @@ test.describe("Navigation — categories route move", () => {
 test.describe("Navigation — account settings hub", () => {
   test("account page shows Danh mục row", async ({ page }) => {
     await page.goto("/account");
-    await expect(page.getByText("Danh mục")).toBeVisible();
+    // Use role=link to avoid strict-mode violation — "Danh mục" text appears
+    // in the link label, its subtitle, and other page copy.
+    await expect(page.getByRole("link", { name: /Danh mục/ }).first()).toBeVisible();
   });
 
   test("tapping Danh mục row navigates to /account/categories", async ({ page }) => {
     await page.goto("/account");
-    await page.getByText("Danh mục").click();
+    await page.getByRole("link", { name: /Danh mục/ }).first().click();
     await expect(page).toHaveURL(/\/account\/categories$/);
   });
 });
