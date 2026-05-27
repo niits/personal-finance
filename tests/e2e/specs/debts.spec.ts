@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { resetTestData } from "../helpers";
 
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:8787";
+
 // ─── empty state ──────────────────────────────────────────────────────────────
 
 test.describe("Debts — empty state (minimal seed)", () => {
@@ -80,23 +82,15 @@ test.describe("Debts — create flow", () => {
     await page.goto("/debts");
     await page.getByRole("button", { name: /Thêm/ }).click();
 
-    // Fill in party name
-    const partyInput = page.getByPlaceholder(/Tên người/i).or(page.getByLabel(/Người/i)).first();
-    await partyInput.fill("Nam");
+    // AddDebtSheet: party input has placeholder="Tên người"
+    await page.getByPlaceholder("Tên người").fill("Nam");
 
-    // Fill in amount
-    const amountInput = page.getByPlaceholder(/Số tiền/i).or(page.getByLabel(/Số tiền/i)).first();
-    await amountInput.fill("500000");
+    // Amount input has placeholder="0" and type="number"
+    await page.locator('input[type="number"]').first().fill("500000");
 
-    // Select "Cho vay" (lend) if there's a type selector
-    const lendOption = page.getByRole("radio", { name: /Cho vay/i })
-      .or(page.getByLabel(/Cho vay/i));
-    if (await lendOption.count() > 0) {
-      await lendOption.first().click();
-    }
-
-    // Submit
-    await page.getByRole("button", { name: /Lưu|Tạo|Thêm/i }).last().click();
+    // "Cho vay" is a plain button (not radio) — already selected by default
+    // Submit via the Lưu button
+    await page.getByRole("button", { name: "Lưu" }).click();
 
     // The new debt card should appear
     await expect(page.getByText("Nam")).toBeVisible({ timeout: 5000 });
@@ -124,44 +118,56 @@ test.describe("Debts — repayment flow", () => {
     await page.goto("/debts");
     await page.getByText("Minh").first().click();
 
-    // Look for "Thêm thanh toán" or "Trả nợ" or similar repayment CTA
+    // Look for repayment CTA button
     const repayBtn = page
       .getByRole("button", { name: /Thêm thanh toán|Trả nợ|Thanh toán/i })
       .first();
-    if (await repayBtn.isVisible()) {
+    if (await repayBtn.count() > 0 && await repayBtn.isVisible()) {
       await repayBtn.click();
+      // AddRepaymentSheet amount input uses placeholder={String(remaining)} — a dynamic
+      // number. Target by type="number" instead.
       await expect(
-        page.getByPlaceholder(/Số tiền/i).or(page.getByLabel(/Số tiền/i)).first(),
+        page.locator('input[type="number"]').first(),
       ).toBeVisible({ timeout: 3000 });
     }
   });
 });
 
-// ─── API auth guards (no browser needed) ─────────────────────────────────────
+// ─── API auth guards (unauthenticated context) ───────────────────────────────
+// The default `request` fixture inherits storageState (authenticated session).
+// Auth guard tests must use a fresh context with no cookies.
 
 test.describe("Debts API — auth guard", () => {
-  test("GET /api/debts returns 401 without auth", async ({ request }) => {
-    const res = await request.get("/api/debts");
+  test("GET /api/debts returns 401 without auth", async ({ playwright }) => {
+    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
+    const res = await ctx.get("/api/debts");
     expect(res.status()).toBe(401);
+    await ctx.dispose();
   });
 
-  test("POST /api/debts returns 401 without auth", async ({ request }) => {
-    const res = await request.post("/api/debts", {
+  test("POST /api/debts returns 401 without auth", async ({ playwright }) => {
+    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
+    const res = await ctx.post("/api/debts", {
       data: { type: "lend", party: "Minh", amount: 100000 },
     });
     expect(res.status()).toBe(401);
+    await ctx.dispose();
   });
 
-  test("GET /api/debts/:id returns 401 without auth", async ({ request }) => {
-    const res = await request.get("/api/debts/some-id");
+  test("GET /api/debts/:id returns 401 without auth", async ({ playwright }) => {
+    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
+    const res = await ctx.get("/api/debts/some-id");
     expect(res.status()).toBe(401);
+    await ctx.dispose();
   });
 
-  test("POST /api/debts/:id/repayments returns 401 without auth", async ({ request }) => {
-    const res = await request.post("/api/debts/some-id/repayments", {
+  test("POST /api/debts/:id/repayments returns 401 without auth", async ({ playwright }) => {
+    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
+    const res = await ctx.post("/api/debts/some-id/repayments", {
       data: { amount: 100000 },
     });
     expect(res.status()).toBe(401);
+    await ctx.dispose();
   });
 });
 
