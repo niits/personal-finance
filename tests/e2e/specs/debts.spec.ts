@@ -134,40 +134,36 @@ test.describe("Debts — repayment flow", () => {
 });
 
 // ─── API auth guards (unauthenticated context) ───────────────────────────────
-// The default `request` fixture inherits storageState (authenticated session).
-// Auth guard tests must use a fresh context with no cookies.
+// playwright.request.newContext() shares cookie state with the Playwright
+// worker session. Use native fetch (no cookie management) for true isolation.
 
 test.describe("Debts API — auth guard", () => {
-  test("GET /api/debts returns 401 without auth", async ({ playwright }) => {
-    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
-    const res = await ctx.get("/api/debts");
-    expect(res.status()).toBe(401);
-    await ctx.dispose();
+  test("GET /api/debts returns 401 without auth", async () => {
+    const res = await fetch(`${BASE_URL}/api/debts`);
+    expect(res.status).toBe(401);
   });
 
-  test("POST /api/debts returns 401 without auth", async ({ playwright }) => {
-    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
-    const res = await ctx.post("/api/debts", {
-      data: { type: "lend", party: "Minh", amount: 100000 },
+  test("POST /api/debts returns 401 without auth", async () => {
+    const res = await fetch(`${BASE_URL}/api/debts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "lend", party: "Minh", amount: 100000 }),
     });
-    expect(res.status()).toBe(401);
-    await ctx.dispose();
+    expect(res.status).toBe(401);
   });
 
-  test("GET /api/debts/:id returns 401 without auth", async ({ playwright }) => {
-    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
-    const res = await ctx.get("/api/debts/some-id");
-    expect(res.status()).toBe(401);
-    await ctx.dispose();
+  test("GET /api/debts/:id returns 401 without auth", async () => {
+    const res = await fetch(`${BASE_URL}/api/debts/some-id`);
+    expect(res.status).toBe(401);
   });
 
-  test("POST /api/debts/:id/repayments returns 401 without auth", async ({ playwright }) => {
-    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
-    const res = await ctx.post("/api/debts/some-id/repayments", {
-      data: { amount: 100000 },
+  test("POST /api/debts/:id/repayments returns 401 without auth", async () => {
+    const res = await fetch(`${BASE_URL}/api/debts/some-id/repayments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: 100000 }),
     });
-    expect(res.status()).toBe(401);
-    await ctx.dispose();
+    expect(res.status).toBe(401);
   });
 });
 
