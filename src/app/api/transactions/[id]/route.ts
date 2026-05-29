@@ -10,6 +10,7 @@ import {
 } from "@/lib/validators";
 import type { Kysely } from "kysely";
 import type { Database } from "@/lib/schema";
+import { markStatsDirty } from "@/lib/statistics";
 import { sql } from "kysely";
 
 type Params = Promise<{ id: string }>;
@@ -289,6 +290,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     }
   }
 
+  await markStatsDirty(userId, newDate).catch(() => {});
   const updated = await fetchFullTransaction(db, txnId);
   return Response.json({ transaction: updated });
 }
@@ -306,7 +308,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
 
   const existing = await db
     .selectFrom("transaction")
-    .select("id")
+    .select(["id", "date"])
     .where("id", "=", txnId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
@@ -318,5 +320,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
     .where("user_id", "=", userId)
     .execute();
 
+  await markStatsDirty(userId, existing.date).catch(() => {});
   return Response.json({});
 }
