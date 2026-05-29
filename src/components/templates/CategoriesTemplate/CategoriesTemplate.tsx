@@ -551,7 +551,7 @@ export function CategoriesTemplate({
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <EmojiPicker value={newEmoji} onChange={setNewEmoji} />
+              <EmojiPicker value={newEmoji} onChange={setNewEmoji} suggestForName={newName} />
               <input
                 placeholder="Tên danh mục"
                 value={newName}
