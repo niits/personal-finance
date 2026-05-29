@@ -431,12 +431,18 @@ async function saveReport(
     .execute();
 }
 
-// Called from transaction mutation routes via ctx.waitUntil().
-// Only triggers regeneration for completed periods (not current month).
-export async function scheduleStatsRegeneration(userId: string, txnDate: string): Promise<void> {
+// Called after any transaction mutation for the current month.
+// Marks the report dirty so the next time the user opens the stats page,
+// the frontend triggers a fresh generation via POST /api/statistics.
+export async function markStatsDirty(userId: string, txnDate: string): Promise<void> {
   const affectedMonth = getBudgetMonthForDate(txnDate);
-  if (affectedMonth >= currentBudgetMonth()) return;
-  await generateStatisticsReport(userId, "monthly", affectedMonth).catch(() => {
-    // Silent fail — cron will retry, and mutation response must not be blocked
-  });
+  if (affectedMonth !== currentBudgetMonth()) return;
+  const db = await getKysely();
+  await db
+    .updateTable("statistics_report")
+    .set({ is_dirty: 1 })
+    .where("user_id", "=", userId)
+    .where("period_type", "=", "monthly")
+    .where("period_key", "=", affectedMonth)
+    .execute();
 }

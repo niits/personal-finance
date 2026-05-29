@@ -12,6 +12,7 @@ import {
   isLeafCategory,
 } from "@/lib/validators";
 import { sql } from "kysely";
+import { markStatsDirty } from "@/lib/statistics";
 
 type TxnRow = {
   id: number;
@@ -350,5 +351,6 @@ export async function POST(request: NextRequest) {
     cbMap.set(txnId, cbRows.map((r) => ({ id: r.id, name: r.name })));
   }
 
+  await markStatsDirty(userId, date).catch(() => {});
   return Response.json({ transaction: formatTransaction(txn!, cbMap) }, { status: 201 });
 }
