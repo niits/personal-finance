@@ -31,21 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Bottom tab bar */}
-      <nav style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 72,
-        background: "rgba(255,255,255,0.92)",
-        backdropFilter: "saturate(180%) blur(8px)",
-        WebkitBackdropFilter: "saturate(180%) blur(8px)",
-        borderTop: "1px solid var(--hairline)",
-        display: "flex",
-        alignItems: "flex-start",
-        paddingTop: 8,
-        zIndex: 50,
-      }}>
+      <nav className="fixed bottom-0 left-0 right-0 h-[72px] flex items-start pt-2 z-50 border-t border-hairline bg-white/[0.92] backdrop-saturate-[1.8] backdrop-blur-[8px]">
         {tabs.map((tab) => {
           const active = tab.href === "/"
             ? pathname === "/"
@@ -54,16 +40,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Link
               key={tab.href}
               href={tab.href}
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 3,
-                textDecoration: "none",
-                color: active ? "var(--primary)" : "var(--ink-muted-48)",
-                transition: "color 0.15s",
-              }}
+              className={`flex-1 flex flex-col items-center gap-[3px] no-underline transition-colors ${
+                active ? "text-primary" : "text-ink-muted-48"
+              }`}
             >
               <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>
               <span style={{

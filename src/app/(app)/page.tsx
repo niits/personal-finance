@@ -170,7 +170,7 @@ export default function DashboardPage() {
         </p>
         <button type="button"
           onClick={() => load()}
-          style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--primary)", background: "none", border: "none", cursor: "pointer", padding: "8px 16px" }}
+          className="font-body text-[15px] font-semibold text-primary bg-transparent border-none cursor-pointer px-4 py-2"
         >
           Thử lại
         </button>

@@ -31,14 +31,7 @@ export function LinkTransactionSheet({
         onClick={onClose}
         style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 500 }}
       />
-      <div
-        style={{
-          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 501,
-          background: "var(--canvas)", borderRadius: "16px 16px 0 0",
-          padding: "20px 20px max(24px, env(safe-area-inset-bottom))",
-          maxHeight: "70vh", display: "flex", flexDirection: "column",
-        }}
-      >
+      <div className="fixed bottom-0 left-0 right-0 z-[501] bg-canvas rounded-t-2xl px-5 pt-5 pb-[max(24px,env(safe-area-inset-bottom))] max-h-[70vh] flex flex-col">
         <p style={{ fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: "var(--ink)", marginBottom: 16 }}>
           Liên kết giao dịch
         </p>
@@ -57,11 +50,9 @@ export function LinkTransactionSheet({
               <button type="button"
                 key={tx.id}
                 onClick={() => onSelect(tx.id)}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 12,
-                  padding: "12px 4px", background: "none", cursor: "pointer", textAlign: "left",
-                  border: "none", borderTop: i > 0 ? "1px solid var(--hairline)" : "none",
-                }}
+                className={`w-full flex items-center gap-3 px-1 py-3 bg-transparent cursor-pointer text-left ${
+                  i > 0 ? "border-t border-hairline" : ""
+                }`}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
