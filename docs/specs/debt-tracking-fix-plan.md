@@ -38,9 +38,18 @@ npm run test:integration           # Workers pool; SELF.fetch routes need the bu
 npm run test:e2e                   # Playwright; needs dev:cf running on :8787
 ```
 
-> **Integration infra note:** the Workers pool boots `.open-next/worker.js`. Stale or
-> missing builds fail route tests with `No such module "node:os"`. Run `npm run build:cf`
-> first. Schema tests that use `env.DB` directly are unaffected.
+> **Integration infra note:** the Workers pool boots `.open-next/worker.js`, so run
+> `npm run build:cf` first. The Next.js server bundle pulls in `node:os`, which the
+> pool's workerd cannot resolve from the dynamically-required bundle (it works in real
+> `wrangler dev`). This is now handled by a `resolve.alias` in `vitest.config.ts` that
+> maps `node:os` to `tests/integration/node-os-stub.cjs` — without it every route test
+> fails with `No such module "node:os"`. Schema tests that use `env.DB` directly are
+> unaffected.
+>
+> **Known caveat (perf, not correctness):** routes compile on-demand inside workerd, so
+> the first request to each route can be very slow; a few tests may still flake on a
+> 30 s timeout on a cold machine. Re-run, or warm the route first. This is independent of
+> the `node:os` fix above and of the assertions under test.
 
 ---
 
@@ -49,10 +58,10 @@ npm run test:e2e                   # Playwright; needs dev:cf running on :8787
 | ID | Severity | Rule | Summary | Gating test (disabled) | Tripwire (delete on fix) |
 |----|----------|------|---------|------------------------|--------------------------|
 | BUG-1 | High | D-18 | Deleting a debt with unbudgeted expense txns violates the transaction CHECK → 500 instead of 204 | `tests/integration/debt-bugs.test.ts › BUG-1*` | `tests/integration/debt.test.ts › INT-SCHEMA-6b` |
-| BUG-2 | High | D-20/D-25 | `/api/pace-line` includes debt expenses in `actual_line`, inflating budget pace | `tests/integration/debt-bugs.test.ts › BUG-2*` | — |
-| GAP-1 | Medium | DEBT-08/DEBT-11 | Debt-detail "Liên kết giao dịch có sẵn" is a no-op (`LinkTransactionSheet` unimplemented) | `tests/e2e/specs/debts.spec.ts › GAP-1*` (fixme) | — |
-| BUG-3 | Low | D-25 | Statistics *forecast* insight sums expenses without excluding debt | `tests/integration/debt-bugs.test.ts › BUG-3*` | — |
-| DEC-1 | Decision | Flow 3 | After one-tap settle the detail page stays put; SRS Flow 3 implies returning to the Nợ tab | `tests/e2e/specs/debts.spec.ts › E2E-SETTLE-2` (currently asserts stay-in-place) | — |
+| BUG-2 | ~~High~~ Resolved by decision | D-20/D-25 | **Decision: debt expenses DO count toward the budget/pace (one simple model).** No longer a defect — pace line keeps counting debt; the dashboard was made consistent (it previously excluded). Tasks B & D below are obsolete. | `tests/integration/debt-bugs.test.ts › BUG-2a` (now a regression guard) | — |
+| GAP-1 | ✅ Done | DEBT-08/DEBT-11 | `LinkTransactionSheet` built + wired into the debt-detail page; links an eligible standalone transaction as a repayment. | `tests/e2e/specs/debts.spec.ts › GAP-1` (enabled, green) | — |
+| BUG-3 | ~~Low~~ Resolved by decision | D-25 | Same decision as BUG-2: the statistics forecast keeps counting all expenses, debt included. No change needed. | — | — |
+| DEC-1 | ✅ Resolved | Flow 3 | **Decision: stay on the detail page** after one-tap settle (shows the settled, read-only state). No code change; `E2E-SETTLE-2` already matches. | `tests/e2e/specs/debts.spec.ts › E2E-SETTLE-2` | — |
 
 ---
 
@@ -110,7 +119,13 @@ await db.transaction().execute(async (trx) => {
 
 ---
 
-### Task B — Exclude debt transactions from the pace line (BUG-2)
+### Task B — ~~Exclude debt transactions from the pace line (BUG-2)~~ — OBSOLETE (decision reversed)
+
+> **Decision (2026-05-30):** debt cash transfers DO count toward the budget, to keep
+> one simple model. The pace line already counts them, so it is left unchanged; instead
+> the **dashboard** `budget_expense` was made consistent by dropping its `debt_id IS NULL`
+> filter. The gating test `BUG-2a` was flipped to assert inclusion (a regression guard).
+> The original (now superseded) plan follows for history.
 
 **Goal:** `/api/pace-line` `actual_line` reflects only budget-relevant spending; debt
 cash transfers are excluded (D-25), matching the dashboard's `budget_expense`.
@@ -150,7 +165,11 @@ balance updated. Add the Storybook story (required by repo rules).
 
 ---
 
-### Task D — Exclude debt from the statistics forecast (BUG-3)
+### Task D — ~~Exclude debt from the statistics forecast (BUG-3)~~ — OBSOLETE (decision reversed)
+
+> **Decision (2026-05-30):** per the same one-simple-model decision as Task B, the
+> forecast keeps counting all expenses (debt included). No code change. Original plan
+> below for history.
 
 **Goal:** the forecast insight's daily-expense series excludes debt expenses, consistent
 with the budget pace (D-25).

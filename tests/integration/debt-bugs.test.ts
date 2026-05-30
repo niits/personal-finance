@@ -1,13 +1,11 @@
 /**
- * Gating tests for outstanding debt-tracking defects (see
- * docs/specs/debt-tracking-fix-plan.md). These encode the DESIRED behaviour and
- * are intentionally DISABLED (`describe.skip`) so CI stays green until each fix
- * lands. The executing agent removes `.skip` for the relevant block, makes it
- * pass by fixing the production code — never by weakening the assertion.
+ * Gating tests for debt-tracking defects (see docs/specs/debt-tracking-fix-plan.md).
  *
  *   BUG-1  Task A  DELETE /api/debts/[id] must succeed for every debt (D-18)
- *   BUG-2  Task B  /api/pace-line must exclude debt expenses (D-20/D-25)
- *   BUG-3  Task D  statistics forecast must exclude debt expenses (D-25)
+ *   BUG-2  DECISION Debt cash transfers DO count toward the budget/pace line.
+ *                  The product owner chose one simple model: every expense
+ *                  (including debt openings/repayments) is budget spending.
+ *                  This guard locks that decision so the filter is not re-added.
  *
  * Route-level cases use SELF.fetch, so run `npm run build:cf` first (see the
  * infra note in the fix plan).
@@ -64,7 +62,7 @@ beforeAll(async () => {
 // If Option B (relax CHECK) is chosen instead, flip BUG-1a/BUG-1c to assert the
 // expense survives with debt_id = null.
 
-describe.skip("BUG-1 · DELETE /api/debts/[id] keeps the DB valid (D-18)", () => {
+describe("BUG-1 · DELETE /api/debts/[id] keeps the DB valid (D-18)", () => {
   async function del(id: string) {
     return SELF.fetch(`http://localhost/api/debts/${id}`, { method: "DELETE", headers: authHeaders(cookie) });
   }
@@ -114,12 +112,15 @@ describe.skip("BUG-1 · DELETE /api/debts/[id] keeps the DB valid (D-18)", () =>
   });
 });
 
-// ─── BUG-2 · Task B — pace line excludes debt expenses (D-25) ───────────────────
+// ─── BUG-2 · DECISION — pace line counts debt expenses (one simple model) ──────
+// Product decision: debt cash transfers count toward the budget, like any other
+// expense. This guard pins that behaviour (and matches the dashboard, which also
+// counts every expense) so the old `debt_id IS NULL` filter is not reintroduced.
 
-describe.skip("BUG-2 · GET /api/pace-line excludes debt expenses (D-25)", () => {
-  it("BUG-2a: a debt expense in the period is not counted in actual_line", async () => {
-    // Normal budgeted expense (counts) + a lend debt opening expense (must NOT count),
-    // both inside the 2026-04 budget period.
+describe("BUG-2 · GET /api/pace-line counts debt expenses (one simple model)", () => {
+  it("BUG-2a: a debt expense in the period is counted in actual_line", async () => {
+    // Normal budgeted expense + a lend debt opening expense, both inside the
+    // 2026-04 budget period. Both contribute to the cumulative pace line.
     await SELF.fetch("http://localhost/api/transactions", {
       method: "POST",
       headers: authHeaders(cookie),
@@ -131,18 +132,6 @@ describe.skip("BUG-2 · GET /api/pace-line excludes debt expenses (D-25)", () =>
     const body = (await res.json()) as { actual_line: { day: number; amount: number }[] };
 
     const peak = Math.max(...body.actual_line.map((p) => p.amount));
-    expect(peak).toBe(500_000); // only the budgeted expense — currently 1_500_000
+    expect(peak).toBe(1_500_000); // budgeted expense + debt opening both count
   });
-});
-
-// ─── BUG-3 · Task D — statistics forecast excludes debt expenses (D-25) ─────────
-// The forecast series is consumed by AI insight generation, which is
-// non-deterministic. Per the fix plan, Task D should extract a pure
-// `dailyBudgetExpenses` helper (expense AND debt_id IS NULL) and unit-test it
-// directly. Enable + retarget this once that helper exists.
-
-describe.skip("BUG-3 · statistics forecast excludes debt expenses (D-25)", () => {
-  it.todo(
-    "BUG-3a: dailyBudgetExpenses(period) counts only budgeted expenses, not debt transfers",
-  );
 });

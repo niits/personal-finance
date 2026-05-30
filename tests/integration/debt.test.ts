@@ -107,27 +107,6 @@ describe("INT-SCHEMA: debt table (post-0013)", () => {
     ).bind(tx!.id).first<{ debt_id: string | null }>();
     expect(row?.debt_id).toBeNull();
   });
-
-  // KNOWN DEFECT (D-18 vs migration 0012 CHECK): a `lend` debt's opening
-  // transaction is an unbudgeted EXPENSE. `ON DELETE SET NULL` then leaves an
-  // expense with neither budget nor debt, which violates the transaction CHECK
-  // and aborts the delete. So deleting a lend debt currently throws instead of
-  // succeeding. Documented here so the constraint interaction is not silently
-  // lost; the fix (e.g. cascade-delete debt expenses, or relax the CHECK) is a
-  // production change tracked separately.
-  it("INT-SCHEMA-6b: deleting a lend debt with an unbudgeted opening expense violates the CHECK (known defect)", async () => {
-    await env.DB.prepare(
-      "INSERT INTO debt (id, user_id, type, party) VALUES ('d-del-lend', 'user-test-1', 'lend', 'Lan2')",
-    ).run();
-    await env.DB.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id)
-       VALUES ('user-test-1', 700000, 'expense', '2026-05-02', 'd-del-lend')`,
-    ).run();
-
-    await expect(
-      env.DB.prepare("DELETE FROM debt WHERE id='d-del-lend'").run(),
-    ).rejects.toThrow(/CHECK constraint failed/);
-  });
 });
 
 describe("INT-SCHEMA: transaction CHECK constraint (migration 0012)", () => {

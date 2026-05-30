@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
+import { LinkTransactionSheet } from "@/components/organisms/LinkTransactionSheet";
+import type { EligibleTransaction } from "@/components/organisms/LinkTransactionSheet";
 import { DebtProgressBar } from "@/components/atoms/DebtProgressBar";
 import { formatVND } from "@/components/atoms/CurrencyDisplay";
-import type { DebtWithRepayments, LinkedTransaction } from "@/lib/debt";
+import { repaymentTxType, type DebtWithRepayments, type LinkedTransaction } from "@/lib/debt";
 import type { TransactionFormMode } from "@/components/organisms/TransactionForm";
 
 const fmt = new Intl.NumberFormat("vi-VN").format;
@@ -20,6 +22,9 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
   const [settling, setSettling] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editDebtOpen, setEditDebtOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [eligible, setEligible] = useState<EligibleTransaction[]>([]);
+  const [eligibleLoading, setEligibleLoading] = useState(false);
 
   useEffect(() => {
     params.then(({ id: pid }) => setId(pid));
@@ -49,6 +54,38 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
       alert(e.error ?? "Không thể hủy liên kết");
       return;
     }
+    await load(true);
+  }
+
+  async function openLink() {
+    if (!debt) return;
+    setLinkOpen(true);
+    setEligibleLoading(true);
+    try {
+      // Eligible repayments: standalone (debt_id null) transactions of the
+      // repayment type for this debt, within the current budget period.
+      const res = await fetch(`/api/transactions?type=${repaymentTxType(debt.type)}`);
+      if (!res.ok) { setEligible([]); return; }
+      const data = await res.json() as { transactions: (EligibleTransaction & { debt_id: string | null })[] };
+      setEligible(data.transactions.filter((t) => t.debt_id === null));
+    } finally {
+      setEligibleLoading(false);
+    }
+  }
+
+  async function handleLink(txId: number) {
+    if (!debt) return;
+    const res = await fetch(`/api/transactions/${txId}/link`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ debt_id: debt.id }),
+    });
+    if (!res.ok) {
+      const e = await res.json() as { error?: string };
+      alert(e.error ?? "Không thể liên kết giao dịch");
+      return;
+    }
+    setLinkOpen(false);
     await load(true);
   }
 
@@ -197,7 +234,7 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
 
         {!isSettled && (
           <button
-            onClick={() => {/* TODO: LinkTransactionSheet */}}
+            onClick={openLink}
             style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--primary)", cursor: "pointer", padding: "12px 0", display: "block" }}
           >
             + Liên kết giao dịch có sẵn
@@ -259,6 +296,16 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Edit debt info */}
       {editDebtOpen && <EditDebtSheet debt={debt} onClose={() => setEditDebtOpen(false)} onSaved={() => { setEditDebtOpen(false); load(true); }} />}
+
+      {/* Link an existing transaction as a repayment */}
+      {linkOpen && (
+        <LinkTransactionSheet
+          transactions={eligible}
+          loading={eligibleLoading}
+          onSelect={handleLink}
+          onClose={() => setLinkOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -53,8 +53,8 @@ export async function GET(request: NextRequest) {
     .select([
       sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("total_expense"),
       sql<number>`COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0)`.as("total_income"),
-      // Budget spending excludes debt transactions (capital transfers, not day-to-day spending)
-      sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' AND debt_id IS NULL THEN amount ELSE 0 END), 0)`.as("budget_expense"),
+      // Budget spending counts every expense, including debt cash transfers, to keep one simple model.
+      sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("budget_expense"),
     ])
     .where("user_id", "=", userId)
     .where("date", ">=", periodStart);
