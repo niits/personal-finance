@@ -12,7 +12,7 @@ export function DebtPartyCard({ debt, onTap }: DebtPartyCardProps) {
   const isSettled = debt.status === "settled";
 
   return (
-    <button
+    <button type="button"
       onClick={() => onTap?.(debt.id)}
       style={{
         width: "100%",

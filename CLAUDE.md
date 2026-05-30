@@ -244,7 +244,10 @@ Use `/frontend-design` skill when building any UI component or page.
 - Never inline hex values — always reference CSS custom properties from `globals.css`
 - Never add a second accent color
 - One drop-shadow in the entire system, reserved for product imagery only
-- Apply tokens as Tailwind classes or inline `style` using `var(--token-name)`
+- **Prefer Tailwind utility classes over inline `style`.** Tokens are exposed as utilities via the
+  `@theme inline` block in `globals.css` (`text-ink`, `bg-canvas`, `p-md`, `rounded-lg`, `font-body`, …).
+  Use arbitrary-value utilities (`text-[15px]`, `leading-[1.3]`) for non-token one-offs. Reserve inline
+  `style` for genuinely dynamic, runtime-computed values (progress widths, chart colors). See `DESIGN.md` → Styling Implementation.
 
 ---
 

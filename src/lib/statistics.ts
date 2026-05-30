@@ -8,6 +8,9 @@ import { createAnalyticsService } from "@/lib/analytics/service";
 import { METRIC_NAMES, METRIC_CATALOG, DIMENSION_NAMES, TIME_GRAINS } from "@/lib/analytics/metrics";
 import { getBudgetMonthForDate, currentBudgetMonth } from "@/lib/validators";
 
+// Hoisted to module scope: Intl constructors allocate per-call, so reuse one instance.
+const _vndFormat = new Intl.NumberFormat("vi-VN");
+
 export type InsightType = "analysis" | "recommendation" | "alert";
 
 export type ChartType = "pie" | "bar" | "line" | "bar_grouped" | "forecast_line";
@@ -372,7 +375,6 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
       n >= 1_000_000
         ? `${Math.round(n / 1_000_000)}tr`
         : `${Math.round(n / 1_000)}k`;
-    const fmtVND = new Intl.NumberFormat("vi-VN");
 
     forecastInsight = {
       type: isOver ? "alert" : "analysis",
@@ -380,8 +382,8 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
         ? `Dự báo vượt ${compactVND(diff)}`
         : `Dự báo tiết kiệm ${compactVND(diff)}`,
       summary: isOver
-        ? `Nếu duy trì tốc độ hiện tại, bạn sẽ vượt quá ngân sách với chi tiêu dự kiến đạt ${fmtVND.format(projTotal)} VND. Cân đối chi tiêu để tránh thiếu hụt.`
-        : `Chi tiêu đang trong ngân sách. Dự kiến tiết kiệm được ${fmtVND.format(budget.amount - projTotal)} VND cuối tháng.`,
+        ? `Nếu duy trì tốc độ hiện tại, bạn sẽ vượt quá ngân sách với chi tiêu dự kiến đạt ${_vndFormat.format(projTotal)} VND. Cân đối chi tiêu để tránh thiếu hụt.`
+        : `Chi tiêu đang trong ngân sách. Dự kiến tiết kiệm được ${_vndFormat.format(budget.amount - projTotal)} VND cuối tháng.`,
       chart_type: "forecast_line",
       chart_data: [...actualCumData, ...budgetCumData],
       value_unit: "currency",
@@ -392,7 +394,7 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
   // Prepend forecast insight; drop any AI-generated insight that has both
   // "Ngân sách" + "Thực tế" series (those are duplicate budget-pace charts).
   const aiInsights = capturedInsights.filter((ins) => {
-    const seriesNames = new Set(ins.chart_data?.map((d) => d.series).filter(Boolean));
+    const seriesNames = new Set(ins.chart_data?.flatMap((d) => d.series ? [d.series] : []));
     return !(seriesNames.has("Ngân sách") && seriesNames.has("Thực tế"));
   });
   const finalInsights: Insight[] = forecastInsight

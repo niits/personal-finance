@@ -97,14 +97,14 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
       const sid = r.suggested_category_id;
       return typeof sid === "string" ? tempIds.has(sid) : validCategoryIds.has(sid);
     })
-    .map((r) => {
+    .flatMap((r) => {
       const txn = transactions.find((t) => t.id === r.transaction_id);
-      if (!txn) return null;
+      if (!txn) return [];
       const sid = r.suggested_category_id;
       const suggestedName = typeof sid === "string"
         ? (result.new_categories.find((c) => c.temp_id === sid)?.name ?? sid)
         : (catMap.get(sid as number)?.name ?? String(sid));
-      return {
+      return [{
         transaction_id: r.transaction_id,
         note: txn.note,
         current_category_id: txn.category_id,
@@ -112,9 +112,8 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
         suggested_category_id: r.suggested_category_id,
         suggested_category_name: suggestedName,
         reason: r.reason,
-      };
-    })
-    .filter(Boolean);
+      }];
+    });
 
   return Response.json({
     new_categories: result.new_categories,

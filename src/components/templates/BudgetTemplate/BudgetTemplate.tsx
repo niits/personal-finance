@@ -262,7 +262,7 @@ export function BudgetTemplate({
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                 {[3000000, 5000000, 7000000, 10000000].map((n) => (
-                  <button key={n} onClick={() => { setCreateStr(fmt(n)); setCreateErr(""); }}
+                  <button type="button" key={n} onClick={() => { setCreateStr(fmt(n)); setCreateErr(""); }}
                     style={{
                       padding: "5px 12px", borderRadius: 999, border: "1px solid var(--hairline)",
                       background: createStr === fmt(n) ? "var(--primary)" : "var(--canvas-parchment)",
@@ -274,7 +274,7 @@ export function BudgetTemplate({
                 ))}
               </div>
               {createErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 10 }}>{createErr}</p>}
-              <button onClick={createBudget} disabled={createSaving || !createStr}
+              <button type="button" onClick={createBudget} disabled={createSaving || !createStr}
                 style={{
                   width: "100%", padding: "12px", borderRadius: 999, border: "none",
                   background: createStr ? "var(--primary)" : "var(--hairline)",
@@ -288,7 +288,7 @@ export function BudgetTemplate({
 
           {/* Adjust button */}
           {monthlyBudget && !adjOpen && (
-            <button onClick={() => setAdjOpen(true)}
+            <button type="button" onClick={() => setAdjOpen(true)}
               style={{
                 width: "100%", padding: "14px 20px", background: "transparent", border: "none",
                 color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14,
@@ -307,7 +307,7 @@ export function BudgetTemplate({
 
               <div style={{ display: "flex", background: "var(--canvas-parchment)", borderRadius: 10, padding: 3, marginBottom: 12 }}>
                 {([1, -1] as const).map((s) => (
-                  <button key={s} onClick={() => setAdjSign(s)}
+                  <button type="button" key={s} onClick={() => setAdjSign(s)}
                     style={{
                       flex: 1, padding: "8px", borderRadius: 8, border: "none",
                       background: adjSign === s ? (s === 1 ? "#30d158" : "#ff453a") : "transparent",
@@ -351,14 +351,14 @@ export function BudgetTemplate({
               {adjErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 10 }}>{adjErr}</p>}
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setAdjOpen(false); setAdjDeltaStr(""); setAdjNote(""); setAdjErr(""); }}
+                <button type="button" onClick={() => { setAdjOpen(false); setAdjDeltaStr(""); setAdjNote(""); setAdjErr(""); }}
                   style={{
                     flex: 1, padding: "11px", borderRadius: 999, border: "1px solid var(--hairline)",
                     background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer",
                   }}>
                   Huỷ
                 </button>
-                <button onClick={adjust} disabled={adjSaving || !adjDeltaStr}
+                <button type="button" onClick={adjust} disabled={adjSaving || !adjDeltaStr}
                   style={{
                     flex: 2, padding: "11px", borderRadius: 999, border: "none",
                     background: adjDeltaStr ? (adjSign === 1 ? "#30d158" : "#ff453a") : "var(--hairline)",
@@ -378,7 +378,7 @@ export function BudgetTemplate({
             <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", letterSpacing: 0.5, textTransform: "uppercase" }}>
               Ngân sách riêng
             </p>
-            <button onClick={() => setCbOpen(!cbOpen)}
+            <button type="button" onClick={() => setCbOpen(!cbOpen)}
               style={{
                 background: "var(--primary)", color: "#fff", border: "none",
                 borderRadius: 999, padding: "5px 14px",
@@ -424,14 +424,14 @@ export function BudgetTemplate({
               </div>
               {cbErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 8 }}>{cbErr}</p>}
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setCbOpen(false); setCbName(""); setCbAmountStr(""); setCbErr(""); }}
+                <button type="button" onClick={() => { setCbOpen(false); setCbName(""); setCbAmountStr(""); setCbErr(""); }}
                   style={{
                     flex: 1, padding: "10px", borderRadius: 999, border: "1px solid var(--hairline)",
                     background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer",
                   }}>
                   Huỷ
                 </button>
-                <button onClick={createCustom} disabled={cbSaving}
+                <button type="button" onClick={createCustom} disabled={cbSaving}
                   style={{
                     flex: 2, padding: "10px", borderRadius: 999, border: "none",
                     background: "var(--primary)", color: "#fff",
@@ -495,11 +495,11 @@ export function BudgetTemplate({
                         </div>
                         {editErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 8 }}>{editErr}</p>}
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => setEditingCbId(null)}
+                          <button type="button" onClick={() => setEditingCbId(null)}
                             style={{ flex: 1, padding: "10px", borderRadius: 999, border: "1px solid var(--hairline)", background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer" }}>
                             Huỷ
                           </button>
-                          <button onClick={updateCustom} disabled={editSaving}
+                          <button type="button" onClick={updateCustom} disabled={editSaving}
                             style={{ flex: 2, padding: "10px", borderRadius: 999, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 14, cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? 0.7 : 1 }}>
                             {editSaving ? "Đang lưu…" : "Lưu"}
                           </button>
@@ -514,11 +514,11 @@ export function BudgetTemplate({
                           Quỹ này đang có giao dịch liên kết. Xoá sẽ gỡ liên kết các giao dịch khỏi quỹ, giao dịch không bị xoá.
                         </p>
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => setConfirmDeleteId(null)}
+                          <button type="button" onClick={() => setConfirmDeleteId(null)}
                             style={{ flex: 1, padding: "10px", borderRadius: 999, border: "1px solid var(--hairline)", background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer" }}>
                             Huỷ
                           </button>
-                          <button onClick={() => confirmDelete(cb.id)}
+                          <button type="button" onClick={() => confirmDelete(cb.id)}
                             style={{ flex: 2, padding: "10px", borderRadius: 999, border: "none", background: "#ff453a", color: "#fff", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer" }}>
                             Xác nhận xoá
                           </button>
@@ -537,12 +537,12 @@ export function BudgetTemplate({
                           </div>
                           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                             {cb.is_active === 1 && (
-                              <button onClick={() => startEdit(cb)}
+                              <button type="button" onClick={() => startEdit(cb)}
                                 style={{ padding: "4px 10px", borderRadius: 999, border: "1px solid var(--hairline)", background: "var(--canvas-parchment)", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer" }}>
                                 Sửa
                               </button>
                             )}
-                            <button onClick={() => onToggleCustomBudget(cb.id, cb.is_active !== 1)}
+                            <button type="button" onClick={() => onToggleCustomBudget(cb.id, cb.is_active !== 1)}
                               style={{
                                 padding: "4px 10px", borderRadius: 999, border: "1px solid var(--hairline)",
                                 background: cb.is_active ? "var(--canvas-parchment)" : "var(--ink)",
@@ -551,7 +551,7 @@ export function BudgetTemplate({
                               }}>
                               {cb.is_active ? "Tắt" : "Bật"}
                             </button>
-                            <button
+                            <button type="button"
                               onClick={() => canDelete ? requestDelete(cb) : undefined}
                               disabled={!canDelete}
                               style={{

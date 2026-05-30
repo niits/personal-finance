@@ -60,7 +60,7 @@ export default function SignInPage() {
           </h1>
         </div>
 
-        <button
+        <button type="button"
           onClick={() => signIn.social({ provider: "github", callbackURL: `${window.location.origin}/` })}
           style={{
             width: "100%",

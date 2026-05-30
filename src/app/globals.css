@@ -40,6 +40,54 @@
   --radius-lg: 18px;
 }
 
+/*
+ * Expose the :root design tokens above as Tailwind utility classes.
+ * `inline` makes the generated utilities reference the variables (e.g.
+ * `text-ink` → `color: var(--ink)`) instead of copying their values, so the
+ * `:root` block stays the single source of truth and existing
+ * `style={{ color: "var(--ink)" }}` usages keep resolving.
+ * Prefer these utilities over inline styles in new/edited components.
+ */
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-focus: var(--primary-focus);
+  --color-primary-on-dark: var(--primary-on-dark);
+  --color-ink: var(--ink);
+  --color-ink-muted-80: var(--ink-muted-80);
+  --color-ink-muted-48: var(--ink-muted-48);
+  --color-canvas: var(--canvas);
+  --color-canvas-parchment: var(--canvas-parchment);
+  --color-surface-black: var(--surface-black);
+  --color-surface-tile-1: var(--surface-tile-1);
+  --color-surface-chip-translucent: var(--surface-chip-translucent);
+  --color-divider-soft: var(--divider-soft);
+  --color-hairline: var(--hairline);
+  --color-surface-white: var(--surface-white);
+  --color-surface-pearl: var(--surface-pearl);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-on-dark: var(--on-dark);
+  --color-on-primary: var(--on-primary);
+  --color-body-muted: var(--body-muted);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-pill: var(--radius-pill);
+
+  --spacing-xxs: var(--space-xxs);
+  --spacing-xs: var(--space-xs);
+  --spacing-sm: var(--space-sm);
+  --spacing-md: var(--space-md);
+  --spacing-lg: var(--space-lg);
+  --spacing-xl: var(--space-xl);
+  --spacing-xxl: var(--space-xxl);
+  --spacing-section: var(--space-section);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* Accessible focus: hide outline for mouse, show ring for keyboard navigation */

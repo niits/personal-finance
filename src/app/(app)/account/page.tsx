@@ -286,7 +286,7 @@ export default function AccountPage() {
             }
             action={
               accountLoadError || githubLinked === null ? null : githubLinked ? (
-                <button
+                <button type="button"
                   disabled
                   title="Tạm thời không thể bỏ liên kết GitHub trong lúc các phương thức khác đang bị tắt."
                   style={{ ...unlinkBtnStyle, opacity: 0.35, cursor: "not-allowed" }}
@@ -294,7 +294,7 @@ export default function AccountPage() {
                   Tạm khóa
                 </button>
               ) : (
-                <button onClick={handleLinkGitHub} style={actionBtnStyle}>
+                <button type="button" onClick={handleLinkGitHub} style={actionBtnStyle}>
                   <GitHubIcon /> Liên kết
                 </button>
               )
@@ -379,10 +379,10 @@ export default function AccountPage() {
               Tải về toàn bộ giao dịch, danh mục và ngân sách của bạn.
             </p>
             <div style={{ display: "flex", gap: "var(--space-sm)" }}>
-              <button onClick={() => handleExport("json")} style={exportBtnStyle}>
+              <button type="button" onClick={() => handleExport("json")} style={exportBtnStyle}>
                 Tải JSON
               </button>
-              <button onClick={() => handleExport("csv")} style={exportBtnStyle}>
+              <button type="button" onClick={() => handleExport("csv")} style={exportBtnStyle}>
                 Tải CSV
               </button>
             </div>
@@ -391,7 +391,7 @@ export default function AccountPage() {
 
         {/* Sign out */}
         <SectionGroup label="Phiên đăng nhập">
-          <button
+          <button type="button"
             onClick={() => signOut({ fetchOptions: { onSuccess: () => router.replace("/sign-in") } })}
             style={{
               width: "100%",

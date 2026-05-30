@@ -232,11 +232,11 @@ export function DashboardTemplate({
 
         {/* Month navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2 }}>
-          <button style={chevronStyle()} onClick={onPrevMonth}>‹</button>
+          <button type="button" style={chevronStyle()} onClick={onPrevMonth}>‹</button>
           <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.5)", letterSpacing: -0.12 }}>
             {selectedMonth ? toMonthLabel(selectedMonth) : ""}
           </span>
-          <button style={chevronStyle(isCurrentMonth)} onClick={() => !isCurrentMonth && onNextMonth()}>›</button>
+          <button type="button" style={chevronStyle(isCurrentMonth)} onClick={() => !isCurrentMonth && onNextMonth()}>›</button>
         </div>
 
         {data && (
@@ -250,7 +250,7 @@ export function DashboardTemplate({
             {loading ? "—" : `${fmt(displayedAmount)}₫`}
           </p>
           {onFillEmoji && (
-            <button
+            <button type="button"
               onClick={onFillEmoji}
               style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, flexShrink: 0, marginTop: 2 }}
               title="Gợi ý emoji"
@@ -319,7 +319,7 @@ export function DashboardTemplate({
             const isAll = label === "Tất cả";
             const active = isAll ? selectedRoot === null : selectedRoot === label;
             return (
-              <button
+              <button type="button"
                 key={label}
                 onClick={() => setSelectedRoot(isAll ? null : (selectedRoot === label ? null : label))}
                 style={{ flex: 1, padding: "6px 4px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, background: active ? "var(--primary)" : "var(--canvas-parchment)", color: active ? "#fff" : "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -421,7 +421,7 @@ export function DashboardTemplate({
       {/* ── FAB ── */}
       {data?.monthly_budget && (
         <div style={{ position: "fixed", bottom: 84, right: 20, zIndex: 40 }}>
-          <button onClick={() => onOpenForm()}
+          <button type="button" onClick={() => onOpenForm()}
             style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--primary)", color: "#fff", fontSize: 28, lineHeight: 1, border: "none", cursor: "pointer", boxShadow: "0 4px 16px rgba(0,102,204,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             +
           </button>
@@ -458,11 +458,11 @@ export function DashboardTemplate({
               )}
             </div>
             <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => { onOpenForm(actionTxn); onSetActionTxn(null); }}
+              <button type="button" onClick={() => { onOpenForm(actionTxn); onSetActionTxn(null); }}
                 style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "var(--canvas-parchment)", color: "var(--ink)", fontFamily: "var(--font-body)", fontSize: 16, fontWeight: 600, cursor: "pointer" }}>
                 Sửa
               </button>
-              <button onClick={() => onDelete(actionTxn)} disabled={deleting}
+              <button type="button" onClick={() => onDelete(actionTxn)} disabled={deleting}
                 style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "rgba(255,69,58,0.1)", color: "#ff453a", fontFamily: "var(--font-body)", fontSize: 16, fontWeight: 600, cursor: deleting ? "not-allowed" : "pointer", opacity: deleting ? 0.6 : 1 }}>
                 {deleting ? "Đang xoá…" : "Xoá"}
               </button>
@@ -472,6 +472,7 @@ export function DashboardTemplate({
       )}
 
       <TransactionForm
+        key={editTxn?.id ?? "create"}
         open={formOpen}
         onClose={onCloseForm}
         onSaved={onSaved}

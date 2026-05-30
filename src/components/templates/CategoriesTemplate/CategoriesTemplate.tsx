@@ -275,7 +275,7 @@ export function CategoriesTemplate({
           <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "#ff453a", marginBottom: 16 }}>
             Không thể kiểm tra danh mục lúc này.
           </p>
-          <button onClick={closeSheet} style={ghostBtnStyle}>Đóng</button>
+          <button type="button" onClick={closeSheet} style={ghostBtnStyle}>Đóng</button>
         </div>
       );
     }
@@ -288,7 +288,7 @@ export function CategoriesTemplate({
             <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)", marginBottom: 20 }}>
               Tất cả giao dịch đã có danh mục phù hợp
             </p>
-            <button onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
+            <button type="button" onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
           </div>
         );
       }
@@ -357,8 +357,8 @@ export function CategoriesTemplate({
             ))}
           </div>
           <div style={{ padding: "14px 20px", display: "flex", gap: 10 }}>
-            <button onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Bỏ qua</button>
-            <button
+            <button type="button" onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Bỏ qua</button>
+            <button type="button"
               onClick={applyRecategorize}
               disabled={applyingRecat || selectedCount === 0}
               style={{ ...primaryBtnStyle, flex: 2, opacity: selectedCount === 0 ? 0.4 : 1 }}
@@ -378,7 +378,7 @@ export function CategoriesTemplate({
           <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)", marginBottom: 20 }}>
             Danh mục hiện tại đã phù hợp với lịch sử giao dịch
           </p>
-          <button onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
+          <button type="button" onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
         </div>
       );
     }
@@ -459,8 +459,8 @@ export function CategoriesTemplate({
           ))}
         </div>
         <div style={{ padding: "14px 20px", display: "flex", gap: 10 }}>
-          <button onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Huỷ</button>
-          <button
+          <button type="button" onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Huỷ</button>
+          <button type="button"
             onClick={applySelected}
             disabled={applying || selectedCount === 0}
             style={{ ...primaryBtnStyle, flex: 2, opacity: selectedCount === 0 ? 0.4 : 1 }}
@@ -497,7 +497,7 @@ export function CategoriesTemplate({
           </h1>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
+          <button type="button"
             onClick={openSuggest}
             style={{
               background: "transparent",
@@ -513,7 +513,7 @@ export function CategoriesTemplate({
           >
             ✦ Gợi ý
           </button>
-          <button
+          <button type="button"
             onClick={() => setShowForm(!showForm)}
             style={{
               background: "var(--primary)",
@@ -599,7 +599,7 @@ export function CategoriesTemplate({
             {parentId === null ? (
               <div style={{ display: "flex", gap: 8 }}>
                 {(["expense", "income"] as const).map((t) => (
-                  <button
+                  <button type="button"
                     key={t}
                     onClick={() => setNewType(t)}
                     style={{
@@ -632,7 +632,7 @@ export function CategoriesTemplate({
             )}
 
             <div style={{ display: "flex", gap: 8 }}>
-              <button
+              <button type="button"
                 onClick={() => { setShowForm(false); setError(""); }}
                 style={{
                   flex: 1,
@@ -648,7 +648,7 @@ export function CategoriesTemplate({
               >
                 Huỷ
               </button>
-              <button
+              <button type="button"
                 onClick={save}
                 disabled={saving || !newName.trim()}
                 style={{
@@ -686,7 +686,7 @@ export function CategoriesTemplate({
             <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 24 }}>
               Tạo thủ công hoặc dùng bộ danh mục mẫu
             </p>
-            <button
+            <button type="button"
               onClick={() => onAddCategory("_seed_", null, null, "expense")}
               disabled={saving}
               style={{
@@ -758,7 +758,7 @@ export function CategoriesTemplate({
                     ? "Kiểm tra danh mục"
                     : "✦ Gợi ý danh mục"}
                 </span>
-                <button
+                <button type="button"
                   onClick={closeSheet}
                   style={{
                     background: "none", border: "none", cursor: "pointer",

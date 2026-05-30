@@ -35,7 +35,7 @@ export function Navbar() {
             <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "var(--font-body)" }}>
               {session.user.name || session.user.email}
             </span>
-            <button
+            <button type="button"
               onClick={() => signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/"; } } })}
               style={{ background: "transparent", border: "none", color: "var(--primary-on-dark)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer", padding: "4px 0", letterSpacing: -0.12 }}
             >
@@ -43,7 +43,7 @@ export function Navbar() {
             </button>
           </>
         ) : (
-          <button
+          <button type="button"
             onClick={() => signIn.social({ provider: "github", callbackURL: "/" })}
             style={{ background: "transparent", border: "none", color: "var(--primary-on-dark)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer", padding: "4px 0", letterSpacing: -0.12 }}
           >

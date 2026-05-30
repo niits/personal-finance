@@ -147,7 +147,7 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
 
         {/* CTA */}
         <div style={{ padding: "12px 16px 28px", flexShrink: 0, borderTop: "1px solid var(--hairline)" }}>
-          <button
+          <button type="button"
             onClick={handleApply}
             disabled={applying || !hasAnything}
             style={{

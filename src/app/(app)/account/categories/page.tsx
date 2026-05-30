@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import useSWR, { mutate } from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { CategoriesTemplate } from "@/components/templates/CategoriesTemplate";
@@ -16,7 +16,8 @@ export default function CategoriesPage() {
   const [suggestState, setSuggestState] = useState<"loading" | "done" | "error" | "idle">("idle");
   const [recatSuggestions, setRecatSuggestions] = useState<RecategorizeSuggestion[] | null>(null);
   const [recatState, setRecatState] = useState<"loading" | "done" | "error" | "idle">("idle");
-  const [runId, setRunId] = useState<number | null>(null);
+  // run id is only consulted inside handlers, never rendered → ref avoids re-renders
+  const runIdRef = useRef<number | null>(null);
   const [fillEmojiState, setFillEmojiState] = useState<"idle" | "loading" | "done" | "error">("idle");
 
   async function handleAddCategory(
@@ -97,7 +98,7 @@ export default function CategoriesPage() {
     const d = await r.json() as { suggestions: Suggestion[]; run_id: number; error?: string };
     if (!r.ok) { setSuggestState("error"); return; }
     setSuggestions(d.suggestions ?? []);
-    setRunId(d.run_id ?? null);
+    runIdRef.current = d.run_id ?? null;
     setSuggestState("done");
   }
 
@@ -114,8 +115,8 @@ export default function CategoriesPage() {
     setRecatSuggestions(null);
 
     // Mark run as available
-    if (runId) {
-      await fetch(`/api/ai-suggestion-runs/${runId}`, {
+    if (runIdRef.current) {
+      await fetch(`/api/ai-suggestion-runs/${runIdRef.current}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "available" }),

@@ -35,7 +35,7 @@ export default function DebtsPage() {
   if (loading || !data) {
     return (
       <div style={{ minHeight: "100dvh", background: "var(--canvas-parchment)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>Đang tải...</div>
+        <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>Đang tải…</div>
       </div>
     );
   }

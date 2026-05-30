@@ -85,7 +85,7 @@ export function DebtOverviewTemplate({ lending, borrowing, settled, onOpenTransa
         {/* Settled */}
         {settled.length > 0 && (
           <section style={{ marginTop: 8 }}>
-            <button
+            <button type="button"
               onClick={() => setSettledOpen((v) => !v)}
               style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, padding: "8px 0", marginBottom: 8 }}
             >
@@ -101,7 +101,7 @@ export function DebtOverviewTemplate({ lending, borrowing, settled, onOpenTransa
       </div>
 
       {/* FAB */}
-      <button
+      <button type="button"
         onClick={onOpenTransactionForm}
         style={{
           position: "fixed", bottom: "calc(72px + env(safe-area-inset-bottom))", right: 20,

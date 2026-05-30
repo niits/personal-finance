@@ -373,7 +373,7 @@ function ErrorState({ error, onRetry }: { error: ApiError | null; onRetry: () =>
           </pre>
         </details>
       )}
-      <button
+      <button type="button"
         onClick={onRetry}
         style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, cursor: "pointer" }}
       >
@@ -397,7 +397,7 @@ function EmptyState({ monthLabel, showJumpToCurrent, onJumpToCurrent }: {
         Không có giao dịch nào trong {monthLabel} để phân tích.
       </p>
       {showJumpToCurrent && (
-        <button
+        <button type="button"
           onClick={onJumpToCurrent}
           style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, cursor: "pointer" }}
         >
@@ -493,11 +493,11 @@ export function StatisticsTemplate({
       {/* ── Header ── */}
       <div style={{ background: "var(--surface-black)", color: "var(--on-dark)", padding: "28px 20px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 4 }}>
-          <button style={chevron()} onClick={onPrevMonth}>‹</button>
+          <button type="button" style={chevron()} onClick={onPrevMonth}>‹</button>
           <span style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, letterSpacing: -0.374, flex: 1, textAlign: "center" }}>
             {toMonthLabel(selectedMonth)}
           </span>
-          <button style={chevron(isAtUpperBound)} onClick={() => !isAtUpperBound && onNextMonth()}>›</button>
+          <button type="button" style={chevron(isAtUpperBound)} onClick={() => !isAtUpperBound && onNextMonth()}>›</button>
         </div>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.35)", textAlign: "center", letterSpacing: -0.1 }}>
           Phân tích chi tiêu
@@ -570,7 +570,7 @@ export function StatisticsTemplate({
                 {regenError.details?.message ?? regenError.error}
               </p>
             </div>
-            <button
+            <button type="button"
               onClick={onDismissRegenError}
               style={{ background: "none", border: "none", color: "var(--ink-muted-48)", cursor: "pointer", fontSize: 18, lineHeight: 1, flexShrink: 0, padding: 0 }}
               aria-label="Đóng"
@@ -590,7 +590,7 @@ export function StatisticsTemplate({
                   day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit",
                 })}`}
               </p>
-              <button
+              <button type="button"
                 onClick={onRegenerate}
                 disabled={refreshing}
                 style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 12, color: "var(--primary)", cursor: refreshing ? "default" : "pointer", padding: "4px 0", opacity: refreshing ? 0.4 : 1 }}

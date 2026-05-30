@@ -54,7 +54,7 @@ export function LinkTransactionSheet({
         ) : (
           <div style={{ overflowY: "auto" }}>
             {transactions.map((tx, i) => (
-              <button
+              <button type="button"
                 key={tx.id}
                 onClick={() => onSelect(tx.id)}
                 style={{

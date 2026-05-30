@@ -120,7 +120,7 @@ function CategoryDrillDown({
   return (
     <div>
       {path.length > 0 && (
-        <button onClick={() => setPath((p) => p.slice(0, -1))} style={{ ...rowStyle, color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14 }}>
+        <button type="button" onClick={() => setPath((p) => p.slice(0, -1))} style={{ ...rowStyle, color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14 }}>
           ← Quay lại
         </button>
       )}
@@ -128,7 +128,7 @@ function CategoryDrillDown({
         const isSelected = cat.id === selected || (cat.children.length > 0 && findSelectedChild(cat, selected) !== null);
         const childLabel = findSelectedChild(cat, selected);
         return (
-          <button key={cat.id} onClick={() => handleSelect(cat)} style={{ ...rowStyle, borderBottom: "1px solid var(--hairline)" }}>
+          <button type="button" key={cat.id} onClick={() => handleSelect(cat)} style={{ ...rowStyle, borderBottom: "1px solid var(--hairline)" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: isSelected ? "var(--primary)" : "var(--ink)", fontWeight: isSelected ? 600 : 400 }}>
                 {cat.name}
@@ -202,7 +202,7 @@ function DebtLinkSection({
 
   return (
     <div>
-      <button
+      <button type="button"
         onClick={() => setExpanded((e) => !e)}
         style={{
           width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -228,8 +228,7 @@ function DebtLinkSection({
           {state.kind === "new-debt" && (
             <div style={{ paddingLeft: 20, paddingBottom: 8 }}>
               <input
-                autoFocus
-                placeholder={txType === "expense" ? "Cho vay ai..." : "Vay của ai..."}
+                placeholder={txType === "expense" ? "Cho vay ai…" : "Vay của ai…"}
                 value={state.party}
                 onChange={(e) => onChange({ ...state, party: e.target.value })}
                 style={inputStyle}
@@ -278,7 +277,7 @@ const inputStyle: React.CSSProperties = {
 
 function Option({ label, sublabel, selected, onSelect }: { label: string; sublabel?: string; selected: boolean; onSelect: () => void }) {
   return (
-    <button
+    <button type="button"
       onClick={onSelect}
       style={{
         width: "100%", display: "flex", alignItems: "center", gap: 10,
@@ -346,25 +345,9 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     }
   }, [open]);
 
-  // Re-sync when switching edit targets
-  useEffect(() => {
-    if (isEdit && editTx) {
-      setType(editTx.type);
-      setAmountStr(fmt(editTx.amount));
-      setCategoryId(editTx.category?.id ?? null);
-      setDate(editTx.date);
-      setNote(editTx.note ?? "");
-      setEmoji(editTx.emoji ?? null);
-      setSelectedCbIds(editTx.custom_budgets.map((c) => c.id));
-      setDebtLink({ kind: "none" });
-      setUnlinkMode(false);
-    }
-  }, [isEdit, editTx]);
-
-  // Reset category when type changes (create mode only)
-  useEffect(() => {
-    if (!isEdit && !isRepayment) setCategoryId(null);
-  }, [type, isEdit, isRepayment]);
+  // NOTE: switching edit targets is handled by remounting via a `key` prop at
+  // the call site (see DashboardTemplate), so the useState initializers above
+  // re-run for the new transaction — no prop-sync effect needed.
 
   const { data: catData } = useSWR<{ categories: Category[] }>(
     open && !isRepayment ? "/api/categories" : null, fetcher,
@@ -528,13 +511,13 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
         {/* Nav bar */}
         <div style={{ display: "flex", alignItems: "center", padding: "4px 16px 12px", flexShrink: 0 }}>
-          <button onClick={handleClose} style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 28, color: "var(--ink-muted-48)", cursor: "pointer", padding: "0 8px 0 0", lineHeight: 1 }}>
+          <button type="button" onClick={handleClose} style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 28, color: "var(--ink-muted-48)", cursor: "pointer", padding: "0 8px 0 0", lineHeight: 1 }}>
             ✕
           </button>
           <span style={{ flex: 1, textAlign: "center", fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.4 }}>
             {title}
           </span>
-          <button
+          <button type="button"
             onClick={submit}
             disabled={saving}
             style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: saving ? "var(--ink-muted-48)" : "var(--primary)", cursor: saving ? "not-allowed" : "pointer", padding: "0 0 0 8px" }}
@@ -571,7 +554,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                   {editTx.is_opening_tx && <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginLeft: 6 }}>(Gốc)</span>}
                 </span>
               </div>
-              <button
+              <button type="button"
                 onClick={() => setUnlinkMode(true)}
                 style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--destructive)", cursor: "pointer", fontWeight: 600 }}
               >
@@ -584,7 +567,13 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           {!isRepayment && !(isEdit && editTx?.debt_id && !unlinkMode) && (
             <div style={{ display: "flex", background: "var(--canvas-parchment)", borderRadius: 11, padding: 4, marginBottom: 18 }}>
               {(["expense", "income"] as const).map((t) => (
-                <button key={t} onClick={() => { setType(t); setError(""); if (t === "income") setSelectedCbIds([]); }} style={{
+                <button key={t} type="button" onClick={() => {
+                  setType(t);
+                  setError("");
+                  if (t === "income") setSelectedCbIds([]);
+                  // create mode: category list is type-specific, so reset selection
+                  if (!isEdit && !isRepayment) setCategoryId(null);
+                }} style={{
                   flex: 1, padding: "9px", borderRadius: 8, border: "none",
                   background: type === t ? (t === "expense" ? "#ff453a" : "#30d158") : "transparent",
                   color: type === t ? "#fff" : "var(--ink-muted-48)",
@@ -649,7 +638,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                 {customBudgets.map((cb) => {
                   const on = selectedCbIds.includes(cb.id);
                   return (
-                    <button key={cb.id} onClick={() => setSelectedCbIds((p) => on ? p.filter((x) => x !== cb.id) : [...p, cb.id])} style={{
+                    <button type="button" key={cb.id} onClick={() => setSelectedCbIds((p) => on ? p.filter((x) => x !== cb.id) : [...p, cb.id])} style={{
                       padding: "7px 14px", borderRadius: 999, border: on ? "none" : "1px solid var(--hairline)",
                       background: on ? "var(--ink)" : "var(--canvas-parchment)", color: on ? "#fff" : "var(--ink-muted-48)",
                       fontFamily: "var(--font-body)", fontSize: 13, fontWeight: on ? 600 : 400, cursor: "pointer",
