@@ -42,6 +42,22 @@ export function repaymentTxType(debtType: "lend" | "borrow"): "expense" | "incom
   return debtType === "lend" ? "income" : "expense";
 }
 
+// Remaining balance (SRS §3.4). May be negative when overpaid (D-09) or when the
+// debt has no opening transaction (opening_amount = 0).
+export function computeRemaining(openingAmount: number, totalRepaid: number): number {
+  return openingAmount - totalRepaid;
+}
+
+// Overdue when a due date has passed and the debt is still open (SRS §3.4).
+// Strict `<` — a debt due exactly today is not yet overdue.
+export function isOverdue(
+  dueDate: string | null,
+  status: "open" | "settled",
+  today: string,
+): boolean {
+  return !!dueDate && dueDate < today && status === "open";
+}
+
 export async function getDebtWithRepayments(
   db: Kysely<Database>,
   debtId: string,
@@ -70,13 +86,10 @@ export async function getDebtWithRepayments(
 
   const opening_amount = openingTx?.amount ?? 0;
   const total_repaid = repayments.reduce((s, t) => s + t.amount, 0);
-  const remaining = opening_amount - total_repaid;
+  const remaining = computeRemaining(opening_amount, total_repaid);
 
   const today = new Date().toISOString().slice(0, 10);
-  const is_overdue =
-    !!debt.due_date &&
-    debt.due_date < today &&
-    debt.status === "open";
+  const is_overdue = isOverdue(debt.due_date, debt.status, today);
 
   return {
     id: debt.id,

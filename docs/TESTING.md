@@ -4,24 +4,27 @@
 |-------|-------|
 | Type | Testing Strategy |
 | Status | Draft |
-| Version | 1.0 |
+| Version | 1.1 |
 | Author | niits |
 | Created | 2026-04-29 |
-| Last Updated | 2026-04-29 |
-| Related | TECHNICAL_DESIGN.md |
+| Last Updated | 2026-05-30 |
+| Related | TECHNICAL_DESIGN.md, specs/debt-tracking-tests.md |
 
 ---
 
 ## Overview
 
-Two layers of automated testing:
+Three layers of automated testing:
 
 | Layer | Type | Tool | Scope |
 |-------|------|------|-------|
 | 1 | Unit | Vitest (Node) | Pure business logic, calculations, validators |
-| 2 | Integration | Vitest + `@cloudflare/vitest-pool-workers` | API routes with real D1 binding |
+| 2 | Integration | Vitest + `@cloudflare/vitest-pool-workers` | API routes / schema with real D1 binding |
+| 3 | E2E | Playwright | API + UI flows in a real browser against `dev:cf` |
 
-E2E (Playwright) is out of scope for now.
+Per-feature test specifications enumerate the concrete cases:
+
+- `specs/debt-tracking-tests.md` — Debt Tracking (Epic 4) test cases & edge-case matrix.
 
 ---
 
@@ -39,7 +42,7 @@ E2E (Playwright) is out of scope for now.
 | Business rule validators | Amount > 0; category level ≤ 3; leaf-node check; delta ≠ 0 |
 | Savings calculation | `income - expense`; negative result; zero income |
 
-**File location:** `src/lib/*.test.ts` (co-located with the modules they test)
+**File location:** `src/**/*.test.ts` (co-located with the modules they test, e.g. `src/lib/debt.test.ts`)
 
 **Example — pace line:**
 ```ts
@@ -90,7 +93,7 @@ Tests run inside the actual Workers runtime with an in-memory D1 instance. Migra
 | `POST /api/categories` | Level 1, 2, 3 valid; level 4 → 400 |
 | `POST /api/categories/seed` | Creates 7 parent + 20 child categories; idempotent on repeat calls |
 
-**File location:** `tests/` (integration tests directory)
+**File location:** `tests/integration/*.test.ts`
 
 **Setup pattern:**
 
@@ -169,44 +172,30 @@ describe("POST /api/transactions", () => {
 
 ---
 
+## Layer 3 — E2E Tests
+
+**Runner:** Playwright against the Cloudflare preview server (`dev:cf`, port 8787).
+
+Tests drive the real app — API endpoints and UI — in a browser. Test data is seeded
+**directly into the local D1 SQLite file** (`tests/e2e/db-reset.ts`), never through
+test-only endpoints (see "E2E Testing Principle" in CLAUDE.md). Auth uses the real
+session cookie.
+
+**Seed levels** (`resetTestData(level)`): `minimal` · `categories` · `budget` ·
+`full` · `debts`. The `debts` level seeds a lend (open, partially repaid), a borrow
+(open), and a settled debt — see `specs/debt-tracking-tests.md` §5.
+
+**File location:** `tests/e2e/specs/*.spec.ts`.
+
+---
+
 ## Configuration Files
 
-### `vitest.config.ts` (integration — Workers pool)
-
-```ts
-import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
-
-export default defineWorkersConfig({
-  test: {
-    include: ["src/__tests__/integration/**/*.test.ts"],
-    poolOptions: {
-      workers: {
-        wrangler: { configPath: "./wrangler.jsonc" },
-        miniflare: {
-          d1Databases: ["DB"],  // in-memory D1 for tests
-        },
-      },
-    },
-  },
-});
-```
-
-### `vitest.unit.config.ts` (unit — Node)
-
-```ts
-import { defineConfig } from "vitest/config";
-import path from "path";
-
-export default defineConfig({
-  test: {
-    include: ["src/__tests__/unit/**/*.test.ts"],
-    environment: "node",
-  },
-  resolve: {
-    alias: { "@": path.resolve(__dirname, "src") },
-  },
-});
-```
+| File | Layer | `include` |
+|------|-------|-----------|
+| `vitest.unit.config.ts` | Unit (node) | `src/**/*.test.ts` |
+| `vitest.config.ts` | Integration (Workers pool) | `tests/integration/**/*.test.ts` |
+| `playwright.config.ts` | E2E | `tests/e2e/specs/**/*.spec.ts` |
 
 ### `package.json` scripts
 
@@ -215,18 +204,23 @@ export default defineConfig({
   "scripts": {
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:integration": "vitest run --config vitest.config.ts",
-    "test": "npm run test:unit && npm run test:integration"
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit"
   }
 }
 ```
 
----
+> `npm run test` runs the unit layer only — the fast, dependency-free gate.
+> Integration and E2E are run explicitly (and in CI).
 
-## Install
+### Integration test caveat (Workers pool)
 
-```bash
-npm install -D vitest @cloudflare/vitest-pool-workers
-```
+The integration pool boots the worker from `wrangler.jsonc` `main`
+(`.open-next/worker.js`). Tests that hit a **route handler** via `SELF.fetch`
+therefore require a current OpenNext build; a stale or incompatible build surfaces as
+`No such module "node:os"`. Tests that talk to `env.DB` directly (e.g. schema tests in
+`debt.test.ts`) do **not** load the handler and run regardless. Run `npm run build:cf`
+before the API-level integration suite if you hit the `node:os` error.
 
 ---
 
@@ -240,6 +234,6 @@ npm install -D vitest @cloudflare/vitest-pool-workers
 
 ## What NOT to Test
 
-- Auth flow (better-auth) — tested by the library itself
-- UI rendering — covered manually on device
+- Auth internals (better-auth) — tested by the library itself; we only test that our routes enforce the session guard
+- Visual styling / pixel layout — covered manually on device and in Storybook; E2E asserts behaviour and key text, not appearance
 - Pace line chart rendering — covered by unit tests on the calculation logic; chart library rendering is not our code

@@ -21,6 +21,20 @@ async function authHeaders(page: Page): Promise<Record<string, string>> {
   return session ? { Cookie: `${session.name}=${session.value}` } : {};
 }
 
+/**
+ * Open a debt's detail page from the overview and wait until it has finished
+ * loading (the detail page shows "Đang tải..." until its async fetch resolves).
+ * Centralising the wait removes the timing flakiness that affected the detail,
+ * repayment, and settle flows.
+ */
+async function openDebt(page: Page, party: string) {
+  await page.goto("/debts");
+  await expect(page.getByText(party).first()).toBeVisible();
+  await page.getByText(party).first().click();
+  await expect(page).toHaveURL(/\/debts\/.+/);
+  await expect(page.getByText("Lịch sử")).toBeVisible();
+}
+
 async function createDebt(
   request: APIRequestContext,
   headers: Record<string, string>,
@@ -163,7 +177,10 @@ test.describe("Debts API — lifecycle", () => {
 
   test("DELETE /api/debts/:id removes debt and clears transaction debt_id", async ({ page, request }) => {
     const headers = await authHeaders(page);
-    const debt = await createDebt(request, headers, { type: "lend", party: "ToDelete", amount: 50000 });
+    // Use a borrow debt (income opening): SET NULL keeps the transaction
+    // CHECK-valid. Deleting a lend debt is a known schema defect — see
+    // debt.test.ts INT-SCHEMA-6b. Fixed date keeps the tx inside the queried period.
+    const debt = await createDebt(request, headers, { type: "borrow", party: "ToDelete", amount: 50000, date: "2026-05-10" });
     const openingTxId = debt.transactions[0].id;
 
     const del = await request.delete(`/api/debts/${debt.id}`, { headers });
@@ -177,7 +194,8 @@ test.describe("Debts API — lifecycle", () => {
     const txRes = await request.get(`/api/transactions?month=2026-05`, { headers });
     const txBody = await txRes.json() as { transactions: { id: number; debt_id: string | null }[] };
     const openingTx = txBody.transactions.find((t) => t.id === openingTxId);
-    if (openingTx) expect(openingTx.debt_id).toBeNull();
+    expect(openingTx).toBeDefined();
+    expect(openingTx?.debt_id).toBeNull();
   });
 });
 
@@ -399,11 +417,8 @@ test.describe("Debts UI — seeded overview", () => {
 test.describe("Debts UI — detail page", () => {
   test.beforeAll(async () => { await resetTestData("debts"); });
 
-  test("shows party name, opening amount, and remaining balance", async ({ page }) => {
-    await page.goto("/debts");
-    await page.getByText("Minh").first().click();
-    await expect(page).toHaveURL(/\/debts\/.+/);
-
+  test("E2E-DETAIL-HERO: shows party, opening amount, and remaining balance", async ({ page }) => {
+    await openDebt(page, "Minh");
     await expect(page.getByText("Minh")).toBeVisible();
     // Opening amount: 2,000,000
     await expect(page.getByText(/2[.,]000[.,]000/).first()).toBeVisible();
@@ -411,27 +426,45 @@ test.describe("Debts UI — detail page", () => {
     await expect(page.getByText(/1[.,]500[.,]000/).first()).toBeVisible();
   });
 
-  test("shows Lịch sử section with transactions", async ({ page }) => {
-    await page.goto("/debts");
-    await page.getByText("Minh").first().click();
-    await expect(page.getByText("Lịch sử")).toBeVisible();
+  test("E2E-DETAIL-HIST: lists opening (Gốc) and repayment (Trả một phần) rows", async ({ page }) => {
+    await openDebt(page, "Minh");
     // Opening tx + 1 repayment = 2 rows
     await expect(page.getByText("Gốc")).toBeVisible();
     await expect(page.getByText("Trả một phần")).toBeVisible();
   });
 
-  test("shows Ghi nhận thanh toán and Tất toán ngay buttons", async ({ page }) => {
-    await page.goto("/debts");
-    await page.getByText("Minh").first().click();
+  test("E2E-DETAIL-ACTIONS: shows Ghi nhận thanh toán and Tất toán ngay buttons", async ({ page }) => {
+    await openDebt(page, "Minh");
     await expect(page.getByRole("button", { name: /Ghi nhận thanh toán/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Tất toán/i })).toBeVisible();
   });
 
-  test("back button returns to /debts", async ({ page }) => {
-    await page.goto("/debts");
-    await page.getByText("Minh").first().click();
+  test("E2E-DETAIL-BACK: back button returns to /debts", async ({ page }) => {
+    await openDebt(page, "Minh");
     await page.getByRole("button", { name: "←" }).click();
     await expect(page).toHaveURL("/debts");
+  });
+});
+
+// ─── UI: link existing transaction (GAP-1, not yet implemented) ───────────────
+// Disabled until Task C builds LinkTransactionSheet (docs/specs/debt-tracking-fix-plan.md).
+// The "debts" seed includes a standalone income "Lương tháng 5" (debt_id null),
+// which is eligible to link as a repayment to the lend debt "Minh".
+
+test.describe("Debts UI — link existing transaction (GAP-1)", () => {
+  test.beforeAll(async () => { await resetTestData("debts"); });
+
+  test.fixme("GAP-1: linking an existing transaction adds it to the debt history", async ({ page }) => {
+    await openDebt(page, "Minh");
+
+    // Opens the picker sheet (currently a no-op TODO in the detail page).
+    await page.getByText("Liên kết giao dịch có sẵn").click();
+
+    // Picker lists eligible (debt_id null, income) transactions; choose the salary.
+    await page.getByText("Lương tháng 5").click();
+
+    // The linked transaction now appears in "Lịch sử" and the balance updates.
+    await expect(page.getByText("Lương tháng 5")).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -484,9 +517,8 @@ test.describe("Debts UI — create flow", () => {
 test.describe("Debts UI — repayment flow", () => {
   test.beforeAll(async () => { await resetTestData("debts"); });
 
-  test("Ghi nhận thanh toán opens TransactionForm in repayment mode", async ({ page }) => {
-    await page.goto("/debts");
-    await page.getByText("Minh").first().click();
+  test("E2E-REPAY-1: Ghi nhận thanh toán opens TransactionForm in repayment mode", async ({ page }) => {
+    await openDebt(page, "Minh");
     await page.getByRole("button", { name: /Ghi nhận thanh toán/i }).click();
 
     // Repayment form: shows title and debt context chip
@@ -496,9 +528,8 @@ test.describe("Debts UI — repayment flow", () => {
     await expect(page.locator('input[inputmode="numeric"]')).toHaveValue(/1[.,]?500[.,]?000|1500000/);
   });
 
-  test("submitting repayment updates remaining balance", async ({ page }) => {
-    await page.goto("/debts");
-    await page.getByText("Chị Lan").first().click();
+  test("E2E-REPAY-2: submitting repayment updates remaining balance", async ({ page }) => {
+    await openDebt(page, "Chị Lan");
 
     // Note current remaining (should be 1,000,000)
     await expect(page.getByText(/1[.,]000[.,]000/).first()).toBeVisible();
@@ -519,22 +550,25 @@ test.describe("Debts UI — repayment flow", () => {
 test.describe("Debts UI — settle flow", () => {
   test.beforeAll(async () => { await resetTestData("debts"); });
 
-  test("Tất toán ngay shows confirm dialog", async ({ page }) => {
-    await page.goto("/debts");
-    await page.getByText("Minh").first().click();
+  test("E2E-SETTLE-1: Tất toán ngay shows confirm dialog", async ({ page }) => {
+    await openDebt(page, "Minh");
     await page.getByRole("button", { name: /Tất toán/i }).click();
     await expect(page.getByText(/Tất toán khoản nợ/i)).toBeVisible();
     await expect(page.getByRole("button", { name: "Xác nhận" })).toBeVisible();
   });
 
-  test("confirming Tất toán settles the debt", async ({ page }) => {
-    await page.goto("/debts");
-    await page.getByText("Chị Lan").first().click();
+  test("E2E-SETTLE-2: confirming Tất toán settles the debt", async ({ page }) => {
+    await openDebt(page, "Chị Lan");
     await page.getByRole("button", { name: /Tất toán/i }).click();
     await page.getByRole("button", { name: "Xác nhận" }).click();
 
-    // After settling, Chị Lan should be in Đã tất toán section
-    await expect(page).toHaveURL("/debts");
+    // The detail page reloads in place into its settled state: the settled
+    // marker appears and the action buttons disappear (it does not navigate away).
+    await expect(page.getByText(/Tất toán ✓/)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: /Tất toán ngay/i })).toHaveCount(0);
+
+    // And the debt now lives in the collapsed "Đã tất toán" section on the overview.
+    await page.goto("/debts");
     await page.getByText(/Đã tất toán/).click();
     await expect(page.getByText("Chị Lan")).toBeVisible({ timeout: 5000 });
   });
