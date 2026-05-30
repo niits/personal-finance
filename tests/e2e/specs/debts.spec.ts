@@ -175,12 +175,13 @@ test.describe("Debts API — lifecycle", () => {
     expect(body.debt.status).toBe("settled");
   });
 
-  test("DELETE /api/debts/:id removes debt and clears transaction debt_id", async ({ page, request }) => {
+  test("DELETE /api/debts/:id removes a lend debt and its unbudgeted opening expense (BUG-1, D-18)", async ({ page, request }) => {
     const headers = await authHeaders(page);
-    // Use a borrow debt (income opening): SET NULL keeps the transaction
-    // CHECK-valid. Deleting a lend debt is a known schema defect — see
-    // debt.test.ts INT-SCHEMA-6b. Fixed date keeps the tx inside the queried period.
-    const debt = await createDebt(request, headers, { type: "borrow", party: "ToDelete", amount: 50000, date: "2026-05-10" });
+    // Lend debt: the opening is an unbudgeted EXPENSE. Deleting the debt removes
+    // that debt-only expense (it would otherwise violate the transaction CHECK
+    // once debt_id is nulled); everything else is detached and kept. Fixed date
+    // keeps the tx inside the queried period.
+    const debt = await createDebt(request, headers, { type: "lend", party: "ToDelete", amount: 50000, date: "2026-05-10" });
     const openingTxId = debt.transactions[0].id;
 
     const del = await request.delete(`/api/debts/${debt.id}`, { headers });
@@ -190,12 +191,11 @@ test.describe("Debts API — lifecycle", () => {
     const get = await request.get(`/api/debts/${debt.id}`, { headers });
     expect(get.status()).toBe(404);
 
-    // Opening transaction still exists but debt_id cleared
+    // The unbudgeted opening expense is removed with the debt
     const txRes = await request.get(`/api/transactions?month=2026-05`, { headers });
     const txBody = await txRes.json() as { transactions: { id: number; debt_id: string | null }[] };
     const openingTx = txBody.transactions.find((t) => t.id === openingTxId);
-    expect(openingTx).toBeDefined();
-    expect(openingTx?.debt_id).toBeNull();
+    expect(openingTx).toBeUndefined();
   });
 });
 
@@ -428,8 +428,9 @@ test.describe("Debts UI — detail page", () => {
 
   test("E2E-DETAIL-HIST: lists opening (Gốc) and repayment (Trả một phần) rows", async ({ page }) => {
     await openDebt(page, "Minh");
-    // Opening tx + 1 repayment = 2 rows
-    await expect(page.getByText("Gốc")).toBeVisible();
+    // Opening tx + 1 repayment = 2 rows. Match the row badge exactly ("Gốc"),
+    // not the hero's "Gốc 2.000.000₫".
+    await expect(page.getByText("Gốc", { exact: true })).toBeVisible();
     await expect(page.getByText("Trả một phần")).toBeVisible();
   });
 
@@ -446,18 +447,17 @@ test.describe("Debts UI — detail page", () => {
   });
 });
 
-// ─── UI: link existing transaction (GAP-1, not yet implemented) ───────────────
-// Disabled until Task C builds LinkTransactionSheet (docs/specs/debt-tracking-fix-plan.md).
+// ─── UI: link existing transaction (GAP-1) ────────────────────────────────────
 // The "debts" seed includes a standalone income "Lương tháng 5" (debt_id null),
 // which is eligible to link as a repayment to the lend debt "Minh".
 
 test.describe("Debts UI — link existing transaction (GAP-1)", () => {
   test.beforeAll(async () => { await resetTestData("debts"); });
 
-  test.fixme("GAP-1: linking an existing transaction adds it to the debt history", async ({ page }) => {
+  test("GAP-1: linking an existing transaction adds it to the debt history", async ({ page }) => {
     await openDebt(page, "Minh");
 
-    // Opens the picker sheet (currently a no-op TODO in the detail page).
+    // Opens the LinkTransactionSheet picker.
     await page.getByText("Liên kết giao dịch có sẵn").click();
 
     // Picker lists eligible (debt_id null, income) transactions; choose the salary.
@@ -521,8 +521,9 @@ test.describe("Debts UI — repayment flow", () => {
     await openDebt(page, "Minh");
     await page.getByRole("button", { name: /Ghi nhận thanh toán/i }).click();
 
-    // Repayment form: shows title and debt context chip
-    await expect(page.getByText("Ghi nhận thanh toán")).toBeVisible();
+    // Repayment form: shows title and debt context chip. Scope the title to the
+    // form's <span> so it doesn't also match the detail-page <button> that opened it.
+    await expect(page.locator("span", { hasText: "Ghi nhận thanh toán" })).toBeVisible();
     await expect(page.getByText(/Minh/).first()).toBeVisible();
     // Amount pre-filled with remaining (1,500,000)
     await expect(page.locator('input[inputmode="numeric"]')).toHaveValue(/1[.,]?500[.,]?000|1500000/);

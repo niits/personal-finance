@@ -41,7 +41,7 @@ The feature covers:
 - Recording repayments by creating transactions that reference a debt
 - Viewing per-debt repayment history and remaining balance
 - Integrating debt cash flows into the home screen income/expense totals
-- Excluding debt transactions from the monthly budget pace calculation
+- Counting debt transactions in the monthly budget pace calculation, like any other expense (one simple model)
 
 ### 1.3 Relationship to existing features
 
@@ -238,14 +238,14 @@ PRAGMA foreign_keys = ON;
 
 | ID | Rule |
 |----|------|
-| D-18 | Deleting a debt cascades to set `debt_id = NULL` on all linked transactions (via `ON DELETE SET NULL`). The transactions themselves are not deleted. |
+| D-18 | Deleting a debt removes its debt-only expense entries (lend openings, borrow repayments — unbudgeted expenses that would otherwise violate the transaction CHECK once detached) and detaches every other linked transaction (`debt_id = NULL`, via `ON DELETE SET NULL`), keeping it. |
 | D-19 | Deleting an opening transaction sets `debt.opening_transaction_id = NULL` (via `ON DELETE SET NULL`), leaving the debt incomplete. The UI must surface this state clearly. |
 
 ### 4.7 Budget and statistics integration
 
 | ID | Rule |
 |----|------|
-| D-20 | Debt transactions (`debt_id IS NOT NULL`) are excluded from monthly budget progress calculation. Budget tracks discretionary spending; capital transfers are not spending. |
+| D-20 | Debt transactions (`debt_id IS NOT NULL`) are counted in the monthly budget progress calculation, exactly like any other expense. The product favours one simple model over distinguishing capital transfers from discretionary spending. |
 | D-21 | Debt transactions are included in the home screen monthly income/expense totals (`total_income`, `total_expense`). They represent real cash movements. |
 | D-22 | Debt transactions are excluded from category-level breakdowns in the statistics page (they have `category_id IS NULL`). |
 | D-23 | Queries that aggregate by category must handle `category_id IS NULL` rows gracefully — skip them, do not crash or show an undefined label. |
@@ -307,7 +307,7 @@ PRAGMA foreign_keys = ON;
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | DEBT-24 | The home screen header must include debt transactions in monthly income and expense totals | Must Have |
-| DEBT-25 | The budget pace bar and remaining budget calculation must exclude debt transactions | Must Have |
+| DEBT-25 | The budget pace bar and remaining budget calculation count debt transactions like any other expense (one simple model) | Must Have |
 | DEBT-26 | The statistics page category breakdown must skip transactions with `category_id IS NULL` without error | Must Have |
 
 ---

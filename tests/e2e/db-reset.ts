@@ -8,6 +8,7 @@
 const Database = require("better-sqlite3") as typeof import("better-sqlite3");
 import fs from "fs";
 import path from "path";
+import { currentBudgetMonth } from "@/lib/validators";
 
 function getDb(): InstanceType<typeof Database> {
   // Wrangler stores local D1 at .wrangler/state/v3/d1/miniflare-D1DatabaseObject/<hash>.sqlite
@@ -79,7 +80,10 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
 
   if (seed === "categories") { db.close(); return; }
 
-  const month = new Date().toISOString().substring(0, 7);
+  // Budget for the app's CURRENT budget month, not the calendar month — they
+  // diverge near month-end (date >= last working day rolls to the next month),
+  // which would otherwise leave the dashboard/budget view with no current budget.
+  const month = currentBudgetMonth();
   const budgetInfo = db.prepare(
     `INSERT INTO monthly_budget (user_id, month, amount) VALUES (?, ?, 5000000)`,
   ).run(userId, month);

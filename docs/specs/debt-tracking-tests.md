@@ -53,9 +53,9 @@ that was removed in migration `0013`.
 | D-15 | Only `debt_id IS NULL` transactions can be linked | INT-LINK-3 | Integration |
 | D-16 | Linked repayment must have correct type | INT-LINK-2 | Integration |
 | D-17 | Cannot link to a settled debt | INT-LINK-4 | Integration |
-| D-18 | Deleting a debt clears `debt_id`, keeps transactions | INT-DEL-1, E2E-DEL-1 | Integration, E2E |
+| D-18 | Deleting a debt removes debt-only expense entries, detaches & keeps the rest | BUG-1a/b/c, E2E-DEL-1 | Integration, E2E |
 | D-19 | Deleting opening tx leaves debt incomplete (opening_transaction_id NULL) | INT-SCHEMA-5 | Integration |
-| D-20 | Debt transactions excluded from budget pace | INT-BUDGET-1 | Integration |
+| D-20 | Debt transactions counted in budget pace (one simple model) | BUG-2a | Integration |
 | D-21 | Debt transactions included in income/expense totals | INT-BUDGET-2 | Integration |
 | D-22/23 | Category breakdown skips `category_id IS NULL` without error | INT-STATS-1 | Integration |
 | DEBT-01..03 | Create debt + opening tx (party, amount, date, optional due_date) | INT-CREATE-*, E2E-CREATE-1 | Integration, E2E |
@@ -194,7 +194,7 @@ The `link_debt_id` variant is covered in `transactions-debt-link.test.ts`.
 
 | Case ID | Assertion |
 |---------|-----------|
-| INT-BUDGET-1 | a debt expense (debt_id set, no budget) is **excluded** from monthly-budget pace/remaining |
+| BUG-2a | a debt expense (debt_id set, no budget) **is counted** in the monthly-budget pace/remaining, like any other expense (one simple model) |
 | INT-BUDGET-2 | the same debt transactions **are included** in `summary.total_income/total_expense` |
 | INT-STATS-1 | statistics/category aggregation skips `category_id IS NULL` rows without error |
 
@@ -266,14 +266,14 @@ Derived from SRS §3–§6. Each must be covered by ≥1 case above.
 - [ ] **Overpayment**: `remaining` goes negative, no crash, no auto-settle (D-09, D-12).
 - [ ] **No opening tx**: `opening_amount=0`; debt treated as incomplete (D-06, D-19).
 - [ ] Deleting the **opening** transaction nulls `opening_transaction_id` (D-19, FK SET NULL).
-- [ ] Deleting the **debt** keeps transactions, nulls their `debt_id` (D-18).
+- [ ] Deleting the **debt** removes its debt-only expense entries; detaches & keeps everything else (D-18).
 - [ ] **Settled debt** rejects new repayments and new links; reopen restores write access (D-14, DEBT-07).
 - [ ] Unlink the **opening** tx blocked while repayments exist (D-07); allowed when it is the only tx.
 - [ ] Unlink that would leave an **expense without a budget** is rejected (D-11).
 - [ ] Unlink a **non-linked** tx → 409 `not_linked`.
 - [ ] **Cross-user** access to any debt/link endpoint → 404 (never 200/leak) (D-01).
 - [ ] **Due date** boundary: overdue strictly when `due_date < today AND status=open`; equal-to-today is **not** overdue.
-- [ ] Debt transactions **excluded** from budget pace but **included** in income/expense totals (D-20, D-21).
+- [ ] Debt transactions **counted** in budget pace and **included** in income/expense totals (D-20, D-21).
 - [ ] Category aggregation tolerates `category_id IS NULL` (D-22, D-23).
 - [ ] `debt.note` and the opening `transaction.note` are **independent** fields.
 - [ ] Amounts render in vi-VN locale (`.` thousands, `₫` suffix) (NFR-D05).

@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getKysely } from "@/lib/db";
+import { getKysely, getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { getDebtWithRepayments } from "@/lib/debt";
@@ -70,7 +70,23 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     .executeTakeFirst();
   if (!existing) return Errors.notFound("Debt not found");
 
-  // FK ON DELETE SET NULL clears transaction.debt_id automatically.
-  await db.deleteFrom("debt").where("id", "=", id).execute();
+  // Debt-only expense entries (lend openings, borrow repayments) have no budget,
+  // so FK ON DELETE SET NULL would leave them violating the transaction CHECK
+  // (an expense must have a budget or a debt). Remove just those, then delete the
+  // debt — SET NULL detaches the remaining valid transactions. Run as a single D1
+  // batch so it is atomic (D1 has no interactive BEGIN/COMMIT transactions).
+  const delTxns = db
+    .deleteFrom("transaction")
+    .where("debt_id", "=", id)
+    .where("type", "=", "expense")
+    .where("monthly_budget_id", "is", null)
+    .compile();
+  const delDebt = db.deleteFrom("debt").where("id", "=", id).compile();
+
+  const d1 = await getDB();
+  await d1.batch([
+    d1.prepare(delTxns.sql).bind(...delTxns.parameters),
+    d1.prepare(delDebt.sql).bind(...delDebt.parameters),
+  ]);
   return new Response(null, { status: 204 });
 }
