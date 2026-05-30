@@ -97,37 +97,53 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
 
   if (seed !== "debts") { db.close(); return; }
 
-  // Seed two open debts and one settled debt for the debt overview screen
-  const lendId = "e2e-debt-lend-1";
-  const borrowId = "e2e-debt-borrow-1";
+  // Seed debts using the 3-step atomic pattern (mirrors POST /api/debts):
+  //   1. INSERT debt (opening_transaction_id = NULL)
+  //   2. INSERT opening transaction → capture lastInsertRowid
+  //   3. UPDATE debt SET opening_transaction_id = rowid
+  //
+  // Debt layout:
+  //   Minh    lend  open   2,000,000 gốc · 500,000 repaid → 1,500,000 remaining
+  //   Chị Lan borrow open  1,000,000 gốc · 0 repaid        → 1,000,000 remaining
+  //   Anh Tuấn lend settled 500,000 gốc · 500,000 repaid  → 0 remaining
+
+  const lendId    = "e2e-debt-lend-1";
+  const borrowId  = "e2e-debt-borrow-1";
   const settledId = "e2e-debt-settled-1";
 
   db.transaction(() => {
+    // ── Minh (lend, open) ──────────────────────────────────────────────────
     db.prepare(
-      `INSERT INTO debt (id, user_id, type, party, amount, note) VALUES (?, ?, 'lend', 'Minh', 2000000, 'Cho mượn tiền học')`,
+      `INSERT INTO debt (id, user_id, type, party, note) VALUES (?, ?, 'lend', 'Minh', 'Cho mượn tiền học')`,
     ).run(lendId, userId);
-    db.prepare(
+    const lendOpeningId = db.prepare(
       `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 2000000, 'expense', ?, ?)`,
-    ).run(userId, today, lendId);
+    ).run(userId, today, lendId).lastInsertRowid;
+    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(lendOpeningId, lendId);
+    // One partial repayment
     db.prepare(
       `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, note) VALUES (?, 500000, 'income', ?, ?, 'Trả một phần')`,
     ).run(userId, today, lendId);
 
+    // ── Chị Lan (borrow, open) ─────────────────────────────────────────────
     db.prepare(
-      `INSERT INTO debt (id, user_id, type, party, amount) VALUES (?, ?, 'borrow', 'Chị Lan', 1000000)`,
+      `INSERT INTO debt (id, user_id, type, party) VALUES (?, ?, 'borrow', 'Chị Lan')`,
     ).run(borrowId, userId);
-    db.prepare(
+    const borrowOpeningId = db.prepare(
       `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 1000000, 'income', ?, ?)`,
-    ).run(userId, today, borrowId);
+    ).run(userId, today, borrowId).lastInsertRowid;
+    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(borrowOpeningId, borrowId);
 
+    // ── Anh Tuấn (lend, settled) ───────────────────────────────────────────
     db.prepare(
-      `INSERT INTO debt (id, user_id, type, party, amount, status) VALUES (?, ?, 'lend', 'Anh Tuấn', 500000, 'settled')`,
+      `INSERT INTO debt (id, user_id, type, party, status) VALUES (?, ?, 'lend', 'Anh Tuấn', 'settled')`,
     ).run(settledId, userId);
-    db.prepare(
+    const settledOpeningId = db.prepare(
       `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 500000, 'expense', ?, ?)`,
-    ).run(userId, today, settledId);
+    ).run(userId, today, settledId).lastInsertRowid;
+    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(settledOpeningId, settledId);
     db.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 500000, 'income', ?, ?)`,
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, note) VALUES (?, 500000, 'income', ?, ?, 'Tất toán')`,
     ).run(userId, today, settledId);
   })();
 

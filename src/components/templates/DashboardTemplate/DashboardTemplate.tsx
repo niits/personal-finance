@@ -29,6 +29,8 @@ export type Transaction = {
   category: { id: number; name: string; emoji: string | null; path: string } | null;
   root_category_name: string;
   debt_id: string | null;
+  debt_party: string | null;
+  debt_type: "lend" | "borrow" | null;
   note: string | null;
   date: string;
   custom_budgets: { id: number; name: string }[];
@@ -383,6 +385,11 @@ export function DashboardTemplate({
                       <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, minHeight: "1em" }}>
                         {txn.note ?? ""}
                       </p>
+                      {txn.debt_party && (
+                        <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)", lineHeight: 1.3, marginTop: 1 }}>
+                          💸 {txn.debt_type === "lend" ? "Cho vay" : "Đi vay"} · {txn.debt_party}
+                        </p>
+                      )}
                       {txn.custom_budgets.length > 0 && (
                         <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center" }}>
                           {txn.custom_budgets.slice(0, 2).map((cb) => (
@@ -468,7 +475,23 @@ export function DashboardTemplate({
         open={formOpen}
         onClose={onCloseForm}
         onSaved={onSaved}
-        transaction={editTxn}
+        mode={editTxn ? {
+          kind: "edit",
+          transaction: {
+            id: editTxn.id,
+            amount: editTxn.amount,
+            type: editTxn.type,
+            emoji: editTxn.emoji,
+            category: editTxn.category,
+            debt_id: editTxn.debt_id,
+            debt_party: editTxn.debt_party,
+            debt_type: editTxn.debt_type,
+            is_opening_tx: false,
+            note: editTxn.note,
+            date: editTxn.date,
+            custom_budgets: editTxn.custom_budgets,
+          },
+        } : { kind: "create" }}
       />
 
     </div>

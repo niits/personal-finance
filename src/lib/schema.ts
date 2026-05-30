@@ -48,9 +48,10 @@ export interface DebtTable {
   user_id: string;
   type: "lend" | "borrow";
   party: string;
-  amount: number;
   note: string | null;
+  due_date: string | null;
   status: "open" | "settled";
+  opening_transaction_id: number | null;
   created_at: Generated<string>;
 }
 

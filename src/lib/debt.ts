@@ -1,29 +1,43 @@
 import type { Kysely } from "kysely";
 import type { Database } from "./schema";
 
+export type LinkedTransaction = {
+  id: number;
+  type: "expense" | "income";
+  amount: number;
+  date: string;
+  note: string | null;
+  emoji: string | null;
+  is_opening: boolean;
+};
+
 export type DebtWithRepayments = {
   id: string;
   type: "lend" | "borrow";
   party: string;
-  amount: number;
-  repaid: number;
-  remaining: number;
-  status: "open" | "settled";
   note: string | null;
-  createdAt: string;
-  repayments: { id: number; amount: number; date: string; note: string | null }[];
+  due_date: string | null;
+  status: "open" | "settled";
+  opening_transaction_id: number | null;
+  created_at: string;
+  // computed
+  opening_amount: number;
+  total_repaid: number;
+  remaining: number;
+  is_overdue: boolean;
+  transactions: LinkedTransaction[];
 };
 
-// Direction of the opening transaction for each debt type:
-//   lend   → expense (money leaving me)
-//   borrow → income  (money coming in)
+// Opening transaction type per debt type:
+//   lend   → expense (user gives money out)
+//   borrow → income  (user receives money)
 export function debtOpeningTxType(debtType: "lend" | "borrow"): "expense" | "income" {
   return debtType === "lend" ? "expense" : "income";
 }
 
-// Direction of a repayment transaction (inverse of opening):
-//   lend repayment   → income  (money coming back)
-//   borrow repayment → expense (money going out)
+// Repayment transaction type (inverse of opening):
+//   lend repayment   → income  (user gets money back)
+//   borrow repayment → expense (user pays money back)
 export function repaymentTxType(debtType: "lend" | "borrow"): "expense" | "income" {
   return debtType === "lend" ? "income" : "expense";
 }
@@ -42,60 +56,49 @@ export async function getDebtWithRepayments(
 
   if (!debt) return null;
 
-  const repaymentTxDirection = repaymentTxType(debt.type);
-
   const txRows = await db
     .selectFrom("transaction")
-    .select(["id", "amount", "date", "note"])
+    .select(["id", "type", "amount", "date", "note", "emoji"])
     .where("debt_id", "=", debtId)
-    .where("type", "=", repaymentTxDirection)
     .orderBy("date", "asc")
+    .orderBy("id", "asc")
     .execute();
 
-  const repaid = txRows.reduce((sum, r) => sum + r.amount, 0);
-  const remaining = Math.max(0, debt.amount - repaid);
+  const openingId = debt.opening_transaction_id;
+  const openingTx = txRows.find((t) => t.id === openingId);
+  const repayments = txRows.filter((t) => t.id !== openingId);
+
+  const opening_amount = openingTx?.amount ?? 0;
+  const total_repaid = repayments.reduce((s, t) => s + t.amount, 0);
+  const remaining = opening_amount - total_repaid;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const is_overdue =
+    !!debt.due_date &&
+    debt.due_date < today &&
+    debt.status === "open";
 
   return {
     id: debt.id,
     type: debt.type,
     party: debt.party,
-    amount: debt.amount,
-    repaid,
-    remaining,
-    status: debt.status,
     note: debt.note,
-    createdAt: debt.created_at,
-    repayments: txRows.map((r) => ({
-      id: r.id,
-      amount: r.amount,
-      date: r.date,
-      note: r.note,
+    due_date: debt.due_date,
+    status: debt.status,
+    opening_transaction_id: debt.opening_transaction_id,
+    created_at: debt.created_at,
+    opening_amount,
+    total_repaid,
+    remaining,
+    is_overdue,
+    transactions: txRows.map((t) => ({
+      id: t.id,
+      type: t.type,
+      amount: t.amount,
+      date: t.date,
+      note: t.note,
+      emoji: t.emoji,
+      is_opening: t.id === openingId,
     })),
   };
-}
-
-export async function recalcAndSettle(
-  db: Kysely<Database>,
-  debtId: string,
-  principal: number,
-  debtType: "lend" | "borrow",
-): Promise<void> {
-  const repaymentDirection = repaymentTxType(debtType);
-
-  const row = await db
-    .selectFrom("transaction")
-    .select((eb) => eb.fn.sum<number>("amount").as("total"))
-    .where("debt_id", "=", debtId)
-    .where("type", "=", repaymentDirection)
-    .executeTakeFirst();
-
-  const repaid = row?.total ?? 0;
-
-  if (repaid >= principal) {
-    await db
-      .updateTable("debt")
-      .set({ status: "settled" })
-      .where("id", "=", debtId)
-      .execute();
-  }
 }

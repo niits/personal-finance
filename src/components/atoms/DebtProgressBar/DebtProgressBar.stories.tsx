@@ -5,14 +5,18 @@ const meta: Meta<typeof DebtProgressBar> = { component: DebtProgressBar };
 export default meta;
 type Story = StoryObj<typeof DebtProgressBar>;
 
-export const Partial: Story = {
-  args: { principal: 5000000, repaid: 2000000 },
+export const LendPartial: Story = {
+  args: { openingAmount: 5000000, totalRepaid: 2000000, variant: "lend" },
+};
+
+export const BorrowPartial: Story = {
+  args: { openingAmount: 5000000, totalRepaid: 2000000, variant: "borrow" },
 };
 
 export const Settled: Story = {
-  args: { principal: 5000000, repaid: 5000000 },
+  args: { openingAmount: 5000000, totalRepaid: 5000000, variant: "lend" },
 };
 
 export const NotStarted: Story = {
-  args: { principal: 3000000, repaid: 0 },
+  args: { openingAmount: 3000000, totalRepaid: 0, variant: "lend" },
 };
