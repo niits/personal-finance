@@ -204,11 +204,7 @@ function DebtLinkSection({
     <div>
       <button type="button"
         onClick={() => setExpanded((e) => !e)}
-        style={{
-          width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-          background: "none", border: "none", padding: "13px 0", cursor: "pointer",
-          borderTop: "1px solid var(--hairline)",
-        }}
+        className="w-full flex justify-between items-center bg-transparent py-[13px] cursor-pointer border-t border-hairline"
       >
         <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", textTransform: "uppercase", letterSpacing: 0.5 }}>
           Liên kết nợ
@@ -279,18 +275,15 @@ function Option({ label, sublabel, selected, onSelect }: { label: string; sublab
   return (
     <button type="button"
       onClick={onSelect}
-      style={{
-        width: "100%", display: "flex", alignItems: "center", gap: 10,
-        background: "none", border: "none", padding: "10px 4px", cursor: "pointer",
-        borderBottom: "1px solid var(--hairline)",
-      }}
+      className="w-full flex items-center gap-2.5 bg-transparent px-1 py-2.5 cursor-pointer border-b border-hairline"
     >
-      <span style={{
-        width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
-        border: `2px solid ${selected ? "var(--primary)" : "var(--hairline)"}`,
-        background: selected ? "var(--primary)" : "transparent",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
+      <span
+        className="w-[18px] h-[18px] rounded-full shrink-0 flex items-center justify-center"
+        style={{
+          border: `2px solid ${selected ? "var(--primary)" : "var(--hairline)"}`,
+          background: selected ? "var(--primary)" : "transparent",
+        }}
+      >
         {selected && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />}
       </span>
       <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", fontWeight: selected ? 600 : 400 }}>
@@ -496,14 +489,13 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       />
 
       {/* Full-screen sheet */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: "var(--canvas)",
-        display: "flex", flexDirection: "column",
-        transform: show ? "translateY(0)" : "translateY(100%)",
-        transition: `transform 0.4s ${SPRING}`,
-        overflowX: "hidden",
-      }}>
+      <div
+        className="absolute inset-0 bg-canvas flex flex-col overflow-x-hidden"
+        style={{
+          transform: show ? "translateY(0)" : "translateY(100%)",
+          transition: `transform 0.4s ${SPRING}`,
+        }}
+      >
         {/* Drag handle */}
         <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)" }} />
@@ -511,7 +503,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
         {/* Nav bar */}
         <div style={{ display: "flex", alignItems: "center", padding: "4px 16px 12px", flexShrink: 0 }}>
-          <button type="button" onClick={handleClose} style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 28, color: "var(--ink-muted-48)", cursor: "pointer", padding: "0 8px 0 0", lineHeight: 1 }}>
+          <button type="button" onClick={handleClose} className="bg-transparent border-none font-body text-[28px] text-ink-muted-48 cursor-pointer pr-2 leading-none">
             ✕
           </button>
           <span style={{ flex: 1, textAlign: "center", fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.4 }}>
@@ -520,9 +512,11 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           <button type="button"
             onClick={submit}
             disabled={saving}
-            style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: saving ? "var(--ink-muted-48)" : "var(--primary)", cursor: saving ? "not-allowed" : "pointer", padding: "0 0 0 8px" }}
+            className={`bg-transparent border-none font-body text-[17px] font-semibold pl-2 ${
+              saving ? "text-ink-muted-48 cursor-not-allowed" : "text-primary cursor-pointer"
+            }`}
           >
-            {saving ? "..." : "Lưu"}
+            {saving ? "…" : "Lưu"}
           </button>
         </div>
 
@@ -573,13 +567,15 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                   if (t === "income") setSelectedCbIds([]);
                   // create mode: category list is type-specific, so reset selection
                   if (!isEdit && !isRepayment) setCategoryId(null);
-                }} style={{
-                  flex: 1, padding: "9px", borderRadius: 8, border: "none",
-                  background: type === t ? (t === "expense" ? "#ff453a" : "#30d158") : "transparent",
-                  color: type === t ? "#fff" : "var(--ink-muted-48)",
-                  fontFamily: "var(--font-body)", fontSize: 15, fontWeight: type === t ? 600 : 400, cursor: "pointer",
-                  transition: "background 0.15s, color 0.15s",
-                }}>
+                }}
+                  className={`flex-1 p-[9px] rounded-sm border-none font-body text-[15px] cursor-pointer transition-colors ${
+                    type === t ? "font-semibold" : "font-normal"
+                  }`}
+                  style={{
+                    background: type === t ? (t === "expense" ? "#ff453a" : "#30d158") : "transparent",
+                    color: type === t ? "#fff" : "var(--ink-muted-48)",
+                  }}
+                >
                   {t === "expense" ? "Chi tiêu" : "Thu nhập"}
                 </button>
               ))}
@@ -588,18 +584,14 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
           {/* Amount */}
           <div style={{ position: "relative", marginBottom: 18 }}>
-            <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", fontSize: 22, color: "var(--ink-muted-48)", fontFamily: "var(--font-display)", fontWeight: 600, pointerEvents: "none" }}>₫</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] text-ink-muted-48 font-display font-semibold pointer-events-none">₫</span>
             <input
               type="text" inputMode="numeric" placeholder="0"
               value={amountStr}
               onChange={(e) => { const raw = e.target.value.replace(/[^\d]/g, ""); setAmountStr(raw ? fmt(parseInt(raw, 10)) : ""); setError(""); }}
               ref={amountRef}
-              style={{
-                width: "100%", padding: "14px 16px 14px 44px", borderRadius: 11,
-                border: "1px solid var(--hairline)", fontFamily: "var(--font-display)", fontSize: 28,
-                fontWeight: 600, color: amountColor, background: "var(--canvas-parchment)", outline: "none",
-                textAlign: "right", letterSpacing: -0.3,
-              }}
+              className="w-full pt-[14px] pr-4 pb-[14px] pl-11 rounded-md border border-hairline font-display text-[28px] font-semibold bg-canvas-parchment outline-none text-right tracking-[-0.3px]"
+              style={{ color: amountColor }}
             />
           </div>
 
@@ -616,7 +608,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               type="text" placeholder="Ghi chú (tuỳ chọn)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              style={{ flex: 1, padding: "12px 14px", borderRadius: 11, border: "1px solid var(--hairline)", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none" }}
+              className="flex-1 px-[14px] py-3 rounded-md border border-hairline font-body text-[15px] text-ink bg-canvas-parchment outline-none"
             />
           </div>
 
@@ -638,11 +630,11 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                 {customBudgets.map((cb) => {
                   const on = selectedCbIds.includes(cb.id);
                   return (
-                    <button type="button" key={cb.id} onClick={() => setSelectedCbIds((p) => on ? p.filter((x) => x !== cb.id) : [...p, cb.id])} style={{
-                      padding: "7px 14px", borderRadius: 999, border: on ? "none" : "1px solid var(--hairline)",
-                      background: on ? "var(--ink)" : "var(--canvas-parchment)", color: on ? "#fff" : "var(--ink-muted-48)",
-                      fontFamily: "var(--font-body)", fontSize: 13, fontWeight: on ? 600 : 400, cursor: "pointer",
-                    }}>
+                    <button type="button" key={cb.id} onClick={() => setSelectedCbIds((p) => on ? p.filter((x) => x !== cb.id) : [...p, cb.id])}
+                      className={`px-[14px] py-[7px] rounded-full font-body text-[13px] cursor-pointer ${
+                        on ? "border-none bg-ink text-white font-semibold" : "border border-hairline bg-canvas-parchment text-ink-muted-48 font-normal"
+                      }`}
+                    >
                       {on && "✓ "}{cb.name}
                     </button>
                   );
