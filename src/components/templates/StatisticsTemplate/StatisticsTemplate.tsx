@@ -361,13 +361,7 @@ function ErrorState({ error, onRetry }: { error: ApiError | null; onRetry: () =>
           <summary style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", cursor: "pointer", marginBottom: 8 }}>
             Chi tiết
           </summary>
-          <pre style={{
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-            fontSize: 12, lineHeight: 1.45, color: "var(--ink-muted-48)",
-            background: "var(--canvas)", border: "1px solid var(--hairline)", borderRadius: 8,
-            padding: 12, margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word",
-            maxHeight: 320, overflow: "auto",
-          }}>
+          <pre className="font-mono text-xs leading-[1.45] text-ink-muted-48 bg-canvas border border-hairline rounded-sm p-3 m-0 whitespace-pre-wrap break-words max-h-[320px] overflow-auto">
             {stack ?? ""}
             {causeText ? `\n\nCause:\n${causeText}` : ""}
           </pre>
@@ -375,7 +369,7 @@ function ErrorState({ error, onRetry }: { error: ApiError | null; onRetry: () =>
       )}
       <button type="button"
         onClick={onRetry}
-        style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, cursor: "pointer" }}
+        className="px-6 py-3 rounded-xl border-none bg-primary text-white font-body text-[15px] font-semibold cursor-pointer"
       >
         Thử lại
       </button>
@@ -399,7 +393,7 @@ function EmptyState({ monthLabel, showJumpToCurrent, onJumpToCurrent }: {
       {showJumpToCurrent && (
         <button type="button"
           onClick={onJumpToCurrent}
-          style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, cursor: "pointer" }}
+          className="px-6 py-3 rounded-xl border-none bg-primary text-white font-body text-[15px] font-semibold cursor-pointer"
         >
           Xem tháng hiện tại
         </button>
@@ -432,7 +426,7 @@ function InsightCard({ insight, featured }: { insight: Insight; featured?: boole
           {insight.title}
         </p>
         {badge && (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: featured ? "#ffffff" : badge.color, background: featured ? "rgba(255,255,255,0.15)" : badge.bg, borderRadius: 8, padding: "3px 8px", flexShrink: 0, marginTop: 1 }}>
+          <span className="font-body text-xs font-semibold rounded-sm px-2 py-[3px] shrink-0 mt-px" style={{ color: featured ? "#ffffff" : badge.color, background: featured ? "rgba(255,255,255,0.15)" : badge.bg }}>
             {badge.label}
           </span>
         )}
@@ -537,7 +531,7 @@ export function StatisticsTemplate({
                     </span>
                   </div>
                 ))}
-                <div style={{ display: "flex", gap: 8, marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--hairline)", alignItems: "center", color: "var(--ink-muted-48)", fontSize: 13 }}>
+                <div className="flex gap-2 mt-2 pt-2 border-t border-hairline items-center text-ink-muted-48 text-[13px]">
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", animation: "stats-pulse 0.9s ease-in-out infinite" }} />
                   <span>AI đang xử lý…</span>
                   <style>{`@keyframes stats-pulse { 0%,100%{opacity:.25} 50%{opacity:1} }`}</style>
@@ -560,7 +554,7 @@ export function StatisticsTemplate({
         )}
 
         {status === "ready" && regenError && (
-          <div style={{ background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)", borderRadius: 14, padding: "14px 16px", marginBottom: 8, display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <div className="rounded-[14px] px-4 py-[14px] mb-2 flex gap-3 items-start" style={{ background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)" }}>
             <span style={{ color: "#ff453a", flexShrink: 0, fontSize: 16, lineHeight: 1.4 }}>!</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "#b94a05", margin: "0 0 4px" }}>
@@ -572,7 +566,7 @@ export function StatisticsTemplate({
             </div>
             <button type="button"
               onClick={onDismissRegenError}
-              style={{ background: "none", border: "none", color: "var(--ink-muted-48)", cursor: "pointer", fontSize: 18, lineHeight: 1, flexShrink: 0, padding: 0 }}
+              className="bg-transparent border-none text-ink-muted-48 cursor-pointer text-[18px] leading-none shrink-0 p-0"
               aria-label="Đóng"
             >×</button>
           </div>
@@ -593,7 +587,7 @@ export function StatisticsTemplate({
               <button type="button"
                 onClick={onRegenerate}
                 disabled={refreshing}
-                style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 12, color: "var(--primary)", cursor: refreshing ? "default" : "pointer", padding: "4px 0", opacity: refreshing ? 0.4 : 1 }}
+                className={`bg-transparent border-none font-body text-xs text-primary py-1 px-0 ${refreshing ? "cursor-default opacity-40" : "cursor-pointer opacity-100"}`}
               >
                 Tạo lại
               </button>
