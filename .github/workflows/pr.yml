@@ -1,0 +1,13 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [staging, main]
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
