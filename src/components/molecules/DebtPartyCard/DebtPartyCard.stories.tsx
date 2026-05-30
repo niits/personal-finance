@@ -5,40 +5,33 @@ const meta: Meta<typeof DebtPartyCard> = { component: DebtPartyCard };
 export default meta;
 type Story = StoryObj<typeof DebtPartyCard>;
 
-const lendDebt = {
+const base = {
   id: "d1",
-  type: "lend" as const,
   party: "Anh Nam",
-  amount: 5000000,
-  repaid: 2000000,
-  remaining: 3000000,
-  status: "open" as const,
   note: "Mua xe",
-  createdAt: "2026-05-01",
-  repayments: [
-    { id: 1, amount: 1000000, date: "2026-05-10", note: null },
-    { id: 2, amount: 1000000, date: "2026-05-20", note: "Lần 2" },
-  ],
+  due_date: null,
+  status: "open" as const,
+  opening_transaction_id: 1,
+  created_at: "2026-05-01",
+  opening_amount: 5000000,
+  total_repaid: 2000000,
+  remaining: 3000000,
+  is_overdue: false,
+  transactions: [],
 };
 
-export const LendCollapsed: Story = {
-  args: { debt: lendDebt, expanded: false },
+export const Lend: Story = {
+  args: { debt: { ...base, type: "lend" } },
 };
 
-export const LendExpanded: Story = {
-  args: { debt: lendDebt, expanded: true, onAddRepayment: () => {} },
+export const Borrow: Story = {
+  args: { debt: { ...base, id: "d2", type: "borrow", party: "Chị Lan", note: null, total_repaid: 0, remaining: 5000000 } },
 };
 
-export const BorrowOpen: Story = {
-  args: {
-    debt: { ...lendDebt, id: "d2", type: "borrow", party: "Chị Lan", note: null, repaid: 0, remaining: 5000000 },
-    expanded: false,
-  },
+export const Overdue: Story = {
+  args: { debt: { ...base, type: "lend", due_date: "2026-04-01", is_overdue: true } },
 };
 
 export const Settled: Story = {
-  args: {
-    debt: { ...lendDebt, status: "settled", repaid: 5000000, remaining: 0 },
-    expanded: false,
-  },
+  args: { debt: { ...base, type: "lend", status: "settled", total_repaid: 5000000, remaining: 0, is_overdue: false } },
 };

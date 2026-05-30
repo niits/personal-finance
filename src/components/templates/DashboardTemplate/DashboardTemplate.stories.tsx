@@ -29,14 +29,14 @@ const mockTransactions = [
     category: { id: 2, name: "Ăn uống", emoji: "🍜", path: "Chi tiêu / Ăn uống" },
     root_category_name: "Chi tiêu",
     note: "Bún bò sáng", date: "2025-05-15",
-    custom_budgets: [], debt_id: null, created_at: 1747296000, updated_at: 1747296000,
+    custom_budgets: [], debt_id: null, debt_party: null, debt_type: null, created_at: 1747296000, updated_at: 1747296000,
   },
   {
     id: 2, amount: 320_000, type: "expense" as const, emoji: null,
     category: { id: 3, name: "Di chuyển", emoji: "🚗", path: "Chi tiêu / Di chuyển" },
     root_category_name: "Chi tiêu",
     note: "Xăng xe", date: "2025-05-15",
-    custom_budgets: [{ id: 1, name: "Du lịch tháng 6" }], debt_id: null,
+    custom_budgets: [{ id: 1, name: "Du lịch tháng 6" }], debt_id: null, debt_party: null, debt_type: null,
     created_at: 1747282000, updated_at: 1747282000,
   },
   {
@@ -44,7 +44,7 @@ const mockTransactions = [
     category: { id: 4, name: "Cafe", emoji: "☕", path: "Chi tiêu / Cafe" },
     root_category_name: "Chi tiêu",
     note: null, date: "2025-05-14",
-    custom_budgets: [], debt_id: null, created_at: 1747209600, updated_at: 1747209600,
+    custom_budgets: [], debt_id: null, debt_party: null, debt_type: null, created_at: 1747209600, updated_at: 1747209600,
   },
 ];
 

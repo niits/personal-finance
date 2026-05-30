@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DebtOverviewTemplate } from "@/components/templates/DebtOverviewTemplate";
+import { TransactionForm } from "@/components/organisms/TransactionForm";
 import type { DebtWithRepayments } from "@/lib/debt";
 
 type DebtsResponse = {
@@ -14,6 +15,7 @@ type DebtsResponse = {
 export default function DebtsPage() {
   const [data, setData] = useState<DebtsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
   const { replace } = useRouter();
 
   const load = useCallback(async (silent = false) => {
@@ -30,26 +32,6 @@ export default function DebtsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleAddDebt(body: { type: "lend" | "borrow"; party: string; amount: number; note: string; date: string }) {
-    const res = await fetch("/api/debts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error("Failed to create debt");
-    await load(true);
-  }
-
-  async function handleAddRepayment(debtId: string, body: { amount: number; note: string; date: string }) {
-    const res = await fetch(`/api/debts/${debtId}/repayments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error("Failed to add repayment");
-    await load(true);
-  }
-
   if (loading || !data) {
     return (
       <div style={{ minHeight: "100dvh", background: "var(--canvas-parchment)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -59,12 +41,19 @@ export default function DebtsPage() {
   }
 
   return (
-    <DebtOverviewTemplate
-      lending={data.lending}
-      borrowing={data.borrowing}
-      settled={data.settled}
-      onAddDebt={handleAddDebt}
-      onAddRepayment={handleAddRepayment}
-    />
+    <>
+      <DebtOverviewTemplate
+        lending={data.lending}
+        borrowing={data.borrowing}
+        settled={data.settled}
+        onOpenTransactionForm={() => setFormOpen(true)}
+      />
+      <TransactionForm
+        open={formOpen}
+        mode={{ kind: "create-debt-open" }}
+        onClose={() => setFormOpen(false)}
+        onSaved={() => { setFormOpen(false); load(true); }}
+      />
+    </>
   );
 }

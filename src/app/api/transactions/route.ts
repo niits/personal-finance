@@ -22,6 +22,8 @@ type TxnRow = {
   date: string;
   monthly_budget_id: number | null;
   debt_id: string | null;
+  debt_party: string | null;
+  debt_type: "lend" | "borrow" | null;
   created_at: number;
   updated_at: number;
   cat_id: number | null;
@@ -71,6 +73,8 @@ function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: s
       : null,
     root_category_name: getRootCategoryName(row),
     debt_id: row.debt_id ?? null,
+    debt_party: row.debt_party ?? null,
+    debt_type: row.debt_type ?? null,
     note: row.note,
     date: row.date,
     monthly_budget_id: row.monthly_budget_id,
@@ -109,6 +113,7 @@ export async function GET(request: NextRequest) {
     .leftJoin("category as c", "c.id", "t.category_id")
     .leftJoin("category as p1", "p1.id", "c.parent_id")
     .leftJoin("category as p2", "p2.id", "p1.parent_id")
+    .leftJoin("debt as d", "d.id", "t.debt_id")
     .select([
       "t.id",
       "t.amount",
@@ -118,6 +123,8 @@ export async function GET(request: NextRequest) {
       "t.date",
       "t.monthly_budget_id",
       "t.debt_id",
+      "d.party as debt_party",
+      "d.type as debt_type",
       "t.created_at",
       "t.updated_at",
       "c.id as cat_id",
@@ -225,6 +232,42 @@ export async function POST(request: NextRequest) {
   const date = parseDate(b.date);
   if (!date) return Errors.validation("Ngày không hợp lệ. Dùng định dạng YYYY-MM-DD");
 
+  const db = await getKysely();
+  const userId = session.user.id;
+  const note = typeof b.note === "string" ? b.note : null;
+  const emoji = typeof b.emoji === "string" && b.emoji.trim() ? b.emoji.trim() : null;
+
+  // ── Debt repayment path ───────────────────────────────────────────────────
+  // When debt_id is provided the transaction is a repayment: no category, no
+  // budget. The DB CHECK constraint enforces this at storage time.
+  const debtId = typeof b.debt_id === "string" ? b.debt_id : null;
+  if (debtId) {
+    const debt = await db
+      .selectFrom("debt")
+      .select(["id", "status"])
+      .where("id", "=", debtId)
+      .where("user_id", "=", userId)
+      .executeTakeFirst();
+    if (!debt) return Errors.notFound("Debt not found");
+    if (debt.status === "settled")
+      return Errors.validation("Khoản nợ này đã tất toán");
+
+    const result = await db
+      .insertInto("transaction")
+      .values({ user_id: userId, amount, type: b.type as "expense" | "income", note, emoji, date, debt_id: debtId })
+      .returning("id")
+      .executeTakeFirst();
+
+    const txnId = result!.id;
+    const txn = await db
+      .selectFrom("transaction as t")
+      .select(["t.id", "t.amount", "t.type", "t.note", "t.emoji", "t.date", "t.debt_id", "t.created_at", "t.updated_at"])
+      .where("t.id", "=", txnId)
+      .executeTakeFirst();
+    return Response.json({ transaction: { ...txn, category: null, custom_budgets: [] } }, { status: 201 });
+  }
+
+  // ── Normal transaction path ───────────────────────────────────────────────
   const categoryId = typeof b.category_id === "number" ? b.category_id : null;
   if (!categoryId) return Errors.validation("category_id là bắt buộc");
 
@@ -235,9 +278,6 @@ export async function POST(request: NextRequest) {
 
   if (b.type === "income" && Array.isArray(b.custom_budget_ids) && b.custom_budget_ids.length > 0)
     return Errors.validation("Giao dịch thu nhập không thể gán vào Custom Budget");
-
-  const db = await getKysely();
-  const userId = session.user.id;
 
   // Validate category belongs to user and is leaf
   const cat = await db
@@ -263,18 +303,13 @@ export async function POST(request: NextRequest) {
       .executeTakeFirst();
     if (!budget) {
       return Response.json(
-        {
-          error: `Chưa có budget tháng ${month}. Vui lòng tạo budget trước.`,
-          code: "MONTHLY_BUDGET_MISSING",
-          details: { month },
-        },
+        { error: `Chưa có budget tháng ${month}. Vui lòng tạo budget trước.`, code: "MONTHLY_BUDGET_MISSING", details: { month } },
         { status: 400 },
       );
     }
     monthlyBudgetId = budget.id;
   }
 
-  // Validate custom budget ownership
   if (customBudgetIds.length > 0) {
     const validBudgets = await db
       .selectFrom("custom_budget")
@@ -285,21 +320,9 @@ export async function POST(request: NextRequest) {
     if (validBudgets.length !== customBudgetIds.length) return Errors.forbidden();
   }
 
-  const note = typeof b.note === "string" ? b.note : null;
-  const emoji = typeof b.emoji === "string" && b.emoji.trim() ? b.emoji.trim() : null;
-
   const result = await db
     .insertInto("transaction")
-    .values({
-      user_id: userId,
-      amount,
-      type: b.type as "expense" | "income",
-      category_id: categoryId,
-      note,
-      emoji,
-      date,
-      monthly_budget_id: monthlyBudgetId,
-    })
+    .values({ user_id: userId, amount, type: b.type as "expense" | "income", category_id: categoryId, note, emoji, date, monthly_budget_id: monthlyBudgetId })
     .returning("id")
     .executeTakeFirst();
 

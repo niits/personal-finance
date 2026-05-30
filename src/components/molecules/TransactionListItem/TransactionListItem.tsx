@@ -11,6 +11,8 @@ export type TransactionItemData = {
   categoryEmoji: string | null;
   note: string | null;
   customBudgets: { id: number; name: string }[];
+  debtParty?: string | null;
+  debtType?: "lend" | "borrow" | null;
 };
 
 type TransactionListItemProps = {
@@ -69,6 +71,11 @@ export function TransactionListItem({ transaction: t, showDivider, onClick }: Tr
         }}>
           {t.note ?? ""}
         </p>
+        {t.debtParty && (
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)", lineHeight: 1.3, marginTop: 1 }}>
+            💸 {t.debtType === "lend" ? "Cho vay" : "Đi vay"} · {t.debtParty}
+          </p>
+        )}
         {t.customBudgets.length > 0 && (
           <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center" }}>
             {t.customBudgets.slice(0, 2).map((cb) => (

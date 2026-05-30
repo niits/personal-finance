@@ -1,102 +1,77 @@
 import { DebtProgressBar } from "@/components/atoms/DebtProgressBar";
-import { DebtRepaymentItem } from "@/components/molecules/DebtRepaymentItem";
+import { formatVND } from "@/components/atoms/CurrencyDisplay";
 import type { DebtWithRepayments } from "@/lib/debt";
 
 type DebtPartyCardProps = {
   debt: DebtWithRepayments;
-  expanded?: boolean;
-  onToggle?: () => void;
-  onAddRepayment?: (debtId: string) => void;
+  onTap?: (id: string) => void;
 };
 
-export function DebtPartyCard({ debt, expanded, onToggle, onAddRepayment }: DebtPartyCardProps) {
+export function DebtPartyCard({ debt, onTap }: DebtPartyCardProps) {
   const isLend = debt.type === "lend";
   const isSettled = debt.status === "settled";
 
   return (
-    <div style={{
-      background: "var(--canvas-card)",
-      borderRadius: 14,
-      padding: "14px 16px",
-      marginBottom: 12,
-      opacity: isSettled ? 0.6 : 1,
-    }}>
-      <button
-        onClick={onToggle}
-        style={{
-          width: "100%",
-          background: "none",
-          border: "none",
-          padding: 0,
-          cursor: "pointer",
-          textAlign: "left",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-          <div>
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
-              {debt.party}
-            </div>
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 2 }}>
-              {isLend ? "Cho vay" : "Đi vay"}{debt.note ? ` · ${debt.note}` : ""}
-            </div>
+    <button
+      onClick={() => onTap?.(debt.id)}
+      style={{
+        width: "100%",
+        background: "var(--canvas)",
+        borderRadius: 14,
+        padding: "14px 16px",
+        marginBottom: 10,
+        border: "none",
+        cursor: onTap ? "pointer" : "default",
+        textAlign: "left",
+        opacity: isSettled ? 0.55 : 1,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+        <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {debt.party}
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{
-              fontFamily: "var(--font-body)",
-              fontSize: 15,
-              fontWeight: 600,
-              color: isSettled ? "#30d158" : isLend ? "var(--ink)" : "var(--destructive)",
-            }}>
-              {isSettled ? "Tất toán" : `${(debt.remaining / 1000).toLocaleString("vi-VN")}k`}
-            </div>
-            {!isSettled && (
-              <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)", marginTop: 1 }}>
-                còn lại / {(debt.amount / 1000).toLocaleString("vi-VN")}k
-              </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
+              {isLend ? "Cho vay" : "Đi vay"}{debt.note ? ` · ${debt.note}` : ""}
+            </span>
+            {debt.is_overdue && (
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 600, color: "var(--destructive)" }}>
+                ⚠ Quá hạn
+              </span>
             )}
           </div>
         </div>
-        <DebtProgressBar principal={debt.amount} repaid={debt.repaid} />
-      </button>
 
-      {expanded && (
-        <div style={{ marginTop: 12 }}>
-          {debt.repayments.length > 0 && (
-            <div style={{ marginBottom: 4 }}>
-              {debt.repayments.map((r) => (
-                <DebtRepaymentItem
-                  key={r.id}
-                  amount={r.amount}
-                  date={r.date}
-                  note={r.note}
-                  direction={isLend ? "income" : "expense"}
-                />
-              ))}
-            </div>
-          )}
-          {!isSettled && onAddRepayment && (
-            <button
-              onClick={() => onAddRepayment(debt.id)}
-              style={{
-                marginTop: 8,
-                width: "100%",
-                padding: "9px 0",
-                background: "var(--primary-tint)",
-                border: "none",
-                borderRadius: 10,
-                fontFamily: "var(--font-body)",
-                fontSize: 14,
-                fontWeight: 600,
-                color: "var(--primary)",
-                cursor: "pointer",
-              }}
-            >
-              + Ghi nhận trả nợ
-            </button>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          {isSettled ? (
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "#30d158" }}>Tất toán ✓</div>
+          ) : (
+            <>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
+                {formatVND(debt.remaining)}₫
+              </div>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)", marginTop: 1 }}>
+                còn lại / {formatVND(debt.opening_amount)}₫
+              </div>
+            </>
           )}
         </div>
+      </div>
+
+      {!isSettled && (
+        <DebtProgressBar
+          openingAmount={debt.opening_amount}
+          totalRepaid={debt.total_repaid}
+          variant={isLend ? "lend" : "borrow"}
+        />
       )}
-    </div>
+
+      {debt.due_date && !isSettled && !debt.is_overdue && (
+        <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 8 }}>
+          Hạn: {debt.due_date.split("-").reverse().join("/")}
+        </div>
+      )}
+    </button>
   );
 }
