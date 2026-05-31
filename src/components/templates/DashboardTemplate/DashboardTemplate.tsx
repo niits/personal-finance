@@ -119,24 +119,22 @@ function TxnIcon({ txn }: { txn: Transaction }) {
   const displayEmoji = txn.emoji ?? txn.category?.emoji;
   if (displayEmoji) {
     return (
-      <div style={{
-        width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-        background: isExp ? "rgba(255,69,58,0.08)" : "rgba(48,209,88,0.08)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 17,
-      }}>
+      <div
+        className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[17px]"
+        style={{ background: isExp ? "rgba(255,69,58,0.08)" : "rgba(48,209,88,0.08)" }}
+      >
         {displayEmoji + "️"}
       </div>
     );
   }
   return (
-    <div style={{
-      width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-      background: isExp ? "rgba(255,69,58,0.12)" : "rgba(48,209,88,0.12)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 600,
-      color: isExp ? "#ff453a" : "#30d158",
-    }}>
+    <div
+      className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center font-display text-[13px] font-semibold"
+      style={{
+        background: isExp ? "rgba(255,69,58,0.12)" : "rgba(48,209,88,0.12)",
+        color: isExp ? "#ff453a" : "#30d158",
+      }}
+    >
       {(txn.category?.name ?? "◈").charAt(0).toUpperCase()}
     </div>
   );
@@ -252,7 +250,8 @@ export function DashboardTemplate({
           {onFillEmoji && (
             <button type="button"
               onClick={onFillEmoji}
-              style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, flexShrink: 0, marginTop: 2 }}
+              className="border-none rounded-full w-8 h-8 flex items-center justify-center cursor-pointer text-base shrink-0 mt-0.5"
+              style={{ background: "rgba(255,255,255,0.12)" }}
               title="Gợi ý emoji"
             >
               ✦
@@ -322,7 +321,7 @@ export function DashboardTemplate({
               <button type="button"
                 key={label}
                 onClick={() => setSelectedRoot(isAll ? null : (selectedRoot === label ? null : label))}
-                style={{ flex: 1, padding: "6px 4px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, background: active ? "var(--primary)" : "var(--canvas-parchment)", color: active ? "#fff" : "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                className={`flex-1 px-1 py-1.5 rounded-full border-none cursor-pointer font-body text-[13px] font-medium truncate ${active ? "bg-primary text-white" : "bg-canvas-parchment text-ink"}`}
               >
                 {label}
               </button>
@@ -344,7 +343,7 @@ export function DashboardTemplate({
                   { href: "/categories", icon: "⊞", title: "Tạo danh mục", sub: "Phân loại chi tiêu của bạn" },
                   { href: "/budget", icon: "◈", title: "Đặt ngân sách tháng", sub: "Kiểm soát mức chi tiêu" },
                 ].map((item) => (
-                  <a key={item.href} href={item.href} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--canvas-parchment)", borderRadius: 11, textDecoration: "none", color: "var(--ink)" }}>
+                  <a key={item.href} href={item.href} className="flex items-center gap-3 px-4 py-3 bg-canvas-parchment rounded-md no-underline text-ink">
                     <span style={{ fontSize: 20 }}>{item.icon}</span>
                     <div>
                       <p style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-body)" }}>{item.title}</p>
@@ -379,10 +378,10 @@ export function DashboardTemplate({
                     style={{ display: "flex", alignItems: "center", padding: "10px 16px", borderTop: i > 0 ? "1px solid var(--hairline)" : "none", cursor: "pointer", minHeight: 44, gap: 10 }}>
                     <TxnIcon txn={txn} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", letterSpacing: -0.374, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
+                      <p className="font-body text-[15px] text-ink tracking-[-0.374px] truncate leading-[1.3]">
                         {txn.category?.name ?? "Khoản nợ"}
                       </p>
-                      <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, minHeight: "1em" }}>
+                      <p className="font-body text-xs text-ink-muted-48 truncate leading-[1.3] min-h-[1em]">
                         {txn.note ?? ""}
                       </p>
                       {txn.debt_party && (
@@ -393,12 +392,12 @@ export function DashboardTemplate({
                       {txn.custom_budgets.length > 0 && (
                         <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center" }}>
                           {txn.custom_budgets.slice(0, 2).map((cb) => (
-                            <span key={cb.id} style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, padding: "2px 7px", borderRadius: 10, background: "rgba(0,102,204,0.08)", color: "var(--primary)", whiteSpace: "nowrap", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            <span key={cb.id} className="font-body text-xs font-medium px-[7px] py-0.5 rounded-[10px] text-primary whitespace-nowrap max-w-[90px] overflow-hidden text-ellipsis" style={{ background: "rgba(0,102,204,0.08)" }}>
                               {cb.name}
                             </span>
                           ))}
                           {txn.custom_budgets.length > 2 && (
-                            <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, padding: "2px 6px", borderRadius: 10, background: "var(--canvas-parchment)", color: "var(--ink-muted-48)", whiteSpace: "nowrap" }}>
+                            <span className="font-body text-xs font-medium px-1.5 py-0.5 rounded-[10px] bg-canvas-parchment text-ink-muted-48 whitespace-nowrap">
                               +{txn.custom_budgets.length - 2}
                             </span>
                           )}
@@ -422,7 +421,7 @@ export function DashboardTemplate({
       {data?.monthly_budget && (
         <div style={{ position: "fixed", bottom: 84, right: 20, zIndex: 40 }}>
           <button type="button" onClick={() => onOpenForm()}
-            style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--primary)", color: "#fff", fontSize: 28, lineHeight: 1, border: "none", cursor: "pointer", boxShadow: "0 4px 16px rgba(0,102,204,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            className="w-14 h-14 rounded-full bg-primary text-white text-[28px] leading-none border-none cursor-pointer flex items-center justify-center shadow-[0_4px_16px_rgba(0,102,204,0.4)]">
             +
           </button>
         </div>
@@ -459,11 +458,12 @@ export function DashboardTemplate({
             </div>
             <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
               <button type="button" onClick={() => { onOpenForm(actionTxn); onSetActionTxn(null); }}
-                style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "var(--canvas-parchment)", color: "var(--ink)", fontFamily: "var(--font-body)", fontSize: 16, fontWeight: 600, cursor: "pointer" }}>
+                className="w-full p-[14px] rounded-xl border-none bg-canvas-parchment text-ink font-body text-base font-semibold cursor-pointer">
                 Sửa
               </button>
               <button type="button" onClick={() => onDelete(actionTxn)} disabled={deleting}
-                style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "rgba(255,69,58,0.1)", color: "#ff453a", fontFamily: "var(--font-body)", fontSize: 16, fontWeight: 600, cursor: deleting ? "not-allowed" : "pointer", opacity: deleting ? 0.6 : 1 }}>
+                className={`w-full p-[14px] rounded-xl border-none font-body text-base font-semibold ${deleting ? "cursor-not-allowed opacity-60" : "cursor-pointer opacity-100"}`}
+                style={{ background: "rgba(255,69,58,0.1)", color: "#ff453a" }}>
                 {deleting ? "Đang xoá…" : "Xoá"}
               </button>
             </div>
