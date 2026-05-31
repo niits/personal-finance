@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
@@ -320,23 +320,18 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const [mounted, setMounted] = useState(false);
-  const [show, setShow] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        setShow(true);
-        setTimeout(() => amountRef.current?.focus(), 420);
-      }));
-    } else {
-      setShow(false);
-      const t = setTimeout(() => setMounted(false), 400);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
+  // Enter/exit is driven by CSS keyframes (see globals.css). `mounted` keeps the
+  // sheet in the DOM while the exit animation plays; it's adjusted during render
+  // from the `open` prop (the React-recommended alternative to a prop-sync effect)
+  // and cleared in the sheet's onAnimationEnd handler once the exit finishes.
+  const [mounted, setMounted] = useState(open);
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setMounted(true);
+  }
 
   // NOTE: switching edit targets is handled by remounting via a `key` prop at
   // the call site (see DashboardTemplate), so the useState initializers above
@@ -484,16 +479,17 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         style={{
           position: "absolute", inset: 0,
           background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
-          opacity: show ? 1 : 0, transition: `opacity 0.4s ${SPRING}`,
+          animation: `${open ? "sheet-fade-in" : "sheet-fade-out"} 0.4s ${SPRING} forwards`,
         }}
       />
 
       {/* Full-screen sheet */}
       <div
         className="absolute inset-0 bg-canvas flex flex-col overflow-x-hidden"
-        style={{
-          transform: show ? "translateY(0)" : "translateY(100%)",
-          transition: `transform 0.4s ${SPRING}`,
+        style={{ animation: `${open ? "sheet-slide-in" : "sheet-slide-out"} 0.4s ${SPRING} forwards` }}
+        onAnimationEnd={() => {
+          if (open) amountRef.current?.focus();
+          else setMounted(false);
         }}
       >
         {/* Drag handle */}
