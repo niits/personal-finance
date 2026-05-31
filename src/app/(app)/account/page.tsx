@@ -63,7 +63,7 @@ function ListRow({ icon, label, value, action, isLast = false }: {
       borderBottom: isLast ? "none" : "1px solid var(--hairline)",
     }}>
       {icon && (
-        <div className="w-8 h-8 rounded-sm bg-canvas-parchment flex items-center justify-center shrink-0 text-ink-muted-80">
+        <div className="size-8 rounded-sm bg-canvas-parchment flex items-center justify-center shrink-0 text-ink-muted-80">
           {icon}
         </div>
       )}
@@ -197,7 +197,7 @@ export default function AccountPage() {
           alignItems: "center",
           gap: "var(--space-md)",
         }}>
-          <div className="w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center font-display text-[22px] font-semibold shrink-0">
+          <div className="size-14 rounded-full bg-primary text-white flex items-center justify-center font-display text-[22px] font-semibold shrink-0">
             {userInitials}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>

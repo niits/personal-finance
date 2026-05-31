@@ -161,6 +161,7 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
       </span>
       <input
         type="date"
+        aria-label="Chọn ngày"
         value={value}
         max={todayStr()}
         onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
@@ -224,6 +225,7 @@ function DebtLinkSection({
           {state.kind === "new-debt" && (
             <div style={{ paddingLeft: 20, paddingBottom: 8 }}>
               <input
+                aria-label={txType === "expense" ? "Cho vay ai" : "Vay của ai"}
                 placeholder={txType === "expense" ? "Cho vay ai…" : "Vay của ai…"}
                 value={state.party}
                 onChange={(e) => onChange({ ...state, party: e.target.value })}
@@ -233,6 +235,7 @@ function DebtLinkSection({
                 <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginRight: 8 }}>Hạn trả:</span>
                 <input
                   type="date"
+                  aria-label="Hạn trả"
                   value={state.due_date}
                   onChange={(e) => onChange({ ...state, due_date: e.target.value })}
                   style={{ ...inputStyle, display: "inline-block", width: "auto" }}
@@ -278,7 +281,7 @@ function Option({ label, sublabel, selected, onSelect }: { label: string; sublab
       className="w-full flex items-center gap-2.5 bg-transparent px-1 py-2.5 cursor-pointer border-b border-hairline"
     >
       <span
-        className="w-[18px] h-[18px] rounded-full shrink-0 flex items-center justify-center"
+        className="size-[18px] rounded-full shrink-0 flex items-center justify-center"
         style={{
           border: `2px solid ${selected ? "var(--primary)" : "var(--hairline)"}`,
           background: selected ? "var(--primary)" : "transparent",
@@ -474,10 +477,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 300 }}>
       {/* Backdrop */}
-      <div
+      <button
+        type="button"
+        aria-label="Đóng"
         onClick={handleClose}
         style={{
-          position: "absolute", inset: 0,
+          position: "absolute", inset: 0, border: "none", padding: 0, cursor: "pointer",
           background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
           animation: `${open ? "sheet-fade-in" : "sheet-fade-out"} 0.4s ${SPRING} forwards`,
         }}
@@ -582,7 +587,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           <div style={{ position: "relative", marginBottom: 18 }}>
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] text-ink-muted-48 font-display font-semibold pointer-events-none">₫</span>
             <input
-              type="text" inputMode="numeric" placeholder="0"
+              type="text" inputMode="numeric" placeholder="0" aria-label="Số tiền"
               value={amountStr}
               onChange={(e) => { const raw = e.target.value.replace(/[^\d]/g, ""); setAmountStr(raw ? fmt(parseInt(raw, 10)) : ""); setError(""); }}
               ref={amountRef}
@@ -601,7 +606,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "12px 0", borderTop: "1px solid var(--hairline)" }}>
             <EmojiPicker value={emoji} onChange={setEmoji} />
             <input
-              type="text" placeholder="Ghi chú (tuỳ chọn)"
+              type="text" placeholder="Ghi chú (tuỳ chọn)" aria-label="Ghi chú"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="flex-1 px-[14px] py-3 rounded-md border border-hairline font-body text-[15px] text-ink bg-canvas-parchment outline-none"

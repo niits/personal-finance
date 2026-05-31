@@ -330,9 +330,9 @@ function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: 
     >
       {/* Unlink action revealed on swipe */}
       {canUnlink && (
-        <div className="absolute right-0 top-0 bottom-0 w-[100px] flex items-center justify-center cursor-pointer" style={{ background: "var(--destructive)" }} onClick={(e) => { e.stopPropagation(); onUnlink(); }}>
+        <button type="button" className="absolute right-0 top-0 bottom-0 w-[100px] flex items-center justify-center cursor-pointer border-none" style={{ background: "var(--destructive)" }} onClick={(e) => { e.stopPropagation(); onUnlink(); }}>
           <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "#fff", fontWeight: 600 }}>Hủy lk</span>
-        </div>
+        </button>
       )}
 
       <div
@@ -348,7 +348,7 @@ function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: 
               {tx.date.split("-").slice(1).reverse().join("/")}
             </span>
             {tx.is_opening && (
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 600, color: "var(--ink-muted-48)", background: "var(--canvas-parchment)", borderRadius: 4, padding: "1px 5px" }}>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", background: "var(--canvas-parchment)", borderRadius: 4, padding: "1px 5px" }}>
                 Gốc
               </span>
             )}
@@ -388,7 +388,7 @@ function EditDebtSheet({ debt, onClose, onSaved }: { debt: DebtWithRepayments; o
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 500 }} />
+      <button type="button" aria-label="Đóng" onClick={onClose} style={{ position: "fixed", inset: 0, border: "none", padding: 0, cursor: "pointer", background: "rgba(0,0,0,0.4)", zIndex: 500 }} />
       <div className="fixed bottom-0 left-0 right-0 z-[501] bg-canvas rounded-t-2xl px-5 pt-5 pb-[max(24px,env(safe-area-inset-bottom))]">
         <p style={{ fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: "var(--ink)", marginBottom: 16 }}>Chỉnh sửa</p>
         {[

@@ -211,7 +211,7 @@ export function CategoriesTemplate({
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
             {depth === 0 && (
               <span style={{
-                fontSize: 11,
+                fontSize: 12,
                 color: cat.type === "income" ? "#34c759" : "var(--primary)",
                 fontFamily: "var(--font-body)",
                 background: cat.type === "income" ? "rgba(52,199,89,0.1)" : "rgba(0,102,204,0.08)",
@@ -222,7 +222,7 @@ export function CategoriesTemplate({
               </span>
             )}
             <span style={{
-              fontSize: 11,
+              fontSize: 12,
               color: "var(--ink-muted-48)",
               fontFamily: "var(--font-body)",
               background: "var(--canvas-parchment)",
@@ -305,10 +305,21 @@ export function CategoriesTemplate({
             {recs.map((s, i) => (
               <div
                 key={`${s.transaction_id}-${s.suggested_category_id}`}
+                role="checkbox"
+                aria-checked={recatSelected.has(i)}
+                tabIndex={0}
                 onClick={() => {
                   const next = new Set(recatSelected);
                   if (next.has(i)) next.delete(i); else next.add(i);
                   setRecatSelected(next);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    const next = new Set(recatSelected);
+                    if (next.has(i)) next.delete(i); else next.add(i);
+                    setRecatSelected(next);
+                  }
                 }}
                 style={{
                   padding: "14px 20px",
@@ -321,7 +332,7 @@ export function CategoriesTemplate({
                 }}
               >
                 <div
-                  className="w-5 h-5 rounded-[6px] shrink-0 mt-0.5 flex items-center justify-center"
+                  className="size-5 rounded-[6px] shrink-0 mt-0.5 flex items-center justify-center"
                   style={{
                     background: recatSelected.has(i) ? "var(--primary)" : "transparent",
                     border: `1.5px solid ${recatSelected.has(i) ? "var(--primary)" : "var(--hairline)"}`,
@@ -392,10 +403,21 @@ export function CategoriesTemplate({
           {suggs.map((s, i) => (
             <div
               key={`${s.name}-${s.parent_category_id ?? 'root'}`}
+              role="checkbox"
+              aria-checked={selected.has(i)}
+              tabIndex={0}
               onClick={() => {
                 const next = new Set(selected);
                 if (next.has(i)) next.delete(i); else next.add(i);
                 setSelected(next);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  const next = new Set(selected);
+                  if (next.has(i)) next.delete(i); else next.add(i);
+                  setSelected(next);
+                }
               }}
               style={{
                 padding: "14px 20px",
@@ -408,7 +430,7 @@ export function CategoriesTemplate({
               }}
             >
               <div
-                className="w-5 h-5 rounded-[6px] shrink-0 mt-0.5 flex items-center justify-center"
+                className="size-5 rounded-[6px] shrink-0 mt-0.5 flex items-center justify-center"
                 style={{
                   background: selected.has(i) ? "var(--primary)" : "transparent",
                   border: `1.5px solid ${selected.has(i) ? "var(--primary)" : "var(--hairline)"}`,
@@ -434,7 +456,7 @@ export function CategoriesTemplate({
                     {s.name}
                   </span>
                   <span style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     color: s.type === "income" ? "#34c759" : "var(--primary)",
                     background: s.type === "income" ? "rgba(52,199,89,0.1)" : "rgba(0,102,204,0.08)",
                     padding: "2px 7px", borderRadius: 999,
@@ -532,6 +554,7 @@ export function CategoriesTemplate({
               <EmojiPicker value={newEmoji} onChange={setNewEmoji} suggestForName={newName} />
               <input
                 placeholder="Tên danh mục"
+                aria-label="Tên danh mục"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && save()}
@@ -541,6 +564,7 @@ export function CategoriesTemplate({
 
             <select
               value={parentId ?? ""}
+              aria-label="Danh mục cha"
               onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}
               className={`w-full px-4 py-[11px] rounded-md border border-hairline font-body text-[15px] bg-canvas-parchment outline-none appearance-none ${parentId ? "text-ink" : "text-ink-muted-48"}`}
             >
@@ -641,10 +665,12 @@ export function CategoriesTemplate({
       {/* AI suggest bottom sheet */}
       {showSuggest && (
         <>
-          <div
+          <button
+            type="button"
+            aria-label="Đóng"
             onClick={closeSheet}
             style={{
-              position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+              position: "fixed", inset: 0, border: "none", padding: 0, cursor: "pointer", background: "rgba(0,0,0,0.4)",
               zIndex: 100,
             }}
           />

@@ -27,9 +27,11 @@ export function LinkTransactionSheet({
 }) {
   return (
     <>
-      <div
+      <button
+        type="button"
+        aria-label="Đóng"
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 500 }}
+        style={{ position: "fixed", inset: 0, border: "none", padding: 0, cursor: "pointer", background: "rgba(0,0,0,0.4)", zIndex: 500 }}
       />
       <div className="fixed bottom-0 left-0 right-0 z-[501] bg-canvas rounded-t-2xl px-5 pt-5 pb-[max(24px,env(safe-area-inset-bottom))] max-h-[70vh] flex flex-col">
         <p style={{ fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: "var(--ink)", marginBottom: 16 }}>

@@ -7,22 +7,17 @@ import { getDebtWithRepayments } from "@/lib/debt";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, { params }: Ctx) {
-  const session = await requireSession(req);
+  const [session, { id }, db] = await Promise.all([requireSession(req), params, getKysely()]);
   if (!session) return Errors.unauthorized();
 
-  const { id } = await params;
-  const db = await getKysely();
   const debt = await getDebtWithRepayments(db, id, session.user.id);
   if (!debt) return Errors.notFound("Debt not found");
   return Response.json({ debt });
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const session = await requireSession(req);
+  const [session, { id }, db] = await Promise.all([requireSession(req), params, getKysely()]);
   if (!session) return Errors.unauthorized();
-
-  const { id } = await params;
-  const db = await getKysely();
 
   const existing = await db
     .selectFrom("debt")
@@ -56,11 +51,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const session = await requireSession(req);
+  const [session, { id }, db] = await Promise.all([requireSession(req), params, getKysely()]);
   if (!session) return Errors.unauthorized();
-
-  const { id } = await params;
-  const db = await getKysely();
 
   const existing = await db
     .selectFrom("debt")

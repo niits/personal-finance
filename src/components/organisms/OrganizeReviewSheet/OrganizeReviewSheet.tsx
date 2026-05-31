@@ -46,10 +46,13 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
   return (
     <>
       {/* Backdrop */}
-      <div
+      <button
+        type="button"
+        aria-label="Đóng"
+        disabled={applying}
         onClick={applying ? undefined : onClose}
         style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100,
+          position: "fixed", inset: 0, border: "none", padding: 0, cursor: applying ? "default" : "pointer", background: "rgba(0,0,0,0.4)", zIndex: 100,
         }}
       />
 

@@ -28,6 +28,9 @@ export function TransactionListItem({ transaction: t, showDivider, onClick }: Tr
   return (
     <div
       onClick={() => onClick?.(t.id)}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(t.id); } } : undefined}
       className={`flex items-center px-4 py-[10px] gap-[10px] min-h-[44px] bg-canvas ${
         showDivider ? "border-t border-hairline" : ""
       } ${onClick ? "cursor-pointer" : "cursor-default"}`}

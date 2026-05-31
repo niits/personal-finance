@@ -28,7 +28,7 @@ export function DebtPartyCard({ debt, onTap }: DebtPartyCardProps) {
               {isLend ? "Cho vay" : "Đi vay"}{debt.note ? ` · ${debt.note}` : ""}
             </span>
             {debt.is_overdue && (
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 600, color: "var(--destructive)" }}>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--destructive)" }}>
                 ⚠ Quá hạn
               </span>
             )}
@@ -43,7 +43,7 @@ export function DebtPartyCard({ debt, onTap }: DebtPartyCardProps) {
               <div style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
                 {formatVND(debt.remaining)}₫
               </div>
-              <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)", marginTop: 1 }}>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 1 }}>
                 còn lại / {formatVND(debt.opening_amount)}₫
               </div>
             </>
