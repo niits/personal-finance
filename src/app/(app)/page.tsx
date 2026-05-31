@@ -28,6 +28,7 @@ export default function DashboardPage() {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    const { signal } = ctrl;
 
     setError(false);
     if (!silent) setLoading(true);
@@ -37,15 +38,15 @@ export default function DashboardPage() {
     // Retry up to 3 attempts with 500ms / 1000ms backoff
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) await new Promise<void>((r) => setTimeout(r, attempt * 500));
-      if (ctrl.signal.aborted) return;
+      if (signal.aborted) return;
 
       try {
         const [dashRes, txnRes] = await Promise.all([
-          fetch(`/api/dashboard${q}`, { signal: ctrl.signal }),
-          fetch(`/api/transactions${q}`, { signal: ctrl.signal }),
+          fetch(`/api/dashboard${q}`, { signal }),
+          fetch(`/api/transactions${q}`, { signal }),
         ]);
 
-        if (ctrl.signal.aborted) return;
+        if (signal.aborted) return;
 
         if (dashRes.status === 401 || txnRes.status === 401) {
           replace("/sign-in");
@@ -60,7 +61,7 @@ export default function DashboardPage() {
           txnRes.json() as Promise<{ transactions: Transaction[] }>,
         ]);
 
-        if (ctrl.signal.aborted) return;
+        if (signal.aborted) return;
 
         setData(dr);
         setTxns(tr.transactions ?? []);
@@ -71,7 +72,7 @@ export default function DashboardPage() {
       } catch (err) {
         if ((err as DOMException)?.name === "AbortError") return;
         if (attempt < 2) continue; // retry
-        if (!ctrl.signal.aborted) {
+        if (!signal.aborted) {
           setError(true);
           setLoading(false);
         }
@@ -167,9 +168,9 @@ export default function DashboardPage() {
         <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)", textAlign: "center" }}>
           Không tải được dữ liệu. Kiểm tra kết nối mạng và thử lại.
         </p>
-        <button
+        <button type="button"
           onClick={() => load()}
-          style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--primary)", background: "none", border: "none", cursor: "pointer", padding: "8px 16px" }}
+          className="font-body text-[15px] font-semibold text-primary bg-transparent border-none cursor-pointer px-4 py-2"
         >
           Thử lại
         </button>

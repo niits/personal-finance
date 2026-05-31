@@ -552,6 +552,21 @@ The structural breakpoints that matter for agents: 1440px (content lock), 1068px
 6. The single drop-shadow (`rgba(0, 0, 0, 0.22) 3px 5px 30px`) is reserved for product photography only.
 7. When in doubt about emphasis: alternate surface (light → dark tile) before adding chrome.
 
+## Styling Implementation
+
+Tokens are defined once as CSS custom properties in `src/app/globals.css` (`:root`) and
+re-exported as Tailwind utilities through a `@theme inline` block in the same file.
+
+- **Prefer Tailwind utility classes over inline `style`.** The token utilities are:
+  colors (`text-ink`, `bg-canvas`, `border-hairline`, `text-ink-muted-48`, `bg-primary`, …),
+  spacing (`p-md`, `gap-lg`, `mt-xs`, …), radius (`rounded-lg`, `rounded-pill`, …), and
+  font family (`font-display`, `font-body`).
+- Use arbitrary-value utilities (`text-[15px]`, `leading-[1.3]`, `tracking-[-0.374px]`) for the
+  one-off type metrics that aren't tokens, rather than dropping back to an inline `style` object.
+- Reserve inline `style` for genuinely dynamic values computed at runtime (e.g. a progress-bar
+  width or a chart-driven color) — not for static design tokens.
+- Never inline a hex value; reference a token utility or `var(--token-name)`.
+
 ## Known Gaps
 
 - Form validation and error states were not surfaced on the analyzed pages; only the neutral search input is documented.

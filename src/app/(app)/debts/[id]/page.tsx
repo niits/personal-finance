@@ -138,7 +138,7 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
   if (loading || !debt) {
     return (
       <div style={{ minHeight: "100dvh", background: "var(--canvas-parchment)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>Đang tải...</span>
+        <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>Đang tải…</span>
       </div>
     );
   }
@@ -151,18 +151,18 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
       {/* Header */}
       <div style={{ background: "var(--canvas)", padding: "16px 20px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-          <button onClick={() => router.back()} style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 17, color: "var(--primary)", cursor: "pointer", padding: "0 12px 0 0" }}>
+          <button type="button" onClick={() => router.back()} style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 17, color: "var(--primary)", cursor: "pointer", padding: "0 12px 0 0" }}>
             ←
           </button>
           <span style={{ flex: 1, fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--ink)", letterSpacing: -0.5 }}>
             {debt.party}
           </span>
           <div style={{ position: "relative" }}>
-            <button onClick={() => setMenuOpen((v) => !v)} style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 20, color: "var(--ink-muted-48)", cursor: "pointer", padding: "0 0 0 12px" }}>
+            <button type="button" onClick={() => setMenuOpen((v) => !v)} style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 20, color: "var(--ink-muted-48)", cursor: "pointer", padding: "0 0 0 12px" }}>
               ···
             </button>
             {menuOpen && (
-              <div style={{ position: "absolute", right: 0, top: "100%", background: "var(--canvas)", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", minWidth: 180, zIndex: 10, overflow: "hidden" }}>
+              <div className="absolute right-0 top-full bg-canvas rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] min-w-[180px] z-10 overflow-hidden">
                 {[
                   { label: "Chỉnh sửa", action: () => { setEditDebtOpen(true); setMenuOpen(false); } },
                   isSettled
@@ -170,7 +170,7 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
                     : null,
                   { label: "Xóa khoản nợ", action: () => { setMenuOpen(false); handleDelete(); }, danger: true },
                 ].filter(Boolean).map((item) => item && (
-                  <button key={item.label} onClick={item.action} style={{ display: "block", width: "100%", padding: "13px 16px", background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 15, color: item.danger ? "var(--destructive)" : "var(--ink)", textAlign: "left", cursor: "pointer", borderBottom: "1px solid var(--hairline)" }}>
+                  <button type="button" key={item.label} onClick={item.action} className="block w-full px-4 py-[13px] bg-transparent font-body text-[15px] text-left cursor-pointer border-b border-hairline" style={{ color: item.danger ? "var(--destructive)" : "var(--ink)" }}>
                     {item.label}
                   </button>
                 ))}
@@ -233,9 +233,9 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
         </div>
 
         {!isSettled && (
-          <button
+          <button type="button"
             onClick={openLink}
-            style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--primary)", cursor: "pointer", padding: "12px 0", display: "block" }}
+            className="bg-transparent border-none font-body text-[14px] text-primary cursor-pointer py-3 block"
           >
             + Liên kết giao dịch có sẵn
           </button>
@@ -245,16 +245,16 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
       {/* Actions */}
       {!isSettled && (
         <div style={{ position: "fixed", bottom: "calc(72px + env(safe-area-inset-bottom))", left: 20, right: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
+          <button type="button"
             onClick={() => setFormMode({ kind: "repayment", debt })}
-            style={{ width: "100%", padding: "14px", borderRadius: 12, border: "1.5px solid var(--primary)", background: "var(--canvas)", color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 16, fontWeight: 600, cursor: "pointer" }}
+            className="w-full p-[14px] rounded-xl border-[1.5px] border-primary bg-canvas text-primary font-body text-base font-semibold cursor-pointer"
           >
             + Ghi nhận thanh toán
           </button>
           {debt.remaining > 0 && (
-            <button
+            <button type="button"
               onClick={() => setConfirmSettle(true)}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 16, fontWeight: 600, cursor: "pointer" }}
+              className="w-full p-[14px] rounded-xl border-none bg-primary text-white font-body text-base font-semibold cursor-pointer"
             >
               ✓ Tất toán ngay
             </button>
@@ -273,11 +273,11 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
               Tất toán {fmt(debt.remaining)}₫ từ <strong>{debt.party}</strong>?
             </p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmSettle(false)} style={{ flex: 1, padding: "13px", borderRadius: 10, border: "1px solid var(--hairline)", background: "var(--canvas)", fontFamily: "var(--font-body)", fontSize: 15, cursor: "pointer" }}>
+              <button type="button" onClick={() => setConfirmSettle(false)} className="flex-1 p-[13px] rounded-[10px] border border-hairline bg-canvas font-body text-[15px] cursor-pointer">
                 Huỷ
               </button>
-              <button onClick={handleSettle} disabled={settling} style={{ flex: 1, padding: "13px", borderRadius: 10, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, cursor: settling ? "not-allowed" : "pointer" }}>
-                {settling ? "..." : "Xác nhận"}
+              <button type="button" onClick={handleSettle} disabled={settling} className={`flex-1 p-[13px] rounded-[10px] border-none bg-primary text-white font-body text-[15px] font-semibold ${settling ? "cursor-not-allowed" : "cursor-pointer"}`}>
+                {settling ? "…" : "Xác nhận"}
               </button>
             </div>
           </div>
@@ -330,11 +330,7 @@ function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: 
     >
       {/* Unlink action revealed on swipe */}
       {canUnlink && (
-        <div style={{
-          position: "absolute", right: 0, top: 0, bottom: 0, width: 100,
-          background: "var(--destructive)", display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer",
-        }} onClick={(e) => { e.stopPropagation(); onUnlink(); }}>
+        <div className="absolute right-0 top-0 bottom-0 w-[100px] flex items-center justify-center cursor-pointer" style={{ background: "var(--destructive)" }} onClick={(e) => { e.stopPropagation(); onUnlink(); }}>
           <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "#fff", fontWeight: 600 }}>Hủy lk</span>
         </div>
       )}
@@ -393,23 +389,23 @@ function EditDebtSheet({ debt, onClose, onSaved }: { debt: DebtWithRepayments; o
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 500 }} />
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 501, background: "var(--canvas)", borderRadius: "16px 16px 0 0", padding: "20px 20px max(24px, env(safe-area-inset-bottom))" }}>
+      <div className="fixed bottom-0 left-0 right-0 z-[501] bg-canvas rounded-t-2xl px-5 pt-5 pb-[max(24px,env(safe-area-inset-bottom))]">
         <p style={{ fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: "var(--ink)", marginBottom: 16 }}>Chỉnh sửa</p>
         {[
           { label: "Tên người", value: party, onChange: setParty, placeholder: "Tên người" },
           { label: "Ghi chú", value: note, onChange: setNote, placeholder: "Ghi chú (tuỳ chọn)" },
         ].map(({ label, value, onChange, placeholder }) => (
-          <div key={label} style={{ marginBottom: 12 }}>
-            <label style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", display: "block", marginBottom: 4 }}>{label}</label>
-            <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid var(--hairline)", background: "var(--canvas-parchment)", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none", boxSizing: "border-box" as const }} />
-          </div>
+          <label key={label} style={{ display: "block", marginBottom: 12 }}>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", display: "block", marginBottom: 4 }}>{label}</span>
+            <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full px-3 py-[11px] rounded-[10px] border border-hairline bg-canvas-parchment font-body text-[15px] text-ink outline-none box-border" />
+          </label>
         ))}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", display: "block", marginBottom: 4 }}>Hạn trả (tuỳ chọn)</label>
-          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid var(--hairline)", background: "var(--canvas-parchment)", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none", boxSizing: "border-box" as const }} />
-        </div>
-        <button onClick={save} disabled={saving} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 16, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer" }}>
-          {saving ? "Đang lưu..." : "Lưu"}
+        <label style={{ display: "block", marginBottom: 16 }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", display: "block", marginBottom: 4 }}>Hạn trả (tuỳ chọn)</span>
+          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full px-3 py-[11px] rounded-[10px] border border-hairline bg-canvas-parchment font-body text-[15px] text-ink outline-none box-border" />
+        </label>
+        <button type="button" onClick={save} disabled={saving} className={`w-full p-[14px] rounded-xl border-none bg-primary text-white font-body text-base font-semibold ${saving ? "cursor-not-allowed" : "cursor-pointer"}`}>
+          {saving ? "Đang lưu…" : "Lưu"}
         </button>
       </div>
     </>

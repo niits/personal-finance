@@ -275,7 +275,7 @@ export function CategoriesTemplate({
           <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "#ff453a", marginBottom: 16 }}>
             Không thể kiểm tra danh mục lúc này.
           </p>
-          <button onClick={closeSheet} style={ghostBtnStyle}>Đóng</button>
+          <button type="button" onClick={closeSheet} style={ghostBtnStyle}>Đóng</button>
         </div>
       );
     }
@@ -288,7 +288,7 @@ export function CategoriesTemplate({
             <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)", marginBottom: 20 }}>
               Tất cả giao dịch đã có danh mục phù hợp
             </p>
-            <button onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
+            <button type="button" onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
           </div>
         );
       }
@@ -320,12 +320,13 @@ export function CategoriesTemplate({
                   background: recatSelected.has(i) ? "rgba(0,102,204,0.04)" : "var(--canvas)",
                 }}
               >
-                <div style={{
-                  width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 2,
-                  background: recatSelected.has(i) ? "var(--primary)" : "transparent",
-                  border: `1.5px solid ${recatSelected.has(i) ? "var(--primary)" : "var(--hairline)"}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
+                <div
+                  className="w-5 h-5 rounded-[6px] shrink-0 mt-0.5 flex items-center justify-center"
+                  style={{
+                    background: recatSelected.has(i) ? "var(--primary)" : "transparent",
+                    border: `1.5px solid ${recatSelected.has(i) ? "var(--primary)" : "var(--hairline)"}`,
+                  }}
+                >
                   {recatSelected.has(i) && (
                     <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
                       <path d="M1 4l3 3 6-6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -333,11 +334,7 @@ export function CategoriesTemplate({
                   )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{
-                    fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)",
-                    letterSpacing: -0.374, marginBottom: 4,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  }}>
+                  <p className="font-body text-[15px] text-ink tracking-[-0.374px] mb-1 truncate">
                     &ldquo;{s.note}&rdquo;
                   </p>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -357,8 +354,8 @@ export function CategoriesTemplate({
             ))}
           </div>
           <div style={{ padding: "14px 20px", display: "flex", gap: 10 }}>
-            <button onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Bỏ qua</button>
-            <button
+            <button type="button" onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Bỏ qua</button>
+            <button type="button"
               onClick={applyRecategorize}
               disabled={applyingRecat || selectedCount === 0}
               style={{ ...primaryBtnStyle, flex: 2, opacity: selectedCount === 0 ? 0.4 : 1 }}
@@ -378,7 +375,7 @@ export function CategoriesTemplate({
           <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)", marginBottom: 20 }}>
             Danh mục hiện tại đã phù hợp với lịch sử giao dịch
           </p>
-          <button onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
+          <button type="button" onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
         </div>
       );
     }
@@ -410,12 +407,13 @@ export function CategoriesTemplate({
                 background: selected.has(i) ? "rgba(0,102,204,0.04)" : "var(--canvas)",
               }}
             >
-              <div style={{
-                width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 2,
-                background: selected.has(i) ? "var(--primary)" : "transparent",
-                border: `1.5px solid ${selected.has(i) ? "var(--primary)" : "var(--hairline)"}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
+              <div
+                className="w-5 h-5 rounded-[6px] shrink-0 mt-0.5 flex items-center justify-center"
+                style={{
+                  background: selected.has(i) ? "var(--primary)" : "transparent",
+                  border: `1.5px solid ${selected.has(i) ? "var(--primary)" : "var(--hairline)"}`,
+                }}
+              >
                 {selected.has(i) && (
                   <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
                     <path d="M1 4l3 3 6-6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -459,8 +457,8 @@ export function CategoriesTemplate({
           ))}
         </div>
         <div style={{ padding: "14px 20px", display: "flex", gap: 10 }}>
-          <button onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Huỷ</button>
-          <button
+          <button type="button" onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Huỷ</button>
+          <button type="button"
             onClick={applySelected}
             disabled={applying || selectedCount === 0}
             style={{ ...primaryBtnStyle, flex: 2, opacity: selectedCount === 0 ? 0.4 : 1 }}
@@ -497,35 +495,15 @@ export function CategoriesTemplate({
           </h1>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
+          <button type="button"
             onClick={openSuggest}
-            style={{
-              background: "transparent",
-              color: "rgba(255,255,255,0.75)",
-              border: "1px solid rgba(255,255,255,0.25)",
-              borderRadius: 999,
-              padding: "8px 16px",
-              fontFamily: "var(--font-body)",
-              fontSize: 14,
-              fontWeight: 400,
-              cursor: "pointer",
-            }}
+            className="bg-transparent text-white/75 border border-white/25 rounded-full px-4 py-2 font-body text-[14px] font-normal cursor-pointer"
           >
             ✦ Gợi ý
           </button>
-          <button
+          <button type="button"
             onClick={() => setShowForm(!showForm)}
-            style={{
-              background: "var(--primary)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 999,
-              padding: "8px 18px",
-              fontFamily: "var(--font-body)",
-              fontSize: 14,
-              fontWeight: 400,
-              cursor: "pointer",
-            }}
+            className="bg-primary text-white border-none rounded-full px-[18px] py-2 font-body text-[14px] font-normal cursor-pointer"
           >
             + Thêm
           </button>
@@ -557,36 +535,14 @@ export function CategoriesTemplate({
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && save()}
-                style={{
-                  flex: 1,
-                  padding: "11px 16px",
-                  borderRadius: 11,
-                  border: "1px solid var(--hairline)",
-                  fontFamily: "var(--font-body)",
-                  fontSize: 17,
-                  color: "var(--ink)",
-                  background: "var(--canvas-parchment)",
-                  outline: "none",
-                  letterSpacing: -0.374,
-                }}
+                className="flex-1 px-4 py-[11px] rounded-md border border-hairline font-body text-[17px] text-ink bg-canvas-parchment outline-none tracking-[-0.374px]"
               />
             </div>
 
             <select
               value={parentId ?? ""}
               onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}
-              style={{
-                width: "100%",
-                padding: "11px 16px",
-                borderRadius: 11,
-                border: "1px solid var(--hairline)",
-                fontFamily: "var(--font-body)",
-                fontSize: 15,
-                color: parentId ? "var(--ink)" : "var(--ink-muted-48)",
-                background: "var(--canvas-parchment)",
-                outline: "none",
-                appearance: "none",
-              }}
+              className={`w-full px-4 py-[11px] rounded-md border border-hairline font-body text-[15px] bg-canvas-parchment outline-none appearance-none ${parentId ? "text-ink" : "text-ink-muted-48"}`}
             >
               <option value="">Không có danh mục cha (cấp 1)</option>
               {flatCats.map((c) => (
@@ -599,21 +555,14 @@ export function CategoriesTemplate({
             {parentId === null ? (
               <div style={{ display: "flex", gap: 8 }}>
                 {(["expense", "income"] as const).map((t) => (
-                  <button
+                  <button type="button"
                     key={t}
                     onClick={() => setNewType(t)}
-                    style={{
-                      flex: 1,
-                      padding: "9px",
-                      borderRadius: 11,
-                      border: `1px solid ${newType === t ? "var(--primary)" : "var(--hairline)"}`,
-                      background: newType === t ? "rgba(0,102,204,0.08)" : "var(--canvas-parchment)",
-                      color: newType === t ? "var(--primary)" : "var(--ink-muted-48)",
-                      fontFamily: "var(--font-body)",
-                      fontSize: 14,
-                      fontWeight: newType === t ? 600 : 400,
-                      cursor: "pointer",
-                    }}
+                    className={`flex-1 p-[9px] rounded-md font-body text-[14px] cursor-pointer border ${
+                      newType === t
+                        ? "border-primary bg-[rgba(0,102,204,0.08)] text-primary font-semibold"
+                        : "border-hairline bg-canvas-parchment text-ink-muted-48 font-normal"
+                    }`}
                   >
                     {t === "expense" ? "Chi tiêu" : "Thu nhập"}
                   </button>
@@ -632,38 +581,18 @@ export function CategoriesTemplate({
             )}
 
             <div style={{ display: "flex", gap: 8 }}>
-              <button
+              <button type="button"
                 onClick={() => { setShowForm(false); setError(""); }}
-                style={{
-                  flex: 1,
-                  padding: "11px",
-                  borderRadius: 11,
-                  border: "1px solid var(--hairline)",
-                  background: "var(--canvas-parchment)",
-                  fontFamily: "var(--font-body)",
-                  fontSize: 15,
-                  color: "var(--ink-muted-48)",
-                  cursor: "pointer",
-                }}
+                className="flex-1 p-[11px] rounded-md border border-hairline bg-canvas-parchment font-body text-[15px] text-ink-muted-48 cursor-pointer"
               >
                 Huỷ
               </button>
-              <button
+              <button type="button"
                 onClick={save}
                 disabled={saving || !newName.trim()}
-                style={{
-                  flex: 2,
-                  padding: "11px",
-                  borderRadius: 11,
-                  border: "none",
-                  background: newName.trim() ? "var(--primary)" : "var(--hairline)",
-                  color: newName.trim() ? "#fff" : "var(--ink-muted-48)",
-                  fontFamily: "var(--font-body)",
-                  fontSize: 15,
-                  fontWeight: 400,
-                  cursor: newName.trim() ? "pointer" : "not-allowed",
-                  transition: "background 0.15s",
-                }}
+                className={`flex-[2] p-[11px] rounded-md border-none font-body text-[15px] font-normal transition-colors ${
+                  newName.trim() ? "bg-primary text-white cursor-pointer" : "bg-hairline text-ink-muted-48 cursor-not-allowed"
+                }`}
               >
                 {saving ? "Đang lưu…" : "Lưu"}
               </button>
@@ -686,21 +615,12 @@ export function CategoriesTemplate({
             <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 24 }}>
               Tạo thủ công hoặc dùng bộ danh mục mẫu
             </p>
-            <button
+            <button type="button"
               onClick={() => onAddCategory("_seed_", null, null, "expense")}
               disabled={saving}
-              style={{
-                background: "var(--primary)",
-                color: "#fff",
-                border: "none",
-                borderRadius: 999,
-                padding: "12px 24px",
-                fontFamily: "var(--font-body)",
-                fontSize: 15,
-                fontWeight: 400,
-                cursor: saving ? "not-allowed" : "pointer",
-                opacity: saving ? 0.6 : 1,
-              }}
+              className={`bg-primary text-white border-none rounded-full px-6 py-3 font-body text-[15px] font-normal ${
+                saving ? "cursor-not-allowed opacity-60" : "cursor-pointer opacity-100"
+              }`}
             >
               {saving ? "Đang tạo…" : "Tạo danh mục mẫu"}
             </button>
@@ -728,15 +648,7 @@ export function CategoriesTemplate({
               zIndex: 100,
             }}
           />
-          <div style={{
-            position: "fixed", bottom: 0, left: 0, right: 0,
-            background: "var(--canvas)",
-            borderRadius: "16px 16px 0 0",
-            zIndex: 101,
-            maxHeight: "80vh",
-            display: "flex",
-            flexDirection: "column",
-          }}>
+          <div className="fixed bottom-0 left-0 right-0 bg-canvas rounded-t-2xl z-[101] max-h-[80vh] flex flex-col">
             <div style={{
               padding: "12px 20px 0",
               display: "flex",
@@ -758,7 +670,7 @@ export function CategoriesTemplate({
                     ? "Kiểm tra danh mục"
                     : "✦ Gợi ý danh mục"}
                 </span>
-                <button
+                <button type="button"
                   onClick={closeSheet}
                   style={{
                     background: "none", border: "none", cursor: "pointer",

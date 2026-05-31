@@ -28,16 +28,10 @@ const config: Record<PaceStatus, { label: (n?: number) => string; color: string;
 export function PaceChip({ status, remainingAmount }: PaceChipProps) {
   const c = config[status];
   return (
-    <span style={{
-      display: "inline-block",
-      padding: "4px 10px",
-      borderRadius: 999,
-      background: c.bg,
-      color: c.color,
-      fontFamily: "var(--font-body)",
-      fontSize: 12,
-      fontWeight: 600,
-    }}>
+    <span
+      className="inline-block px-2.5 py-1 rounded-full font-body text-xs font-semibold"
+      style={{ background: c.bg, color: c.color }}
+    >
       {c.label(remainingAmount)}
     </span>
   );

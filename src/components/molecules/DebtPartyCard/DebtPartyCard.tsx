@@ -12,19 +12,11 @@ export function DebtPartyCard({ debt, onTap }: DebtPartyCardProps) {
   const isSettled = debt.status === "settled";
 
   return (
-    <button
+    <button type="button"
       onClick={() => onTap?.(debt.id)}
-      style={{
-        width: "100%",
-        background: "var(--canvas)",
-        borderRadius: 14,
-        padding: "14px 16px",
-        marginBottom: 10,
-        border: "none",
-        cursor: onTap ? "pointer" : "default",
-        textAlign: "left",
-        opacity: isSettled ? 0.55 : 1,
-      }}
+      className={`w-full bg-canvas rounded-[14px] px-4 py-[14px] mb-2.5 border-none text-left ${
+        onTap ? "cursor-pointer" : "cursor-default"
+      } ${isSettled ? "opacity-[0.55]" : ""}`}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
         <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>

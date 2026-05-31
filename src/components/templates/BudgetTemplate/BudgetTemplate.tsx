@@ -251,36 +251,21 @@ export function BudgetTemplate({
                     setCreateStr(raw ? fmt(n) : "");
                     setCreateErr("");
                   }}
-                  style={{
-                    width: "100%", padding: "12px 44px 12px 16px", borderRadius: 11,
-                    border: createErr ? "1px solid #ff453a" : "1px solid var(--hairline)",
-                    fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600,
-                    color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none",
-                  }}
+                  className={`w-full pt-3 pr-11 pb-3 pl-4 rounded-md border font-display text-[22px] font-semibold text-ink bg-canvas-parchment outline-none ${createErr ? "border-[#ff453a]" : "border-hairline"}`}
                 />
-                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "var(--ink-muted-48)", fontFamily: "var(--font-display)", fontWeight: 600 }}>₫</span>
+                <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-[18px] text-ink-muted-48 font-display font-semibold">₫</span>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                 {[3000000, 5000000, 7000000, 10000000].map((n) => (
-                  <button key={n} onClick={() => { setCreateStr(fmt(n)); setCreateErr(""); }}
-                    style={{
-                      padding: "5px 12px", borderRadius: 999, border: "1px solid var(--hairline)",
-                      background: createStr === fmt(n) ? "var(--primary)" : "var(--canvas-parchment)",
-                      color: createStr === fmt(n) ? "#fff" : "var(--ink-muted-48)",
-                      fontFamily: "var(--font-body)", fontSize: 13, cursor: "pointer", transition: "background 0.12s, color 0.12s",
-                    }}>
+                  <button type="button" key={n} onClick={() => { setCreateStr(fmt(n)); setCreateErr(""); }}
+                    className={`px-3 py-[5px] rounded-full border border-hairline font-body text-[13px] cursor-pointer transition-colors ${createStr === fmt(n) ? "bg-primary text-white" : "bg-canvas-parchment text-ink-muted-48"}`}>
                     {n / 1000000}tr
                   </button>
                 ))}
               </div>
               {createErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 10 }}>{createErr}</p>}
-              <button onClick={createBudget} disabled={createSaving || !createStr}
-                style={{
-                  width: "100%", padding: "12px", borderRadius: 999, border: "none",
-                  background: createStr ? "var(--primary)" : "var(--hairline)",
-                  color: createStr ? "#fff" : "var(--ink-muted-48)",
-                  fontFamily: "var(--font-body)", fontSize: 15, cursor: createStr ? "pointer" : "default", transition: "background 0.15s, opacity 0.15s",
-                }}>
+              <button type="button" onClick={createBudget} disabled={createSaving || !createStr}
+                className={`w-full p-3 rounded-full border-none font-body text-[15px] transition-[background,opacity] ${createStr ? "bg-primary text-white cursor-pointer" : "bg-hairline text-ink-muted-48 cursor-default"}`}>
                 {createSaving ? "Đang lưu…" : "Xác nhận ngân sách"}
               </button>
             </div>
@@ -288,12 +273,8 @@ export function BudgetTemplate({
 
           {/* Adjust button */}
           {monthlyBudget && !adjOpen && (
-            <button onClick={() => setAdjOpen(true)}
-              style={{
-                width: "100%", padding: "14px 20px", background: "transparent", border: "none",
-                color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14,
-                cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 6,
-              }}>
+            <button type="button" onClick={() => setAdjOpen(true)}
+              className="w-full px-5 py-[14px] bg-transparent border-none text-primary font-body text-[14px] cursor-pointer text-left flex items-center gap-1.5">
               <span style={{ fontSize: 18 }}>±</span> Điều chỉnh ngân sách
             </button>
           )}
@@ -307,13 +288,11 @@ export function BudgetTemplate({
 
               <div style={{ display: "flex", background: "var(--canvas-parchment)", borderRadius: 10, padding: 3, marginBottom: 12 }}>
                 {([1, -1] as const).map((s) => (
-                  <button key={s} onClick={() => setAdjSign(s)}
+                  <button type="button" key={s} onClick={() => setAdjSign(s)}
+                    className={`flex-1 p-2 rounded-sm border-none font-body text-[15px] cursor-pointer transition-colors ${adjSign === s ? "font-semibold" : "font-normal"}`}
                     style={{
-                      flex: 1, padding: "8px", borderRadius: 8, border: "none",
                       background: adjSign === s ? (s === 1 ? "#30d158" : "#ff453a") : "transparent",
                       color: adjSign === s ? "#fff" : "var(--ink-muted-48)",
-                      fontFamily: "var(--font-body)", fontSize: 15, fontWeight: adjSign === s ? 600 : 400,
-                      cursor: "pointer", transition: "background 0.15s, color 0.15s",
                     }}>
                     {s === 1 ? "+ Tăng" : "− Giảm"}
                   </button>
@@ -329,41 +308,28 @@ export function BudgetTemplate({
                     setAdjDeltaStr(raw ? fmt(n) : "");
                     setAdjErr("");
                   }}
-                  style={{
-                    width: "100%", padding: "11px 44px 11px 16px", borderRadius: 11,
-                    border: adjErr ? "1px solid #ff453a" : "1px solid var(--hairline)",
-                    fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600,
-                    color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none",
-                  }}
+                  className={`w-full pt-[11px] pr-11 pb-[11px] pl-4 rounded-md border font-display text-[20px] font-semibold text-ink bg-canvas-parchment outline-none ${adjErr ? "border-[#ff453a]" : "border-hairline"}`}
                 />
-                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "var(--ink-muted-48)", fontFamily: "var(--font-display)", fontWeight: 600 }}>₫</span>
+                <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-base text-ink-muted-48 font-display font-semibold">₫</span>
               </div>
 
               <input type="text" placeholder="Lý do (tuỳ chọn)" value={adjNote}
                 onChange={(e) => setAdjNote(e.target.value)}
-                style={{
-                  width: "100%", padding: "10px 14px", borderRadius: 11,
-                  border: "1px solid var(--hairline)", fontFamily: "var(--font-body)", fontSize: 14,
-                  color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none", marginBottom: 10,
-                }}
+                className="w-full px-[14px] py-2.5 rounded-md border border-hairline font-body text-[14px] text-ink bg-canvas-parchment outline-none mb-2.5"
               />
 
               {adjErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 10 }}>{adjErr}</p>}
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setAdjOpen(false); setAdjDeltaStr(""); setAdjNote(""); setAdjErr(""); }}
-                  style={{
-                    flex: 1, padding: "11px", borderRadius: 999, border: "1px solid var(--hairline)",
-                    background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer",
-                  }}>
+                <button type="button" onClick={() => { setAdjOpen(false); setAdjDeltaStr(""); setAdjNote(""); setAdjErr(""); }}
+                  className="flex-1 p-[11px] rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
                   Huỷ
                 </button>
-                <button onClick={adjust} disabled={adjSaving || !adjDeltaStr}
+                <button type="button" onClick={adjust} disabled={adjSaving || !adjDeltaStr}
+                  className={`flex-[2] p-[11px] rounded-full border-none font-body text-[14px] transition-[background,opacity] ${adjDeltaStr ? "cursor-pointer" : "cursor-default"}`}
                   style={{
-                    flex: 2, padding: "11px", borderRadius: 999, border: "none",
                     background: adjDeltaStr ? (adjSign === 1 ? "#30d158" : "#ff453a") : "var(--hairline)",
                     color: adjDeltaStr ? "#fff" : "var(--ink-muted-48)",
-                    fontFamily: "var(--font-body)", fontSize: 14, cursor: adjDeltaStr ? "pointer" : "default", transition: "background 0.15s, opacity 0.15s",
                   }}>
                   {adjSaving ? "Đang lưu…" : `${adjSign === 1 ? "Tăng" : "Giảm"} ${adjDeltaStr || "0"}₫`}
                 </button>
@@ -378,12 +344,8 @@ export function BudgetTemplate({
             <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", letterSpacing: 0.5, textTransform: "uppercase" }}>
               Ngân sách riêng
             </p>
-            <button onClick={() => setCbOpen(!cbOpen)}
-              style={{
-                background: "var(--primary)", color: "#fff", border: "none",
-                borderRadius: 999, padding: "5px 14px",
-                fontFamily: "var(--font-body)", fontSize: 13, cursor: "pointer",
-              }}>
+            <button type="button" onClick={() => setCbOpen(!cbOpen)}
+              className="bg-primary text-white border-none rounded-full px-[14px] py-[5px] font-body text-[13px] cursor-pointer">
               + Thêm
             </button>
           </div>
@@ -399,11 +361,7 @@ export function BudgetTemplate({
               </p>
               <input type="text" placeholder="Tên (vd: Du lịch, Mua laptop…)" value={cbName}
                 onChange={(e) => { setCbName(e.target.value); setCbErr(""); }}
-                style={{
-                  width: "100%", padding: "11px 14px", borderRadius: 11,
-                  border: "1px solid var(--hairline)", fontFamily: "var(--font-body)", fontSize: 15,
-                  color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none", marginBottom: 8,
-                }}
+                className="w-full px-[14px] py-[11px] rounded-md border border-hairline font-body text-[15px] text-ink bg-canvas-parchment outline-none mb-2"
               />
               <div style={{ position: "relative", marginBottom: 8 }}>
                 <input type="text" inputMode="numeric" placeholder="Mục tiêu"
@@ -414,29 +372,18 @@ export function BudgetTemplate({
                     setCbAmountStr(raw ? fmt(n) : "");
                     setCbErr("");
                   }}
-                  style={{
-                    width: "100%", padding: "11px 44px 11px 16px", borderRadius: 11,
-                    border: "1px solid var(--hairline)", fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600,
-                    color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none",
-                  }}
+                  className="w-full pt-[11px] pr-11 pb-[11px] pl-4 rounded-md border border-hairline font-display text-[20px] font-semibold text-ink bg-canvas-parchment outline-none"
                 />
-                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "var(--ink-muted-48)", fontFamily: "var(--font-display)", fontWeight: 600 }}>₫</span>
+                <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-base text-ink-muted-48 font-display font-semibold">₫</span>
               </div>
               {cbErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 8 }}>{cbErr}</p>}
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setCbOpen(false); setCbName(""); setCbAmountStr(""); setCbErr(""); }}
-                  style={{
-                    flex: 1, padding: "10px", borderRadius: 999, border: "1px solid var(--hairline)",
-                    background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer",
-                  }}>
+                <button type="button" onClick={() => { setCbOpen(false); setCbName(""); setCbAmountStr(""); setCbErr(""); }}
+                  className="flex-1 p-2.5 rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
                   Huỷ
                 </button>
-                <button onClick={createCustom} disabled={cbSaving}
-                  style={{
-                    flex: 2, padding: "10px", borderRadius: 999, border: "none",
-                    background: "var(--primary)", color: "#fff",
-                    fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer",
-                  }}>
+                <button type="button" onClick={createCustom} disabled={cbSaving}
+                  className="flex-[2] p-2.5 rounded-full border-none bg-primary text-white font-body text-[14px] cursor-pointer">
                   {cbSaving ? "Đang lưu…" : "Tạo"}
                 </button>
               </div>
@@ -478,7 +425,7 @@ export function BudgetTemplate({
                         </p>
                         <input type="text" placeholder="Tên" value={editName}
                           onChange={(e) => { setEditName(e.target.value); setEditErr(""); }}
-                          style={{ width: "100%", padding: "11px 14px", borderRadius: 11, border: "1px solid var(--hairline)", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none", marginBottom: 8 }}
+                          className="w-full px-[14px] py-[11px] rounded-md border border-hairline font-body text-[15px] text-ink bg-canvas-parchment outline-none mb-2"
                         />
                         <div style={{ position: "relative", marginBottom: 8 }}>
                           <input type="text" inputMode="numeric" placeholder="Mục tiêu"
@@ -489,18 +436,18 @@ export function BudgetTemplate({
                               setEditAmountStr(raw ? fmt(n) : "");
                               setEditErr("");
                             }}
-                            style={{ width: "100%", padding: "11px 44px 11px 16px", borderRadius: 11, border: "1px solid var(--hairline)", fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600, color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none" }}
+                            className="w-full pt-[11px] pr-11 pb-[11px] pl-4 rounded-md border border-hairline font-display text-[20px] font-semibold text-ink bg-canvas-parchment outline-none"
                           />
-                          <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "var(--ink-muted-48)", fontFamily: "var(--font-display)", fontWeight: 600 }}>₫</span>
+                          <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-base text-ink-muted-48 font-display font-semibold">₫</span>
                         </div>
                         {editErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 8 }}>{editErr}</p>}
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => setEditingCbId(null)}
-                            style={{ flex: 1, padding: "10px", borderRadius: 999, border: "1px solid var(--hairline)", background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer" }}>
+                          <button type="button" onClick={() => setEditingCbId(null)}
+                            className="flex-1 p-2.5 rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
                             Huỷ
                           </button>
-                          <button onClick={updateCustom} disabled={editSaving}
-                            style={{ flex: 2, padding: "10px", borderRadius: 999, border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-body)", fontSize: 14, cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? 0.7 : 1 }}>
+                          <button type="button" onClick={updateCustom} disabled={editSaving}
+                            className={`flex-[2] p-2.5 rounded-full border-none bg-primary text-white font-body text-[14px] ${editSaving ? "cursor-not-allowed opacity-70" : "cursor-pointer opacity-100"}`}>
                             {editSaving ? "Đang lưu…" : "Lưu"}
                           </button>
                         </div>
@@ -514,12 +461,12 @@ export function BudgetTemplate({
                           Quỹ này đang có giao dịch liên kết. Xoá sẽ gỡ liên kết các giao dịch khỏi quỹ, giao dịch không bị xoá.
                         </p>
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => setConfirmDeleteId(null)}
-                            style={{ flex: 1, padding: "10px", borderRadius: 999, border: "1px solid var(--hairline)", background: "transparent", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer" }}>
+                          <button type="button" onClick={() => setConfirmDeleteId(null)}
+                            className="flex-1 p-2.5 rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
                             Huỷ
                           </button>
-                          <button onClick={() => confirmDelete(cb.id)}
-                            style={{ flex: 2, padding: "10px", borderRadius: 999, border: "none", background: "#ff453a", color: "#fff", fontFamily: "var(--font-body)", fontSize: 14, cursor: "pointer" }}>
+                          <button type="button" onClick={() => confirmDelete(cb.id)}
+                            className="flex-[2] p-2.5 rounded-full border-none bg-[#ff453a] text-white font-body text-[14px] cursor-pointer">
                             Xác nhận xoá
                           </button>
                         </div>
@@ -537,32 +484,19 @@ export function BudgetTemplate({
                           </div>
                           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                             {cb.is_active === 1 && (
-                              <button onClick={() => startEdit(cb)}
-                                style={{ padding: "4px 10px", borderRadius: 999, border: "1px solid var(--hairline)", background: "var(--canvas-parchment)", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer" }}>
+                              <button type="button" onClick={() => startEdit(cb)}
+                                className="px-2.5 py-1 rounded-full border border-hairline bg-canvas-parchment text-ink-muted-48 font-body text-xs cursor-pointer">
                                 Sửa
                               </button>
                             )}
-                            <button onClick={() => onToggleCustomBudget(cb.id, cb.is_active !== 1)}
-                              style={{
-                                padding: "4px 10px", borderRadius: 999, border: "1px solid var(--hairline)",
-                                background: cb.is_active ? "var(--canvas-parchment)" : "var(--ink)",
-                                color: cb.is_active ? "var(--ink-muted-48)" : "#fff",
-                                fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer",
-                              }}>
+                            <button type="button" onClick={() => onToggleCustomBudget(cb.id, cb.is_active !== 1)}
+                              className={`px-2.5 py-1 rounded-full border border-hairline font-body text-xs cursor-pointer ${cb.is_active ? "bg-canvas-parchment text-ink-muted-48" : "bg-ink text-white"}`}>
                               {cb.is_active ? "Tắt" : "Bật"}
                             </button>
-                            <button
+                            <button type="button"
                               onClick={() => canDelete ? requestDelete(cb) : undefined}
                               disabled={!canDelete}
-                              style={{
-                                padding: "4px 8px", borderRadius: 999,
-                                border: canDelete ? "1px solid #ff453a" : "1px solid var(--hairline)",
-                                background: "transparent",
-                                color: canDelete ? "#ff453a" : "var(--ink-muted-48)",
-                                fontFamily: "var(--font-body)", fontSize: 12,
-                                cursor: canDelete ? "pointer" : "not-allowed",
-                                opacity: canDelete ? 1 : 0.35,
-                              }}>
+                              className={`px-2 py-1 rounded-full bg-transparent font-body text-xs border ${canDelete ? "border-[#ff453a] text-[#ff453a] cursor-pointer opacity-100" : "border-hairline text-ink-muted-48 cursor-not-allowed opacity-[0.35]"}`}>
                               ✕
                             </button>
                           </div>

@@ -303,15 +303,15 @@ export class AnalyticsService {
 
       // Match rows by dimension values; fall back to positional for scalar
       const dimCols = (group_by ?? []).map((g) => g.grain ? `${g.name}__${g.grain}` : g.name);
+      // Index prev rows by their composite dimension key for O(1) lookup instead
+      // of an O(n*m) .find() per row.
+      const dimKey = (r: Record<string, unknown>) => dimCols.map((dc) => r[dc]).join(" ");
+      const prevByKey = new Map<string, Record<string, unknown>>();
+      if (dimCols.length > 0) {
+        for (const pr of prevResult.rows) prevByKey.set(dimKey(pr), pr);
+      }
       for (const row of result.rows) {
-        let prevRow: Record<string, unknown> | undefined;
-        if (dimCols.length > 0) {
-          prevRow = prevResult.rows.find((pr) =>
-            dimCols.every((dc) => pr[dc] === row[dc])
-          );
-        } else {
-          prevRow = prevResult.rows[0];
-        }
+        const prevRow = dimCols.length > 0 ? prevByKey.get(dimKey(row)) : prevResult.rows[0];
         for (const m of coreMetrics) {
           row[`${m}_prev`] = prevRow?.[m] ?? 0;
         }

@@ -315,7 +315,7 @@ export function VegaChart({ insight }: VegaChartProps) {
           {insight.title}
         </p>
         {badge && (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: badge.color, background: badge.bg, borderRadius: 8, padding: "3px 8px", flexShrink: 0, marginTop: 1 }}>
+          <span className="font-body text-xs font-semibold rounded-sm px-2 py-[3px] shrink-0 mt-px" style={{ color: badge.color, background: badge.bg }}>
             {badge.label}
           </span>
         )}

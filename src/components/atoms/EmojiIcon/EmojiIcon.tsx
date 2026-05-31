@@ -21,22 +21,20 @@ export function EmojiIcon({ emoji, fallback = "?", colorScheme = "neutral", size
   const dims = sizeMap[size];
 
   return (
-    <div style={{
-      width: dims.outer,
-      height: dims.outer,
-      borderRadius: "50%",
-      flexShrink: 0,
-      background: colors.bg,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: emoji ? dims.fontSize : dims.fallbackSize,
-      ...(emoji ? {} : {
-        fontFamily: "var(--font-display)",
-        fontWeight: 600,
-        color: colors.text,
-      }),
-    }}>
+    <div
+      className="rounded-full shrink-0 flex items-center justify-center"
+      style={{
+        width: dims.outer,
+        height: dims.outer,
+        background: colors.bg,
+        fontSize: emoji ? dims.fontSize : dims.fallbackSize,
+        ...(emoji ? {} : {
+          fontFamily: "var(--font-display)",
+          fontWeight: 600,
+          color: colors.text,
+        }),
+      }}
+    >
       {emoji ? emoji + "️" : fallback}
     </div>
   );

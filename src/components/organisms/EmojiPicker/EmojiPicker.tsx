@@ -94,13 +94,8 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
       key={e}
       type="button"
       onClick={() => pickEmoji(e)}
-      style={{
-        width: 36, height: 36, borderRadius: 8, border: "none",
-        background: value === e ? "rgba(0,102,204,0.1)" : "transparent",
-        fontSize: 20, cursor: "pointer",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        transition: "background 0.1s",
-      }}
+      className="w-9 h-9 rounded-sm border-none text-[20px] cursor-pointer flex items-center justify-center transition-colors"
+      style={{ background: value === e ? "rgba(0,102,204,0.1)" : "transparent" }}
       onMouseEnter={(el) => { (el.currentTarget as HTMLButtonElement).style.background = "var(--canvas-parchment)"; }}
       onMouseLeave={(el) => { (el.currentTarget as HTMLButtonElement).style.background = value === e ? "rgba(0,102,204,0.1)" : "transparent"; }}
     >
@@ -114,29 +109,17 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="Chọn emoji"
+        className="w-11 h-11 rounded-md bg-canvas-parchment cursor-pointer flex items-center justify-center shrink-0 transition-[border-color] text-ink-muted-48"
         style={{
-          width: 44, height: 44, borderRadius: 11,
           border: `1.5px solid ${open ? "var(--primary)" : "var(--hairline)"}`,
-          background: "var(--canvas-parchment)",
           fontSize: value ? 22 : 18,
-          cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
-          transition: "border-color 0.15s",
-          color: "var(--ink-muted-48)",
         }}
       >
         {value ?? "🙂"}
       </button>
 
       {open && (
-        <div style={{
-          position: "absolute", bottom: "calc(100% + 8px)", left: 0,
-          width: 300, maxHeight: 360, overflowY: "auto",
-          background: "var(--canvas)", border: "1px solid var(--hairline)",
-          borderRadius: 14, boxShadow: "0 8px 32px rgba(0,0,0,0.14)",
-          zIndex: 500, padding: "8px 0",
-        }}>
+        <div className="absolute bottom-[calc(100%+8px)] left-0 w-[300px] max-h-[360px] overflow-y-auto bg-canvas border border-hairline rounded-[14px] shadow-[0_8px_32px_rgba(0,0,0,0.14)] z-[500] py-2">
           {value && (
             <div style={{ padding: "0 10px 6px" }}>
               <button type="button" onClick={() => { onChange(null); setOpen(false); }}
@@ -148,7 +131,7 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
 
           {suggestions.length > 0 && (
             <div style={{ padding: "0 10px 8px", borderBottom: "1px solid var(--hairline)", marginBottom: 4 }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, color: "var(--primary)", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, paddingLeft: 2 }}>
+              <p className="font-body text-[10px] font-semibold text-primary tracking-[0.5px] uppercase mb-1 pl-0.5">
                 Gợi ý
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
@@ -159,7 +142,7 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
 
           {EMOJI_GROUPS.map((group) => (
             <div key={group.label} style={{ padding: "0 10px 8px" }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, color: "var(--ink-muted-48)", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, paddingLeft: 2 }}>
+              <p className="font-body text-[10px] font-semibold text-ink-muted-48 tracking-[0.5px] uppercase mb-1 pl-0.5">
                 {group.label}
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>

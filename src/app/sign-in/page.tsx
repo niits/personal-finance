@@ -60,25 +60,9 @@ export default function SignInPage() {
           </h1>
         </div>
 
-        <button
+        <button type="button"
           onClick={() => signIn.social({ provider: "github", callbackURL: `${window.location.origin}/` })}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            padding: "12px 20px",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--hairline)",
-            background: "var(--surface-white)",
-            color: "var(--ink)",
-            fontFamily: "var(--font-body)",
-            fontSize: 15,
-            fontWeight: 500,
-            cursor: "pointer",
-            marginBottom: 12,
-          }}
+          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-md border border-hairline bg-surface-white text-ink font-body text-[15px] font-medium cursor-pointer mb-3"
         >
           <GitHubIcon />
           Tiếp tục với GitHub
@@ -133,17 +117,7 @@ function ComingSoonCard({
           fontWeight: 600,
         }}>
           {icon ? (
-            <span style={{
-              width: 28,
-              height: 28,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "var(--radius-sm)",
-              background: "var(--canvas)",
-              color: "var(--ink-muted-80)",
-              flexShrink: 0,
-            }}>
+            <span className="w-7 h-7 inline-flex items-center justify-center rounded-sm bg-canvas text-ink-muted-80 shrink-0">
               {icon}
             </span>
           ) : null}

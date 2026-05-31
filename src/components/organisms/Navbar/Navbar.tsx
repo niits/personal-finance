@@ -6,19 +6,7 @@ export function Navbar() {
   const { data: session, isPending } = useSession();
 
   return (
-    <nav style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 100,
-      height: 44,
-      background: "var(--surface-black)",
-      display: "flex",
-      alignItems: "center",
-      padding: "0 22px",
-      justifyContent: "space-between",
-    }}>
+    <nav className="fixed top-0 left-0 right-0 z-[100] h-11 bg-surface-black flex items-center justify-between px-[22px]">
       <span style={{
         color: "var(--on-dark)",
         fontFamily: "var(--font-display)",
@@ -35,17 +23,17 @@ export function Navbar() {
             <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "var(--font-body)" }}>
               {session.user.name || session.user.email}
             </span>
-            <button
+            <button type="button"
               onClick={() => signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/"; } } })}
-              style={{ background: "transparent", border: "none", color: "var(--primary-on-dark)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer", padding: "4px 0", letterSpacing: -0.12 }}
+              className="bg-transparent border-none text-primary-on-dark font-body text-xs cursor-pointer py-1 px-0 tracking-[-0.12px]"
             >
               Đăng xuất
             </button>
           </>
         ) : (
-          <button
+          <button type="button"
             onClick={() => signIn.social({ provider: "github", callbackURL: "/" })}
-            style={{ background: "transparent", border: "none", color: "var(--primary-on-dark)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer", padding: "4px 0", letterSpacing: -0.12 }}
+            className="bg-transparent border-none text-primary-on-dark font-body text-xs cursor-pointer py-1 px-0 tracking-[-0.12px]"
           >
             Đăng nhập
           </button>

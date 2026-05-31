@@ -28,16 +28,9 @@ export function TransactionListItem({ transaction: t, showDivider, onClick }: Tr
   return (
     <div
       onClick={() => onClick?.(t.id)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "10px 16px",
-        borderTop: showDivider ? "1px solid var(--hairline)" : "none",
-        cursor: onClick ? "pointer" : "default",
-        minHeight: 44,
-        gap: 10,
-        background: "var(--canvas)",
-      }}
+      className={`flex items-center px-4 py-[10px] gap-[10px] min-h-[44px] bg-canvas ${
+        showDivider ? "border-t border-hairline" : ""
+      } ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
       <EmojiIcon
         emoji={displayEmoji}
@@ -46,40 +39,22 @@ export function TransactionListItem({ transaction: t, showDivider, onClick }: Tr
         size="md"
       />
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{
-          fontFamily: "var(--font-body)",
-          fontSize: 15,
-          color: "var(--ink)",
-          letterSpacing: -0.374,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          lineHeight: 1.3,
-        }}>
+      <div className="flex-1 min-w-0">
+        <p className="font-body text-[15px] text-ink tracking-[-0.374px] truncate leading-[1.3]">
           {t.categoryName}
         </p>
-        <p style={{
-          fontFamily: "var(--font-body)",
-          fontSize: 12,
-          color: "var(--ink-muted-48)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          lineHeight: 1.3,
-          minHeight: "1em",
-        }}>
+        <p className="font-body text-[12px] text-ink-muted-48 truncate leading-[1.3] min-h-[1em]">
           {t.note ?? ""}
         </p>
         {t.debtParty && (
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)", lineHeight: 1.3, marginTop: 1 }}>
+          <p className="font-body text-[11px] text-ink-muted-48 leading-[1.3] mt-px">
             💸 {t.debtType === "lend" ? "Cho vay" : "Đi vay"} · {t.debtParty}
           </p>
         )}
         {t.customBudgets.length > 0 && (
-          <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center" }}>
+          <div className="flex gap-1 mt-[3px] items-center">
             {t.customBudgets.slice(0, 2).map((cb) => (
-              <span key={cb.id} style={{ maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span key={cb.id} className="max-w-[90px] overflow-hidden text-ellipsis">
                 <Badge label={cb.name} variant="primary" size="sm" />
               </span>
             ))}
@@ -90,7 +65,7 @@ export function TransactionListItem({ transaction: t, showDivider, onClick }: Tr
         )}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+      <div className="flex items-center gap-2 shrink-0">
         <CurrencyDisplay
           amount={t.amount}
           signed

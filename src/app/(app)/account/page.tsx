@@ -33,16 +33,7 @@ const GoogleIcon = () => (
 function SectionGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: "var(--space-lg)" }}>
-      <div style={{
-        fontFamily: "var(--font-body)",
-        fontSize: 12,
-        fontWeight: 600,
-        color: "var(--ink-muted-48)",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        paddingLeft: "var(--space-md)",
-        marginBottom: "var(--space-xs)",
-      }}>
+      <div className="font-body text-xs font-semibold text-ink-muted-48 uppercase tracking-[0.5px] pl-md mb-xs">
         {label}
       </div>
       <div style={{
@@ -72,17 +63,7 @@ function ListRow({ icon, label, value, action, isLast = false }: {
       borderBottom: isLast ? "none" : "1px solid var(--hairline)",
     }}>
       {icon && (
-        <div style={{
-          width: 32,
-          height: 32,
-          borderRadius: "var(--radius-sm)",
-          background: "var(--canvas-parchment)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          color: "var(--ink-muted-80)",
-        }}>
+        <div className="w-8 h-8 rounded-sm bg-canvas-parchment flex items-center justify-center shrink-0 text-ink-muted-80">
           {icon}
         </div>
       )}
@@ -216,33 +197,11 @@ export default function AccountPage() {
           alignItems: "center",
           gap: "var(--space-md)",
         }}>
-          <div style={{
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            background: "var(--primary)",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "var(--font-display)",
-            fontSize: 22,
-            fontWeight: 600,
-            flexShrink: 0,
-          }}>
+          <div className="w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center font-display text-[22px] font-semibold shrink-0">
             {userInitials}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontFamily: "var(--font-body)",
-              fontSize: 17,
-              fontWeight: 600,
-              color: "var(--ink)",
-              letterSpacing: -0.374,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}>
+            <div className="font-body text-[17px] font-semibold text-ink tracking-[-0.374px] truncate">
               {session.user.name ?? "Người dùng"}
             </div>
             <div style={{
@@ -286,7 +245,7 @@ export default function AccountPage() {
             }
             action={
               accountLoadError || githubLinked === null ? null : githubLinked ? (
-                <button
+                <button type="button"
                   disabled
                   title="Tạm thời không thể bỏ liên kết GitHub trong lúc các phương thức khác đang bị tắt."
                   style={{ ...unlinkBtnStyle, opacity: 0.35, cursor: "not-allowed" }}
@@ -294,7 +253,7 @@ export default function AccountPage() {
                   Tạm khóa
                 </button>
               ) : (
-                <button onClick={handleLinkGitHub} style={actionBtnStyle}>
+                <button type="button" onClick={handleLinkGitHub} style={actionBtnStyle}>
                   <GitHubIcon /> Liên kết
                 </button>
               )
@@ -379,10 +338,10 @@ export default function AccountPage() {
               Tải về toàn bộ giao dịch, danh mục và ngân sách của bạn.
             </p>
             <div style={{ display: "flex", gap: "var(--space-sm)" }}>
-              <button onClick={() => handleExport("json")} style={exportBtnStyle}>
+              <button type="button" onClick={() => handleExport("json")} style={exportBtnStyle}>
                 Tải JSON
               </button>
-              <button onClick={() => handleExport("csv")} style={exportBtnStyle}>
+              <button type="button" onClick={() => handleExport("csv")} style={exportBtnStyle}>
                 Tải CSV
               </button>
             </div>
@@ -391,20 +350,9 @@ export default function AccountPage() {
 
         {/* Sign out */}
         <SectionGroup label="Phiên đăng nhập">
-          <button
+          <button type="button"
             onClick={() => signOut({ fetchOptions: { onSuccess: () => router.replace("/sign-in") } })}
-            style={{
-              width: "100%",
-              padding: "14px var(--space-md)",
-              background: "none",
-              border: "none",
-              color: "var(--danger)",
-              fontFamily: "var(--font-body)",
-              fontSize: 16,
-              fontWeight: 500,
-              cursor: "pointer",
-              textAlign: "left",
-            }}
+            className="w-full py-[14px] px-md bg-transparent border-none text-danger font-body text-base font-medium cursor-pointer text-left"
           >
             Đăng xuất
           </button>

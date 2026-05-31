@@ -1,1 +1,2 @@
-export { CurrencyDisplay, formatVND } from "./CurrencyDisplay";
+export { CurrencyDisplay } from "./CurrencyDisplay";
+export { formatVND } from "./format";

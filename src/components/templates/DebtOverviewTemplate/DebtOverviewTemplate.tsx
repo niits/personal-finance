@@ -85,9 +85,9 @@ export function DebtOverviewTemplate({ lending, borrowing, settled, onOpenTransa
         {/* Settled */}
         {settled.length > 0 && (
           <section style={{ marginTop: 8 }}>
-            <button
+            <button type="button"
               onClick={() => setSettledOpen((v) => !v)}
-              style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, padding: "8px 0", marginBottom: 8 }}
+              className="bg-transparent border-none cursor-pointer flex items-center gap-1.5 py-2 mb-2"
             >
               <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 {settledOpen ? "▾" : "▸"} Đã tất toán ({settled.length})
@@ -101,16 +101,9 @@ export function DebtOverviewTemplate({ lending, borrowing, settled, onOpenTransa
       </div>
 
       {/* FAB */}
-      <button
+      <button type="button"
         onClick={onOpenTransactionForm}
-        style={{
-          position: "fixed", bottom: "calc(72px + env(safe-area-inset-bottom))", right: 20,
-          width: 52, height: 52, borderRadius: "50%", border: "none",
-          background: "var(--primary)", color: "#fff",
-          fontFamily: "var(--font-body)", fontSize: 28, lineHeight: 1,
-          cursor: "pointer", boxShadow: "0 4px 16px rgba(0,102,204,0.35)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}
+        className="fixed bottom-[calc(72px+env(safe-area-inset-bottom))] right-5 w-[52px] h-[52px] rounded-full border-none bg-primary text-white font-body text-[28px] leading-none cursor-pointer flex items-center justify-center shadow-[0_4px_16px_rgba(0,102,204,0.35)]"
       >
         +
       </button>
