@@ -8,33 +8,39 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Agent Rules — Personal Finance Tracker
 
-## Component Structure
+## Component Driven Development
 
-This project uses **Component Driven Development**. The `src/components/` directory is organized as:
+`src/components/` is layered; build bottom-up (atoms → molecules → organisms → templates → pages):
 
-```
-atoms/       Primitive UI building blocks (Button, Input, Badge …)
-molecules/   Composed units (TransactionListItem, BudgetProgressBar …)
-organisms/   Full UI sections (TransactionForm, Navbar, InsightPanel …)
-templates/   Page-level layouts — accept slot props, no live data fetching
-```
+- `atoms/` — primitives (Button, Input, Badge …)
+- `molecules/` — composed units (TransactionListItem, BudgetProgressBar …)
+- `organisms/` — full sections (TransactionForm, Navbar …)
+- `templates/` — page-level layouts via slot props
+- `src/app/` — thin App Router pages: fetch data, pass it down, no rendering logic
 
-`src/app/` contains only Next.js App Router pages. Pages are **thin**: they call APIs/data hooks and pass results down to template/organism components. No rendering logic in page files.
-
-**Before adding a new component:**
-1. Decide its level: atom / molecule / organism / template
-2. Create `src/components/<level>/<ComponentName>/`
-3. Add `ComponentName.tsx`, `ComponentName.stories.tsx`, `index.ts`
-4. Atoms and molecules must have no side effects — pure props in, JSX out
+Rules:
+- Atoms and molecules are pure: props in, JSX out, no side effects, no API calls.
+- Keep data-fetching in pages. Templates/organisms receive data and callbacks via props; navigation hooks (e.g. `useRouter`) are acceptable in templates/organisms when a section genuinely owns an interaction.
+- New component → create `src/components/<level>/<Name>/` with `<Name>.tsx`, `<Name>.stories.tsx`, `index.ts`. Never skip the story.
+- Before writing UI: read `docs/COMPONENT_ARCHITECTURE.md` (authoritative) and `DESIGN.md`, and use the `/frontend-design` skill.
 
 ## Storybook
 
-Every component requires a co-located `.stories.tsx` using CSF3. Never skip stories for a new component.
+Every component has a co-located `.stories.tsx` in **CSF3** format. Cover meaningful states (loading, disabled, error), keep `@storybook/addon-a11y` checks, and never import from `src/app/` inside a story — components stay isolated.
 
-## Design Tokens
+## Design tokens & styling
 
-CSS custom properties are defined in `src/app/globals.css`. Reference them as `var(--token-name)` or via Tailwind utilities. Never hardcode colors, font sizes, or spacing — use the tokens from `DESIGN.md`.
+`DESIGN.md` is the source of truth. Tokens live as CSS custom properties in `src/app/globals.css` and are exposed as Tailwind utilities via the `@theme inline` block.
+
+- Never hardcode colors, font sizes, or spacing — reference a token (`var(--ink)`) or its utility (`text-ink`, `p-md`, `rounded-lg`). Never inline a hex value.
+- Prefer Tailwind utilities over inline `style`; arbitrary utilities (`text-[15px]`, `leading-[1.3]`) are fine for non-token one-offs. Reserve inline `style` for runtime-dynamic values (progress widths, chart colors).
+- One accent color only. One drop-shadow in the entire system, reserved for product imagery.
 
 ## Cloudflare Workers
 
-All application code (including Next.js routes) runs inside a Cloudflare Worker. No Node.js APIs unavailable in the Workers runtime. Bindings (`env.DB`, `env.AI`) are accessed via `getCloudflareContext()`.
+All application code (including Next.js routes) runs inside a Worker:
+
+- No Node built-ins outside the Cloudflare compatibility list (`fs`, `child_process`, …). No `eval` / `Function()` — use `vega-interpreter` for Vega expressions.
+- DB access only through `getCloudflareContext()` → `env.DB` (Kysely D1 adapter); other bindings (`env.AI`) the same way.
+- Scope the auth session per request — never cache it in module scope.
+- Every `/api/*` route except `/api/auth/*` must verify the session and scope queries to `user_id`.
