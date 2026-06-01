@@ -94,7 +94,7 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
       key={e}
       type="button"
       onClick={() => pickEmoji(e)}
-      className="w-9 h-9 rounded-sm border-none text-[20px] cursor-pointer flex items-center justify-center transition-colors"
+      className="size-9 rounded-sm border-none text-[20px] cursor-pointer flex items-center justify-center transition-colors"
       style={{ background: value === e ? "rgba(0,102,204,0.1)" : "transparent" }}
       onMouseEnter={(el) => { (el.currentTarget as HTMLButtonElement).style.background = "var(--canvas-parchment)"; }}
       onMouseLeave={(el) => { (el.currentTarget as HTMLButtonElement).style.background = value === e ? "rgba(0,102,204,0.1)" : "transparent"; }}
@@ -109,7 +109,7 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="Chọn emoji"
-        className="w-11 h-11 rounded-md bg-canvas-parchment cursor-pointer flex items-center justify-center shrink-0 transition-[border-color] text-ink-muted-48"
+        className="size-11 rounded-md bg-canvas-parchment cursor-pointer flex items-center justify-center shrink-0 transition-[border-color] text-ink-muted-48"
         style={{
           border: `1.5px solid ${open ? "var(--primary)" : "var(--hairline)"}`,
           fontSize: value ? 22 : 18,

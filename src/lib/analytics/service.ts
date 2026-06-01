@@ -20,7 +20,7 @@ export type CompareRow = {
   change_pct: number | null;
 };
 
-export class AnalyticsService {
+class AnalyticsService {
   constructor(private db: Kysely<Database>) {}
 
   async queryMetric(opts: {

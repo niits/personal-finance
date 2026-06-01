@@ -243,7 +243,7 @@ export function BudgetTemplate({
             <div style={{ padding: "16px 20px" }}>
               <div style={{ position: "relative", marginBottom: 10 }}>
                 <input
-                  type="text" inputMode="numeric" placeholder="5,000,000"
+                  type="text" inputMode="numeric" placeholder="5,000,000" aria-label="Ngân sách tháng"
                   value={createStr}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^\d]/g, "");
@@ -300,7 +300,7 @@ export function BudgetTemplate({
               </div>
 
               <div style={{ position: "relative", marginBottom: 10 }}>
-                <input type="text" inputMode="numeric" placeholder="500,000"
+                <input type="text" inputMode="numeric" placeholder="500,000" aria-label="Số tiền điều chỉnh"
                   value={adjDeltaStr}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^\d]/g, "");
@@ -313,7 +313,7 @@ export function BudgetTemplate({
                 <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-base text-ink-muted-48 font-display font-semibold">₫</span>
               </div>
 
-              <input type="text" placeholder="Lý do (tuỳ chọn)" value={adjNote}
+              <input type="text" placeholder="Lý do (tuỳ chọn)" aria-label="Lý do điều chỉnh" value={adjNote}
                 onChange={(e) => setAdjNote(e.target.value)}
                 className="w-full px-[14px] py-2.5 rounded-md border border-hairline font-body text-[14px] text-ink bg-canvas-parchment outline-none mb-2.5"
               />
@@ -359,12 +359,12 @@ export function BudgetTemplate({
               <p style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
                 Ngân sách riêng mới
               </p>
-              <input type="text" placeholder="Tên (vd: Du lịch, Mua laptop…)" value={cbName}
+              <input type="text" placeholder="Tên (vd: Du lịch, Mua laptop…)" aria-label="Tên ngân sách riêng" value={cbName}
                 onChange={(e) => { setCbName(e.target.value); setCbErr(""); }}
                 className="w-full px-[14px] py-[11px] rounded-md border border-hairline font-body text-[15px] text-ink bg-canvas-parchment outline-none mb-2"
               />
               <div style={{ position: "relative", marginBottom: 8 }}>
-                <input type="text" inputMode="numeric" placeholder="Mục tiêu"
+                <input type="text" inputMode="numeric" placeholder="Mục tiêu" aria-label="Mục tiêu"
                   value={cbAmountStr}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^\d]/g, "");
@@ -423,12 +423,12 @@ export function BudgetTemplate({
                         <p style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
                           Sửa ngân sách
                         </p>
-                        <input type="text" placeholder="Tên" value={editName}
+                        <input type="text" placeholder="Tên" aria-label="Tên ngân sách" value={editName}
                           onChange={(e) => { setEditName(e.target.value); setEditErr(""); }}
                           className="w-full px-[14px] py-[11px] rounded-md border border-hairline font-body text-[15px] text-ink bg-canvas-parchment outline-none mb-2"
                         />
                         <div style={{ position: "relative", marginBottom: 8 }}>
-                          <input type="text" inputMode="numeric" placeholder="Mục tiêu"
+                          <input type="text" inputMode="numeric" placeholder="Mục tiêu" aria-label="Mục tiêu"
                             value={editAmountStr}
                             onChange={(e) => {
                               const raw = e.target.value.replace(/[^\d]/g, "");

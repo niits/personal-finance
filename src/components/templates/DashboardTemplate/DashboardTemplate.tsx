@@ -120,7 +120,7 @@ function TxnIcon({ txn }: { txn: Transaction }) {
   if (displayEmoji) {
     return (
       <div
-        className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[17px]"
+        className="size-8 rounded-full shrink-0 flex items-center justify-center text-[17px]"
         style={{ background: isExp ? "rgba(255,69,58,0.08)" : "rgba(48,209,88,0.08)" }}
       >
         {displayEmoji + "️"}
@@ -129,7 +129,7 @@ function TxnIcon({ txn }: { txn: Transaction }) {
   }
   return (
     <div
-      className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center font-display text-[13px] font-semibold"
+      className="size-8 rounded-full shrink-0 flex items-center justify-center font-display text-[13px] font-semibold"
       style={{
         background: isExp ? "rgba(255,69,58,0.12)" : "rgba(48,209,88,0.12)",
         color: isExp ? "#ff453a" : "#30d158",
@@ -250,7 +250,7 @@ export function DashboardTemplate({
           {onFillEmoji && (
             <button type="button"
               onClick={onFillEmoji}
-              className="border-none rounded-full w-8 h-8 flex items-center justify-center cursor-pointer text-base shrink-0 mt-0.5"
+              className="border-none rounded-full size-8 flex items-center justify-center cursor-pointer text-base shrink-0 mt-0.5"
               style={{ background: "rgba(255,255,255,0.12)" }}
               title="Gợi ý emoji"
             >
@@ -375,6 +375,8 @@ export function DashboardTemplate({
               <div style={{ background: "var(--canvas)" }}>
                 {groups[d].map((txn, i) => (
                   <div key={txn.id} onClick={() => onSetActionTxn(txn)}
+                    role="button" tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSetActionTxn(txn); } }}
                     style={{ display: "flex", alignItems: "center", padding: "10px 16px", borderTop: i > 0 ? "1px solid var(--hairline)" : "none", cursor: "pointer", minHeight: 44, gap: 10 }}>
                     <TxnIcon txn={txn} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -385,7 +387,7 @@ export function DashboardTemplate({
                         {txn.note ?? ""}
                       </p>
                       {txn.debt_party && (
-                        <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-muted-48)", lineHeight: 1.3, marginTop: 1 }}>
+                        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", lineHeight: 1.3, marginTop: 1 }}>
                           💸 {txn.debt_type === "lend" ? "Cho vay" : "Đi vay"} · {txn.debt_party}
                         </p>
                       )}
@@ -421,7 +423,7 @@ export function DashboardTemplate({
       {data?.monthly_budget && (
         <div style={{ position: "fixed", bottom: 84, right: 20, zIndex: 40 }}>
           <button type="button" onClick={() => onOpenForm()}
-            className="w-14 h-14 rounded-full bg-primary text-white text-[28px] leading-none border-none cursor-pointer flex items-center justify-center shadow-[0_4px_16px_rgba(0,102,204,0.4)]">
+            className="size-14 rounded-full bg-primary text-white text-[28px] leading-none border-none cursor-pointer flex items-center justify-center shadow-[0_4px_16px_rgba(0,102,204,0.4)]">
             +
           </button>
         </div>
@@ -430,7 +432,7 @@ export function DashboardTemplate({
       {/* ── Action sheet ── */}
       {actionTxn && (
         <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-          <div onClick={() => onSetActionTxn(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" } as React.CSSProperties} />
+          <button type="button" aria-label="Đóng" onClick={() => onSetActionTxn(null)} style={{ position: "absolute", inset: 0, border: "none", padding: 0, cursor: "pointer", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" } as React.CSSProperties} />
           <div style={{ position: "relative", background: "var(--canvas)", borderRadius: "20px 20px 0 0", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
             <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 8px" }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)" }} />

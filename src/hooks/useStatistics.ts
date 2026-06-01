@@ -16,12 +16,12 @@ function dayOf(unixSeconds: number) {
   return new Date(unixSeconds * 1000).toISOString().substring(0, 10);
 }
 
-export function prevMonth(m: string) {
+function prevMonth(m: string) {
   const [y, mo] = m.split("-").map(Number);
   return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, "0")}`;
 }
 
-export function nextMonth(m: string) {
+function nextMonth(m: string) {
   const [y, mo] = m.split("-").map(Number);
   return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
 }

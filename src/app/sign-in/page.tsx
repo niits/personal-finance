@@ -117,7 +117,7 @@ function ComingSoonCard({
           fontWeight: 600,
         }}>
           {icon ? (
-            <span className="w-7 h-7 inline-flex items-center justify-center rounded-sm bg-canvas text-ink-muted-80 shrink-0">
+            <span className="size-7 inline-flex items-center justify-center rounded-sm bg-canvas text-ink-muted-80 shrink-0">
               {icon}
             </span>
           ) : null}

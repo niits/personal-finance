@@ -103,7 +103,7 @@ export function DebtOverviewTemplate({ lending, borrowing, settled, onOpenTransa
       {/* FAB */}
       <button type="button"
         onClick={onOpenTransactionForm}
-        className="fixed bottom-[calc(72px+env(safe-area-inset-bottom))] right-5 w-[52px] h-[52px] rounded-full border-none bg-primary text-white font-body text-[28px] leading-none cursor-pointer flex items-center justify-center shadow-[0_4px_16px_rgba(0,102,204,0.35)]"
+        className="fixed bottom-[calc(72px+env(safe-area-inset-bottom))] right-5 size-[52px] rounded-full border-none bg-primary text-white font-body text-[28px] leading-none cursor-pointer flex items-center justify-center shadow-[0_4px_16px_rgba(0,102,204,0.35)]"
       >
         +
       </button>
