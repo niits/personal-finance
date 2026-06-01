@@ -28,7 +28,7 @@ export function DebtPartyCard({ debt, onTap }: DebtPartyCardProps) {
               {isLend ? "Cho vay" : "Đi vay"}{debt.note ? ` · ${debt.note}` : ""}
             </span>
             {debt.is_overdue && (
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--destructive)" }}>
+              <span className="font-body text-[12px] font-semibold text-danger">
                 ⚠ Quá hạn
               </span>
             )}

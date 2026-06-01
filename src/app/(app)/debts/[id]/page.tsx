@@ -170,7 +170,7 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
                     : null,
                   { label: "Xóa khoản nợ", action: () => { setMenuOpen(false); handleDelete(); }, danger: true },
                 ].filter(Boolean).map((item) => item && (
-                  <button type="button" key={item.label} onClick={item.action} className="block w-full px-4 py-[13px] bg-transparent font-body text-[15px] text-left cursor-pointer border-b border-hairline" style={{ color: item.danger ? "var(--destructive)" : "var(--ink)" }}>
+                  <button type="button" key={item.label} onClick={item.action} className={`block w-full px-4 py-[13px] bg-transparent font-body text-[15px] text-left cursor-pointer border-b border-hairline ${item.danger ? "text-danger" : "text-ink"}`}>
                     {item.label}
                   </button>
                 ))}
@@ -200,7 +200,7 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
             <DebtProgressBar openingAmount={debt.opening_amount} totalRepaid={debt.total_repaid} variant={isLend ? "lend" : "borrow"} />
 
             {debt.due_date && (
-              <div style={{ fontFamily: "var(--font-body)", fontSize: 13, marginTop: 12, color: debt.is_overdue ? "var(--destructive)" : "var(--ink-muted-48)" }}>
+              <div className={`font-body text-[13px] mt-3 ${debt.is_overdue ? "text-danger" : "text-ink-muted-48"}`}>
                 {debt.is_overdue ? "⚠ Quá hạn · " : "Hạn: "}{debt.due_date.split("-").reverse().join("/")}
               </div>
             )}
@@ -334,7 +334,7 @@ function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: 
     >
       {/* Unlink action revealed on swipe */}
       {canUnlink && (
-        <button type="button" className="absolute right-0 top-0 bottom-0 w-[100px] flex items-center justify-center cursor-pointer border-none" style={{ background: "var(--destructive)" }} onClick={(e) => { e.stopPropagation(); onUnlink(); }}>
+        <button type="button" className="absolute right-0 top-0 bottom-0 w-[100px] flex items-center justify-center cursor-pointer border-none bg-danger" onClick={(e) => { e.stopPropagation(); onUnlink(); }}>
           <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "#fff", fontWeight: 600 }}>Hủy lk</span>
         </button>
       )}
