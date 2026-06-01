@@ -1,9 +1,11 @@
 # Transaction Recategorize
 
+> **⚠️ Superseded by `EPIC_3_AI_REFACTOR.md`.** Recategorization is now part of the batch AI Organize flow (`/api/ai/organize`), not a standalone Categories-screen action, and runs on OpenAI `gpt-4.1-nano` via the Cloudflare AI Gateway rather than Workers AI. Kept for history only.
+
 | Field | Value |
 |-------|-------|
 | Type | Feature Specification |
-| Status | Implemented |
+| Status | Superseded |
 | Version | 1.0 |
 | Author | niits |
 | Created | 2026-05-06 |

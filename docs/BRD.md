@@ -286,6 +286,24 @@ Thu nhập
 
 ---
 
+### 6.10 Debt Tracking (DEBT) — Epic 4
+
+Lending and borrowing relationships with repayment history. Full SRS: `docs/specs/debt-tracking.md`.
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| DEBT-01 | Users must be able to record a debt as either lending (`lend`) or borrowing (`borrow`), with a party name, amount, date, optional note and optional due date | Must Have |
+| DEBT-02 | Creating a debt also creates its opening transaction atomically: a `lend` opening is an expense, a `borrow` opening is income | Must Have |
+| DEBT-03 | Users must be able to log repayments; a repayment is an ordinary transaction linked to the debt (income for a `lend`, expense for a `borrow`) | Must Have |
+| DEBT-04 | The system must compute, per debt, the opening amount, total repaid, remaining balance, and an overdue flag (due date passed while still open) | Must Have |
+| DEBT-05 | A debt is `settled` when fully repaid; settled debts are collapsed into a separate section on the Debts screen | Should Have |
+| DEBT-06 | The Debts screen (`/debts`) must summarise total lent vs total borrowed and list each party with its progress | Must Have |
+| DEBT-07 | Users must be able to link an existing eligible transaction to a debt as a repayment, and to unlink it | Should Have |
+| DEBT-08 | Users must be able to convert an existing transaction to/from a debt entry in the edit flow | Should Have |
+| DEBT-09 | Debt transactions carry no category and no budget; they must still be included in income/expense aggregation | Must Have |
+
+---
+
 ## 7. Business Rules
 
 | ID | Rule |
@@ -304,6 +322,9 @@ Thu nhập
 | BR-12 | An expense transaction may belong to 0, 1, or many Custom Budgets simultaneously |
 | BR-13 | Each user has exactly 1 Budget Config record (auto-created on first login) |
 | BR-14 | Seed categories are auto-created for new users on first login; users with no categories may also trigger seeding on demand via `POST /api/categories/seed` |
+| BR-15 | A debt transaction (opening or repayment) has no category and no Custom Budget, and is exempt from the "expense must have a Monthly Budget" rule (it must instead be a debt entry) |
+| BR-16 | A debt's principal is derived from its opening transaction's amount — it is not stored on the debt; `remaining = opening_amount − Σ repayments` |
+| BR-17 | Deleting a debt detaches its linked transactions (they remain as plain transactions); deleting a linked transaction detaches it from the debt |
 
 ---
 
@@ -467,26 +488,27 @@ User ─────────┬──── BudgetConfig (1:1)
 ### 10.1 Navigation Structure
 
 ```
-App (authenticated)
-├── Tab 1: Home (Tổng quan)
+App (authenticated) — 5 bottom-nav tabs
+├── Tab 1: Home (Tổng quan) — /
 │   ├── Header: month navigator ‹ › , hero spend, budget bar with pace layer
-│   ├── Category filter chips (top 3 level-1 by expense count)
+│   ├── Category filter chips (top level-1 by expense count)
 │   └── Transaction feed (grouped by date, current month default)
-├── Tab 2: Statistics (Thống kê)
+├── Tab 2: Statistics (Thống kê) — /statistics
 │   ├── Month selector
 │   └── AI-generated insight cards + Vega-Lite charts
-├── Tab 3: Categories (Danh mục)
-│   └── Category tree (3 levels, manage)
-└── Tab 4: Budgets (Ngân sách)
-    ├── Monthly Budget Section
-    │   ├── Adjust Budget Action
-    │   └── Adjustment History (accordion)
-    └── Custom Budgets Section
-        ├── Budget Cards (progress + toggle)
-        └── Create Custom Budget (FAB)
+├── Tab 3: Debts (Nợ) — /debts
+│   ├── Lent vs borrowed summary tiles
+│   ├── Party cards (progress, overdue flag) → debt detail /debts/[id]
+│   └── Settled section (collapsed)
+├── Tab 4: Budgets (Ngân sách) — /budget
+│   ├── Monthly Budget Section (adjust action, adjustment history)
+│   └── Custom Budgets Section (cards, create FAB)
+└── Tab 5: Account (Tài khoản) — /account
+    ├── Profile, linked sign-in methods, data export, sign-out
+    └── Categories → /account/categories (3-level tree, manage)
 ```
 
-**Removed:** Tab "Giao dịch" (Transactions) — merged into Home tab. The Home tab is now the primary surface for both overview and transaction history.
+**Changes from earlier epics:** the "Giao dịch" (Transactions) tab was merged into Home; the "Danh mục" (Categories) tab moved under Account (`/account/categories`); a "Nợ" (Debts) tab was added (Epic 4). All routes were flattened from the old `/dashboard/*` prefix (Epic 2).
 
 ### 10.2 Home Screen — Log Transaction Form
 
