@@ -1,5 +1,7 @@
 # CDD Refactor Progress
 
+> **Historical snapshot.** This logs the original CDD refactor (branch `feature/cdd-refactor`) and reflects the codebase *at that time* — including the old `/dashboard/*` routes (flattened later in Epic 2) and the component set before Epics 3–4. It is kept for history and is **not** maintained. For the current component hierarchy, routes, and inventory see `docs/COMPONENT_ARCHITECTURE.md`.
+
 Branch: `feature/cdd-refactor`
 
 ## Overview
