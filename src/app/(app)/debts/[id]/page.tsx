@@ -324,6 +324,10 @@ function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: 
   const directionColor = tx.type === "income" ? "#30d158" : "var(--ink)";
 
   return (
+    // false positive: onClick only resets `swiped`, a state reachable solely via
+    // the touch-swipe gesture (onTouchStart below). Keyboard users never enter it,
+    // so a keyboard handler is meaningless and a <button> would nest the unlink button.
+    // react-doctor-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions
     <div
       style={{ position: "relative", overflow: "hidden", borderTop: showDivider ? "1px solid var(--hairline)" : "none" }}
       onClick={() => setSwiped(false)}
