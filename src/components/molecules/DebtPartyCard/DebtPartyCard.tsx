@@ -37,7 +37,7 @@ export function DebtPartyCard({ debt, onTap }: DebtPartyCardProps) {
 
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           {isSettled ? (
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "#30d158" }}>Tất toán ✓</div>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--success)" }}>Tất toán ✓</div>
           ) : (
             <>
               <div style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>

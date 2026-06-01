@@ -60,7 +60,7 @@ export function LinkTransactionSheet({
                   <div style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {tx.note ?? "Giao dịch"}
                   </div>
-                  <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>
+                  <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
                     {tx.date.split("-").slice(1).reverse().join("/")}
                   </div>
                 </div>

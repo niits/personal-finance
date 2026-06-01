@@ -27,15 +27,15 @@ const variantStyles: Record<NonNullable<ButtonProps["variant"]>, React.CSSProper
     border: "none",
   },
   destructive: {
-    background: "rgba(255,69,58,0.1)",
-    color: "#ff453a",
+    background: "rgba(255,59,48,0.1)",
+    color: "var(--danger)",
     border: "none",
   },
 };
 
 const sizeStyles: Record<NonNullable<ButtonProps["size"]>, React.CSSProperties> = {
-  sm: { padding: "7px 14px", fontSize: 13, borderRadius: 8 },
-  md: { padding: "14px 20px", fontSize: 16, borderRadius: 12 },
+  sm: { padding: "7px 14px", fontSize: 14, borderRadius: 8 },
+  md: { padding: "14px 20px", fontSize: 17, borderRadius: "var(--radius-md)" },
   lg: { padding: "15px 20px", fontSize: 17, borderRadius: 999 },
 };
 

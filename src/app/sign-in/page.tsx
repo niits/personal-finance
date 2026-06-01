@@ -62,7 +62,7 @@ export default function SignInPage() {
 
         <button type="button"
           onClick={() => signIn.social({ provider: "github", callbackURL: `${window.location.origin}/` })}
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-md border border-hairline bg-surface-white text-ink font-body text-[15px] font-medium cursor-pointer mb-3"
+          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-md border border-hairline bg-surface-white text-ink font-body text-[15px] font-normal cursor-pointer mb-3"
         >
           <GitHubIcon />
           Tiếp tục với GitHub

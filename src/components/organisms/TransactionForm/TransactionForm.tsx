@@ -135,7 +135,7 @@ function CategoryDrillDown({
                 {cat.name}
               </span>
               {childLabel && (
-                <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginLeft: 8 }}>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginLeft: 8 }}>
                   {childLabel}
                 </span>
               )}
@@ -233,7 +233,7 @@ function DebtLinkSection({
                 style={inputStyle}
               />
               <div style={{ marginTop: 8, position: "relative" }}>
-                <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginRight: 8 }}>Hạn trả:</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginRight: 8 }}>Hạn trả:</span>
                 <input
                   type="date"
                   aria-label="Hạn trả"
@@ -248,7 +248,7 @@ function DebtLinkSection({
           {/* Existing debts */}
           {existingList.length > 0 && (
             <>
-              <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", padding: "8px 0 4px", fontWeight: 600 }}>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", padding: "8px 0 4px", fontWeight: 600 }}>
                 {existingLabel}
               </div>
               {existingList.map((d) => (
@@ -293,7 +293,7 @@ function Option({ label, sublabel, selected, onSelect }: { label: string; sublab
       <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", fontWeight: selected ? 600 : 400 }}>
         {label}
       </span>
-      {sublabel && <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginLeft: "auto" }}>{sublabel}</span>}
+      {sublabel && <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginLeft: "auto" }}>{sublabel}</span>}
     </button>
   );
 }
@@ -472,7 +472,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     : isEdit ? "Sửa giao dịch"
     : "Giao dịch mới";
 
-  const amountColor = type === "expense" ? "#ff453a" : "#30d158";
+  const amountColor = type === "expense" ? "var(--danger)" : "var(--success)";
   const selectedCatPath = categoryId ? getCategoryPath(cats, categoryId) : [];
 
   return (
@@ -533,7 +533,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                 <div style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
                   {mode.debt.party} · {mode.debt.type === "lend" ? "Cho vay" : "Đi vay"}
                 </div>
-                <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginTop: 2 }}>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginTop: 2 }}>
                   Còn lại {fmt(mode.debt.remaining)}₫
                 </div>
               </div>
@@ -572,7 +572,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                 }}
                   style={{
                     flex: 1, padding: "9px", borderRadius: 8, border: "none",
-                    background: type === t ? (t === "expense" ? "#ff453a" : "#30d158") : "transparent",
+                    background: type === t ? (t === "expense" ? "var(--danger)" : "var(--success)") : "transparent",
                     color: type === t ? "#fff" : "var(--ink-muted-48)",
                     fontFamily: "var(--font-body)", fontSize: 15, fontWeight: type === t ? 600 : 400,
                     cursor: "pointer", transition: "background 0.15s, color 0.15s",
@@ -612,7 +612,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           {!isDebtMode && (
             <div style={{ paddingTop: 14, paddingBottom: 8, borderTop: "1px solid var(--hairline)" }}>
               <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 10, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                Danh mục {selectedCatPath.length > 0 && <span style={{ color: "var(--primary)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 13 }}>· {selectedCatPath.join(" › ")}</span>}
+                Danh mục {selectedCatPath.length > 0 && <span style={{ color: "var(--primary)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>· {selectedCatPath.join(" › ")}</span>}
               </p>
               <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => { setCategoryId(id); setError(""); }} />
             </div>
@@ -633,7 +633,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                         border: on ? "none" : "1px solid var(--hairline)",
                         background: on ? "var(--ink)" : "var(--canvas-parchment)",
                         color: on ? "#fff" : "var(--ink-muted-48)",
-                        fontFamily: "var(--font-body)", fontSize: 13, fontWeight: on ? 600 : 400,
+                        fontFamily: "var(--font-body)", fontSize: 14, fontWeight: on ? 600 : 400,
                         transition: "background 0.12s, color 0.12s, border-color 0.12s",
                       }}
                     >
@@ -672,7 +672,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {error && (
-            <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginTop: 16, marginBottom: 4 }}>{error}</p>
+            <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginTop: 16, marginBottom: 4 }}>{error}</p>
           )}
         </div>
       </div>

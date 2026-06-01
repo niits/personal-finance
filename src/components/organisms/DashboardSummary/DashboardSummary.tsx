@@ -52,14 +52,14 @@ export function DashboardSummary({
         dark
       />
 
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.3)", letterSpacing: -0.1, margin: "2px 0 8px" }}>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--body-muted)", letterSpacing: -0.1, margin: "4px 0 10px" }}>
         {fmtPeriodDate(periodStart)} – {fmtPeriodDate(periodEnd)}
       </p>
 
       <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
         {loading ? "—" : <CurrencyDisplay amount={totalExpense} size="xl" />}
       </p>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 4, letterSpacing: -0.224 }}>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--body-muted)", marginTop: "var(--space-xs)", letterSpacing: -0.224 }}>
         đã chi tháng này
       </p>
 
@@ -76,13 +76,13 @@ export function DashboardSummary({
       )}
 
       {totalIncome > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, marginTop: 16, borderRadius: 10, overflow: "hidden" }}>
-          <div style={{ background: "rgba(255,255,255,0.07)", padding: "10px 14px" }}>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 3 }}>Thu nhập</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, marginTop: "var(--space-md)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+          <div style={{ background: "rgba(255,255,255,0.07)", padding: "12px 14px" }}>
+            <p style={{ fontSize: 12, color: "var(--body-muted)", fontFamily: "var(--font-body)", marginBottom: "var(--space-xs)", letterSpacing: -0.12 }}>Thu nhập</p>
             <CurrencyDisplay amount={totalIncome} signed signType="income" size="md" />
           </div>
-          <div style={{ background: "rgba(255,255,255,0.07)", padding: "10px 14px" }}>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 3 }}>Tiết kiệm</p>
+          <div style={{ background: "rgba(255,255,255,0.07)", padding: "12px 14px" }}>
+            <p style={{ fontSize: 12, color: "var(--body-muted)", fontFamily: "var(--font-body)", marginBottom: "var(--space-xs)", letterSpacing: -0.12 }}>Tiết kiệm</p>
             <CurrencyDisplay amount={savings} signed signType={savings >= 0 ? "income" : "expense"} size="md" />
           </div>
         </div>

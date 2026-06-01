@@ -431,7 +431,7 @@ function InsightCard({ insight, featured }: { insight: Insight; featured?: boole
           </span>
         )}
       </div>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: featured ? "rgba(255,255,255,0.6)" : "var(--ink-muted-48)", lineHeight: 1.5, marginBottom: spec ? 16 : 0 }}>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: featured ? "var(--body-muted)" : "var(--ink-muted-48)", lineHeight: 1.43, marginBottom: spec ? 16 : 0 }}>
         {insight.summary}
       </p>
       {spec && (
@@ -476,7 +476,7 @@ export function StatisticsTemplate({
 }: StatisticsTemplateProps) {
   const chevron = (disabled?: boolean): React.CSSProperties => ({
     background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-    color: disabled ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)",
+    color: disabled ? "rgba(255,255,255,0.15)" : "var(--body-muted)",
     fontSize: 20, padding: "0 6px", lineHeight: 1, flexShrink: 0,
   });
 
@@ -493,7 +493,7 @@ export function StatisticsTemplate({
           </span>
           <button type="button" style={chevron(isAtUpperBound)} onClick={() => !isAtUpperBound && onNextMonth()}>›</button>
         </div>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.35)", textAlign: "center", letterSpacing: -0.1 }}>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--body-muted)", textAlign: "center", letterSpacing: -0.1 }}>
           Phân tích chi tiêu
         </p>
       </div>
@@ -555,12 +555,12 @@ export function StatisticsTemplate({
 
         {status === "ready" && regenError && (
           <div className="rounded-[14px] px-4 py-[14px] mb-2 flex gap-3 items-start" style={{ background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)" }}>
-            <span style={{ color: "#ff453a", flexShrink: 0, fontSize: 16, lineHeight: 1.4 }}>!</span>
+            <span style={{ color: "var(--danger)", flexShrink: 0, fontSize: 17, lineHeight: 1.4 }}>!</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "#b94a05", margin: "0 0 4px" }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--danger)", margin: "0 0 4px" }}>
                 Tạo lại thất bại
               </p>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink)", margin: 0, lineHeight: 1.5, wordBreak: "break-word" }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", margin: 0, lineHeight: 1.43, wordBreak: "break-word" }}>
                 {regenError.details?.message ?? regenError.error}
               </p>
             </div>

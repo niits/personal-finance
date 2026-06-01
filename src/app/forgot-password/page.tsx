@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
             fontFamily: "var(--font-body)",
             fontSize: 14,
             color: "var(--primary)",
-            fontWeight: 500,
+            fontWeight: 400,
           }}>
             Quay lại đăng nhập
           </Link>

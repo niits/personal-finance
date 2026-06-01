@@ -21,9 +21,9 @@ const btnStyle: React.CSSProperties = {
 };
 
 export function MonthStepper({ month, isLatest, onPrev, onNext, dark = false }: MonthStepperProps) {
-  const textColor = dark ? "rgba(255,255,255,0.5)" : "var(--ink-muted-48)";
+  const textColor = dark ? "var(--body-muted)" : "var(--ink-muted-48)";
   const chevronDisabledColor = dark ? "transparent" : "transparent";
-  const chevronColor = dark ? "rgba(255,255,255,0.5)" : "var(--ink-muted-48)";
+  const chevronColor = dark ? "var(--body-muted)" : "var(--ink-muted-48)";
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 2 }}>

@@ -106,7 +106,7 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
                     count={preview!.emoji_assignments.length}
                     autoIncluded
                   />
-                  <p style={{ padding: "4px 16px 10px", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>
+                  <p style={{ padding: "4px 16px 10px", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
                     Sẽ gán emoji cho {preview!.emoji_assignments.length} danh mục.
                   </p>
                 </section>

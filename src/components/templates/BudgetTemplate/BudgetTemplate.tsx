@@ -224,7 +224,7 @@ export function BudgetTemplate({
                 {monthlyBudget.adjustments?.length > 0 && (
                   <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                     {monthlyBudget.adjustments.map((a) => (
-                      <p key={a.id} style={{ fontSize: 12, color: a.delta > 0 ? "#30d158" : "#ff453a", fontFamily: "var(--font-body)" }}>
+                      <p key={a.id} style={{ fontSize: 12, color: a.delta > 0 ? "var(--success)" : "var(--danger)", fontFamily: "var(--font-body)" }}>
                         {a.delta > 0 ? "+" : ""}{fmt(a.delta)}₫{a.note ? ` — ${a.note}` : ""}
                       </p>
                     ))}
@@ -251,7 +251,7 @@ export function BudgetTemplate({
                     setCreateStr(raw ? fmt(n) : "");
                     setCreateErr("");
                   }}
-                  className={`w-full pt-3 pr-11 pb-3 pl-4 rounded-md border font-display text-[22px] font-semibold text-ink bg-canvas-parchment outline-none ${createErr ? "border-[#ff453a]" : "border-hairline"}`}
+                  className={`w-full pt-3 pr-11 pb-3 pl-4 rounded-md border font-display text-[22px] font-semibold text-ink bg-canvas-parchment outline-none ${createErr ? "border-danger" : "border-hairline"}`}
                 />
                 <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-[18px] text-ink-muted-48 font-display font-semibold">₫</span>
               </div>
@@ -263,7 +263,7 @@ export function BudgetTemplate({
                   </button>
                 ))}
               </div>
-              {createErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 10 }}>{createErr}</p>}
+              {createErr && <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginBottom: 10 }}>{createErr}</p>}
               <button type="button" onClick={createBudget} disabled={createSaving || !createStr}
                 className={`w-full p-3 rounded-full border-none font-body text-[15px] transition-[background,opacity] ${createStr ? "bg-primary text-white cursor-pointer" : "bg-hairline text-ink-muted-48 cursor-default"}`}>
                 {createSaving ? "Đang lưu…" : "Xác nhận ngân sách"}
@@ -282,7 +282,7 @@ export function BudgetTemplate({
           {/* Adjust form */}
           {monthlyBudget && adjOpen && (
             <div style={{ padding: "16px 20px", borderTop: "1px solid var(--hairline)" }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
                 Điều chỉnh ngân sách
               </p>
 
@@ -291,7 +291,7 @@ export function BudgetTemplate({
                   <button type="button" key={s} onClick={() => setAdjSign(s)}
                     className={`flex-1 p-2 rounded-sm border-none font-body text-[15px] cursor-pointer transition-colors ${adjSign === s ? "font-semibold" : "font-normal"}`}
                     style={{
-                      background: adjSign === s ? (s === 1 ? "#30d158" : "#ff453a") : "transparent",
+                      background: adjSign === s ? (s === 1 ? "var(--success)" : "var(--danger)") : "transparent",
                       color: adjSign === s ? "#fff" : "var(--ink-muted-48)",
                     }}>
                     {s === 1 ? "+ Tăng" : "− Giảm"}
@@ -308,7 +308,7 @@ export function BudgetTemplate({
                     setAdjDeltaStr(raw ? fmt(n) : "");
                     setAdjErr("");
                   }}
-                  className={`w-full pt-[11px] pr-11 pb-[11px] pl-4 rounded-md border font-display text-[20px] font-semibold text-ink bg-canvas-parchment outline-none ${adjErr ? "border-[#ff453a]" : "border-hairline"}`}
+                  className={`w-full pt-[11px] pr-11 pb-[11px] pl-4 rounded-md border font-display text-[20px] font-semibold text-ink bg-canvas-parchment outline-none ${adjErr ? "border-danger" : "border-hairline"}`}
                 />
                 <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-base text-ink-muted-48 font-display font-semibold">₫</span>
               </div>
@@ -318,7 +318,7 @@ export function BudgetTemplate({
                 className="w-full px-[14px] py-2.5 rounded-md border border-hairline font-body text-[14px] text-ink bg-canvas-parchment outline-none mb-2.5"
               />
 
-              {adjErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 10 }}>{adjErr}</p>}
+              {adjErr && <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginBottom: 10 }}>{adjErr}</p>}
 
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" onClick={() => { setAdjOpen(false); setAdjDeltaStr(""); setAdjNote(""); setAdjErr(""); }}
@@ -328,7 +328,7 @@ export function BudgetTemplate({
                 <button type="button" onClick={adjust} disabled={adjSaving || !adjDeltaStr}
                   className={`flex-[2] p-[11px] rounded-full border-none font-body text-[14px] transition-[background,opacity] ${adjDeltaStr ? "cursor-pointer" : "cursor-default"}`}
                   style={{
-                    background: adjDeltaStr ? (adjSign === 1 ? "#30d158" : "#ff453a") : "var(--hairline)",
+                    background: adjDeltaStr ? (adjSign === 1 ? "var(--success)" : "var(--danger)") : "var(--hairline)",
                     color: adjDeltaStr ? "#fff" : "var(--ink-muted-48)",
                   }}>
                   {adjSaving ? "Đang lưu…" : `${adjSign === 1 ? "Tăng" : "Giảm"} ${adjDeltaStr || "0"}₫`}
@@ -356,7 +356,7 @@ export function BudgetTemplate({
               background: "var(--canvas)", borderRadius: "var(--radius-lg)",
               border: "1px solid var(--hairline)", padding: "16px 16px 12px", marginBottom: 10,
             }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
                 Ngân sách riêng mới
               </p>
               <input type="text" placeholder="Tên (vd: Du lịch, Mua laptop…)" aria-label="Tên ngân sách riêng" value={cbName}
@@ -376,7 +376,7 @@ export function BudgetTemplate({
                 />
                 <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-base text-ink-muted-48 font-display font-semibold">₫</span>
               </div>
-              {cbErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 8 }}>{cbErr}</p>}
+              {cbErr && <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginBottom: 8 }}>{cbErr}</p>}
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" onClick={() => { setCbOpen(false); setCbName(""); setCbAmountStr(""); setCbErr(""); }}
                   className="flex-1 p-2.5 rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
@@ -420,7 +420,7 @@ export function BudgetTemplate({
                   }}>
                     {isEditing ? (
                       <div>
-                        <p style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
+                        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
                           Sửa ngân sách
                         </p>
                         <input type="text" placeholder="Tên" aria-label="Tên ngân sách" value={editName}
@@ -440,7 +440,7 @@ export function BudgetTemplate({
                           />
                           <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-base text-ink-muted-48 font-display font-semibold">₫</span>
                         </div>
-                        {editErr && <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginBottom: 8 }}>{editErr}</p>}
+                        {editErr && <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginBottom: 8 }}>{editErr}</p>}
                         <div style={{ display: "flex", gap: 8 }}>
                           <button type="button" onClick={() => setEditingCbId(null)}
                             className="flex-1 p-2.5 rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
@@ -457,7 +457,7 @@ export function BudgetTemplate({
                         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>
                           Xoá &ldquo;{cb.name}&rdquo;?
                         </p>
-                        <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginBottom: 16, lineHeight: 1.5 }}>
+                        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 16, lineHeight: 1.5 }}>
                           Quỹ này đang có giao dịch liên kết. Xoá sẽ gỡ liên kết các giao dịch khỏi quỹ, giao dịch không bị xoá.
                         </p>
                         <div style={{ display: "flex", gap: 8 }}>
@@ -466,7 +466,7 @@ export function BudgetTemplate({
                             Huỷ
                           </button>
                           <button type="button" onClick={() => confirmDelete(cb.id)}
-                            className="flex-[2] p-2.5 rounded-full border-none bg-[#ff453a] text-white font-body text-[14px] cursor-pointer">
+                            className="flex-[2] p-2.5 rounded-full border-none bg-danger text-white font-body text-[14px] cursor-pointer">
                             Xác nhận xoá
                           </button>
                         </div>
@@ -496,16 +496,16 @@ export function BudgetTemplate({
                             <button type="button"
                               onClick={() => canDelete ? requestDelete(cb) : undefined}
                               disabled={!canDelete}
-                              className={`px-2 py-1 rounded-full bg-transparent font-body text-xs border ${canDelete ? "border-[#ff453a] text-[#ff453a] cursor-pointer opacity-100" : "border-hairline text-ink-muted-48 cursor-not-allowed opacity-[0.35]"}`}>
+                              className={`px-2 py-1 rounded-full bg-transparent font-body text-xs border ${canDelete ? "border-danger text-danger cursor-pointer opacity-100" : "border-hairline text-ink-muted-48 cursor-not-allowed opacity-[0.35]"}`}>
                               ✕
                             </button>
                           </div>
                         </div>
                         <div style={{ height: 4, background: "var(--hairline)", borderRadius: 2, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${pct}%`, background: over ? "#ff453a" : "var(--primary)", borderRadius: 2, transition: "width 0.4s ease" }} />
+                          <div style={{ height: "100%", width: `${pct}%`, background: over ? "var(--danger)" : "var(--primary)", borderRadius: 2, transition: "width 0.4s ease" }} />
                         </div>
                         {over && (
-                          <p style={{ fontSize: 12, color: "#ff453a", fontFamily: "var(--font-body)", marginTop: 4 }}>
+                          <p style={{ fontSize: 12, color: "var(--danger)", fontFamily: "var(--font-body)", marginTop: 4 }}>
                             Vượt {fmt(cb.spent - cb.amount)}₫
                           </p>
                         )}

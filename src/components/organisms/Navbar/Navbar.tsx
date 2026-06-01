@@ -20,7 +20,7 @@ export function Navbar() {
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         {isPending ? null : session ? (
           <>
-            <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "var(--font-body)" }}>
+            <span style={{ color: "var(--body-muted)", fontSize: 14, fontFamily: "var(--font-body)", letterSpacing: -0.224 }}>
               {session.user.name || session.user.email}
             </span>
             <button type="button"

@@ -180,9 +180,9 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
         </div>
 
         {/* Type + note */}
-        <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginBottom: 12 }}>
+        <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 12 }}>
           {isLend ? "Cho vay" : "Đi vay"}{debt.note ? ` · ${debt.note}` : ""}
-          {isSettled && <span style={{ marginLeft: 8, color: "#30d158", fontWeight: 600 }}>· Tất toán ✓</span>}
+          {isSettled && <span style={{ marginLeft: 8, color: "var(--success)", fontWeight: 600 }}>· Tất toán ✓</span>}
         </div>
 
         {/* Hero remaining */}
@@ -194,8 +194,8 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>Gốc {fmt(debt.opening_amount)}₫</span>
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>Đã trả {fmt(debt.total_repaid)}₫</span>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>Gốc {fmt(debt.opening_amount)}₫</span>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>Đã trả {fmt(debt.total_repaid)}₫</span>
             </div>
             <DebtProgressBar openingAmount={debt.opening_amount} totalRepaid={debt.total_repaid} variant={isLend ? "lend" : "borrow"} />
 
@@ -321,7 +321,7 @@ function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: 
 }) {
   const [swiped, setSwiped] = useState(false);
   const directionArrow = tx.type === "income" ? "→" : "←";
-  const directionColor = tx.type === "income" ? "#30d158" : "var(--ink)";
+  const directionColor = tx.type === "income" ? "var(--success)" : "var(--ink)";
 
   return (
     // false positive: onClick only resets `swiped`, a state reachable solely via
@@ -335,7 +335,7 @@ function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: 
       {/* Unlink action revealed on swipe */}
       {canUnlink && (
         <button type="button" className="absolute right-0 top-0 bottom-0 w-[100px] flex items-center justify-center cursor-pointer border-none bg-danger" onClick={(e) => { e.stopPropagation(); onUnlink(); }}>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "#fff", fontWeight: 600 }}>Hủy lk</span>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#fff", fontWeight: 600 }}>Hủy lk</span>
         </button>
       )}
 
@@ -358,7 +358,7 @@ function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: 
             )}
           </div>
           {tx.note && (
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {tx.note}
             </div>
           )}

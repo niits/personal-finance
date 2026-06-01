@@ -10,7 +10,7 @@ export function DebtProgressBar({ openingAmount, totalRepaid, variant = "lend" }
   const pct = openingAmount > 0 ? Math.min((totalRepaid / openingAmount) * 100, 100) : 0;
   const remaining = openingAmount - totalRepaid;
   const settled = remaining <= 0;
-  const color = settled ? "#30d158" : variant === "borrow" ? "#ff9f0a" : "var(--primary)";
+  const color = settled ? "var(--success)" : variant === "borrow" ? "#ff9f0a" : "var(--primary)";
 
   return (
     <div>
@@ -18,7 +18,7 @@ export function DebtProgressBar({ openingAmount, totalRepaid, variant = "lend" }
         <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
           Đã trả {formatVND(totalRepaid)}₫
         </span>
-        <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: settled ? "#30d158" : "var(--ink-muted-80)" }}>
+        <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: settled ? "var(--success)" : "var(--ink-muted-80)" }}>
           {settled ? "Tất toán" : `Còn ${formatVND(remaining)}₫`}
         </span>
       </div>

@@ -252,8 +252,7 @@ export function CategoriesTemplate({
     if (suggestState === "error") {
       return (
         <div style={{ padding: "32px 22px", textAlign: "center" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "#ff453a" }}>
-            Không thể phân tích lúc này. Thử lại sau.
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 17, color: "var(--danger)" }}> Thử lại sau.
           </p>
         </div>
       );
@@ -272,7 +271,7 @@ export function CategoriesTemplate({
     if (recatState === "error") {
       return (
         <div style={{ padding: "32px 22px", textAlign: "center" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "#ff453a", marginBottom: 16 }}>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 17, color: "var(--danger)", marginBottom: 16 }}>
             Không thể kiểm tra danh mục lúc này.
           </p>
           <button type="button" onClick={closeSheet} style={ghostBtnStyle}>Đóng</button>
@@ -297,7 +296,7 @@ export function CategoriesTemplate({
       return (
         <div>
           <div style={{ padding: "16px 20px 8px", borderBottom: "1px solid var(--hairline)" }}>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
               Đề xuất đổi danh mục cho {recs.length} giao dịch
             </p>
           </div>
@@ -395,7 +394,7 @@ export function CategoriesTemplate({
     return (
       <div>
         <div style={{ padding: "16px 20px 8px", borderBottom: "1px solid var(--hairline)" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
             {suggs.length} danh mục được gợi ý
           </p>
         </div>
@@ -445,7 +444,7 @@ export function CategoriesTemplate({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <span style={{
-                    fontFamily: "var(--font-body)", fontSize: 16, fontWeight: 600,
+                    fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600,
                     color: "var(--ink)", letterSpacing: -0.374,
                   }}>
                     {s.parent_category_name && (
@@ -503,7 +502,7 @@ export function CategoriesTemplate({
         justifyContent: "space-between",
       }}>
         <div>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 4 }}>
+          <p style={{ fontSize: 12, color: "var(--body-muted)", fontFamily: "var(--font-body)", marginBottom: 4 }}>
             Bước 1
           </p>
           <h1 style={{
@@ -599,7 +598,7 @@ export function CategoriesTemplate({
             )}
 
             {error && (
-              <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)" }}>
+              <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)" }}>
                 {error}
               </p>
             )}

@@ -31,7 +31,7 @@ export function TransactionListItem({ transaction: t, showDivider, onClick }: Tr
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(t.id); } } : undefined}
-      className={`flex items-center px-4 py-[10px] gap-[10px] min-h-[44px] bg-canvas ${
+      className={`flex items-center px-4 py-3 gap-3 min-h-[44px] bg-canvas ${
         showDivider ? "border-t border-hairline" : ""
       } ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
@@ -43,19 +43,19 @@ export function TransactionListItem({ transaction: t, showDivider, onClick }: Tr
       />
 
       <div className="flex-1 min-w-0">
-        <p className="font-body text-[15px] text-ink tracking-[-0.374px] truncate leading-[1.3]">
+        <p className="font-body text-[17px] text-ink tracking-[-0.374px] truncate leading-[1.3]">
           {t.categoryName}
         </p>
-        <p className="font-body text-[12px] text-ink-muted-48 truncate leading-[1.3] min-h-[1em]">
+        <p className="font-body text-[14px] text-ink-muted-48 truncate leading-[1.43] tracking-[-0.224px] min-h-[1em]">
           {t.note ?? ""}
         </p>
         {t.debtParty && (
-          <p className="font-body text-[11px] text-ink-muted-48 leading-[1.3] mt-px">
+          <p className="font-body text-[12px] text-ink-muted-48 leading-[1.3] tracking-[-0.12px] mt-px">
             💸 {t.debtType === "lend" ? "Cho vay" : "Đi vay"} · {t.debtParty}
           </p>
         )}
         {t.customBudgets.length > 0 && (
-          <div className="flex gap-1 mt-[3px] items-center">
+          <div className="flex gap-1 mt-xxs items-center">
             {t.customBudgets.slice(0, 2).map((cb) => (
               <span key={cb.id} className="max-w-[90px] overflow-hidden text-ellipsis">
                 <Badge label={cb.name} variant="primary" size="sm" />

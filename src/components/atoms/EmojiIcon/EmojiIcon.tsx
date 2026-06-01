@@ -6,8 +6,8 @@ type EmojiIconProps = {
 };
 
 const colorMap = {
-  expense: { bg: "rgba(255,69,58,0.08)", text: "#ff453a" },
-  income:  { bg: "rgba(48,209,88,0.08)",  text: "#30d158" },
+  expense: { bg: "rgba(255,59,48,0.08)", text: "var(--danger)" },
+  income:  { bg: "rgba(52,199,89,0.08)",  text: "var(--success)" },
   neutral: { bg: "var(--canvas-parchment)", text: "var(--ink-muted-48)" },
 };
 

@@ -121,7 +121,7 @@ function TxnIcon({ txn }: { txn: Transaction }) {
     return (
       <div
         className="size-8 rounded-full shrink-0 flex items-center justify-center text-[17px]"
-        style={{ background: isExp ? "rgba(255,69,58,0.08)" : "rgba(48,209,88,0.08)" }}
+        style={{ background: isExp ? "rgba(255,59,48,0.08)" : "rgba(52,199,89,0.08)" }}
       >
         {displayEmoji + "️"}
       </div>
@@ -131,8 +131,8 @@ function TxnIcon({ txn }: { txn: Transaction }) {
     <div
       className="size-8 rounded-full shrink-0 flex items-center justify-center font-display text-[13px] font-semibold"
       style={{
-        background: isExp ? "rgba(255,69,58,0.12)" : "rgba(48,209,88,0.12)",
-        color: isExp ? "#ff453a" : "#30d158",
+        background: isExp ? "rgba(255,59,48,0.12)" : "rgba(52,199,89,0.12)",
+        color: isExp ? "var(--danger)" : "var(--success)",
       }}
     >
       {(txn.category?.name ?? "◈").charAt(0).toUpperCase()}
@@ -215,12 +215,12 @@ export function DashboardTemplate({
 
   const chevronStyle = (disabled?: boolean): React.CSSProperties => ({
     background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-    color: disabled ? "transparent" : "rgba(255,255,255,0.5)",
+    color: disabled ? "transparent" : "var(--body-muted)",
     fontSize: 18, padding: "0 6px", lineHeight: 1, flexShrink: 0,
   });
 
   const isOver = data?.monthly_budget ? data.monthly_budget.remaining < 0 : false;
-  const barColor = isOver ? "#ff453a" : "var(--primary)";
+  const barColor = isOver ? "var(--danger)" : "var(--primary)";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 44px - 72px)" }}>
@@ -231,14 +231,14 @@ export function DashboardTemplate({
         {/* Month navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2 }}>
           <button type="button" style={chevronStyle()} onClick={onPrevMonth}>‹</button>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.5)", letterSpacing: -0.12 }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--body-muted)", letterSpacing: -0.12 }}>
             {selectedMonth ? toMonthLabel(selectedMonth) : ""}
           </span>
           <button type="button" style={chevronStyle(isCurrentMonth)} onClick={() => !isCurrentMonth && onNextMonth()}>›</button>
         </div>
 
         {data && (
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.3)", letterSpacing: -0.1, marginBottom: 8 }}>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--body-muted)", letterSpacing: -0.1, marginBottom: 8 }}>
             {fmtPeriodDate(data.period_start)} – {fmtPeriodDate(data.period_end)}
           </p>
         )}
@@ -258,9 +258,9 @@ export function DashboardTemplate({
             </button>
           )}
         </div>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 4, letterSpacing: -0.224 }}>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--body-muted)", marginTop: 4, letterSpacing: -0.224 }}>
           {selectedRoot && !loading
-            ? <span>trong tổng <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>{fmt(totalExpense)}₫</span> đã chi tháng này</span>
+            ? <span>trong tổng <span style={{ color: "var(--on-dark)", fontWeight: 600 }}>{fmt(totalExpense)}₫</span> đã chi tháng này</span>
             : "đã chi tháng này"}
         </p>
 
@@ -268,10 +268,10 @@ export function DashboardTemplate({
         {data?.monthly_budget && (
           <div style={{ marginTop: 18 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-body)" }}>
+              <span style={{ fontSize: 12, color: "var(--body-muted)", fontFamily: "var(--font-body)" }}>
                 Ngân sách {fmt(data.monthly_budget.amount)}₫
               </span>
-              <span style={{ fontSize: 12, fontFamily: "var(--font-body)", fontWeight: 600, color: isOver ? "#ff453a" : "#30d158" }}>
+              <span style={{ fontSize: 12, fontFamily: "var(--font-body)", fontWeight: 600, color: isOver ? "var(--danger)" : "var(--success)" }}>
                 {isOver ? "Vượt " : "Còn "}{fmt(Math.abs(data.monthly_budget.remaining))}₫
               </span>
             </div>
@@ -296,14 +296,14 @@ export function DashboardTemplate({
 
         {/* Income/savings — only when income exists */}
         {data && data.total_income > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, marginTop: 16, borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ background: "rgba(255,255,255,0.07)", padding: "10px 14px" }}>
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 3 }}>Thu nhập</p>
-              <p style={{ fontSize: 16, fontWeight: 600, fontFamily: "var(--font-display)", color: "#30d158", letterSpacing: -0.3 }}>+{fmt(data.total_income)}₫</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, marginTop: 16, borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+            <div style={{ background: "rgba(255,255,255,0.07)", padding: "12px 14px" }}>
+              <p style={{ fontSize: 12, color: "var(--body-muted)", fontFamily: "var(--font-body)", marginBottom: "var(--space-xs)" }}>Thu nhập</p>
+              <p style={{ fontSize: 17, fontWeight: 600, fontFamily: "var(--font-display)", color: "var(--success)", letterSpacing: -0.374 }}>+{fmt(data.total_income)}₫</p>
             </div>
-            <div style={{ background: "rgba(255,255,255,0.07)", padding: "10px 14px" }}>
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 3 }}>Tiết kiệm</p>
-              <p style={{ fontSize: 16, fontWeight: 600, fontFamily: "var(--font-display)", color: data.savings >= 0 ? "#fff" : "#ff453a", letterSpacing: -0.3 }}>
+            <div style={{ background: "rgba(255,255,255,0.07)", padding: "12px 14px" }}>
+              <p style={{ fontSize: 12, color: "var(--body-muted)", fontFamily: "var(--font-body)", marginBottom: "var(--space-xs)" }}>Tiết kiệm</p>
+              <p style={{ fontSize: 17, fontWeight: 600, fontFamily: "var(--font-display)", color: data.savings >= 0 ? "#fff" : "var(--danger)", letterSpacing: -0.374 }}>
                 {data.savings >= 0 ? "+" : ""}{fmt(data.savings)}₫
               </p>
             </div>
@@ -321,7 +321,7 @@ export function DashboardTemplate({
               <button type="button"
                 key={label}
                 onClick={() => setSelectedRoot(isAll ? null : (selectedRoot === label ? null : label))}
-                className={`flex-1 px-1 py-1.5 rounded-full border-none cursor-pointer font-body text-[13px] font-medium truncate ${active ? "bg-primary text-white" : "bg-canvas-parchment text-ink"}`}
+                className={`flex-1 px-1 py-1.5 rounded-full border-none cursor-pointer font-body text-[14px] font-semibold truncate ${active ? "bg-primary text-white" : "bg-canvas-parchment text-ink"}`}
               >
                 {label}
               </button>
@@ -367,7 +367,7 @@ export function DashboardTemplate({
           dates.map((d) => (
             <div key={d}>
               <div style={{ padding: "10px 16px 6px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.224 }}>{formatDateHeader(d)}</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.224 }}>{formatDateHeader(d)}</span>
                 <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
                   {fmt(groups[d].reduce((s, t) => s + (t.type === "expense" ? -t.amount : t.amount), 0))}₫
                 </span>
@@ -394,12 +394,12 @@ export function DashboardTemplate({
                       {txn.custom_budgets.length > 0 && (
                         <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center" }}>
                           {txn.custom_budgets.slice(0, 2).map((cb) => (
-                            <span key={cb.id} className="font-body text-xs font-medium px-[7px] py-0.5 rounded-[10px] text-primary whitespace-nowrap max-w-[90px] overflow-hidden text-ellipsis" style={{ background: "rgba(0,102,204,0.08)" }}>
+                            <span key={cb.id} className="font-body text-xs font-semibold px-[7px] py-0.5 rounded-[10px] text-primary whitespace-nowrap max-w-[90px] overflow-hidden text-ellipsis" style={{ background: "rgba(0,102,204,0.08)" }}>
                               {cb.name}
                             </span>
                           ))}
                           {txn.custom_budgets.length > 2 && (
-                            <span className="font-body text-xs font-medium px-1.5 py-0.5 rounded-[10px] bg-canvas-parchment text-ink-muted-48 whitespace-nowrap">
+                            <span className="font-body text-xs font-semibold px-1.5 py-0.5 rounded-[10px] bg-canvas-parchment text-ink-muted-48 whitespace-nowrap">
                               +{txn.custom_budgets.length - 2}
                             </span>
                           )}
@@ -407,7 +407,7 @@ export function DashboardTemplate({
                       )}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                      <p style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: txn.type === "expense" ? "#ff453a" : "#30d158", letterSpacing: -0.2 }}>
+                      <p style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: txn.type === "expense" ? "var(--danger)" : "var(--success)", letterSpacing: -0.2 }}>
                         {txn.type === "expense" ? "−" : "+"}{fmt(txn.amount)}₫
                       </p>
                     </div>
@@ -438,15 +438,15 @@ export function DashboardTemplate({
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)" }} />
             </div>
             <div style={{ padding: "0 20px 16px", borderBottom: "1px solid var(--hairline)" }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginBottom: 2 }}>{actionTxn.category?.path ?? "Khoản nợ"}</p>
-              <p style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 600, color: actionTxn.type === "expense" ? "#ff453a" : "#30d158", letterSpacing: -0.3 }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 2 }}>{actionTxn.category?.path ?? "Khoản nợ"}</p>
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 600, color: actionTxn.type === "expense" ? "var(--danger)" : "var(--success)", letterSpacing: -0.3 }}>
                 {actionTxn.type === "expense" ? "−" : "+"}{fmt(actionTxn.amount)}₫
               </p>
-              {actionTxn.note && <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)", marginTop: 2 }}>{actionTxn.note}</p>}
+              {actionTxn.note && <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginTop: 2 }}>{actionTxn.note}</p>}
               {actionTxn.custom_budgets.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
                   {actionTxn.custom_budgets.map((cb) => (
-                    <span key={cb.id} style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, padding: "3px 10px", borderRadius: 12, background: "rgba(0,102,204,0.08)", color: "var(--primary)" }}>
+                    <span key={cb.id} style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 12, background: "rgba(0,102,204,0.08)", color: "var(--primary)" }}>
                       {cb.name}
                     </span>
                   ))}
@@ -465,7 +465,7 @@ export function DashboardTemplate({
               </button>
               <button type="button" onClick={() => onDelete(actionTxn)} disabled={deleting}
                 className={`w-full p-[14px] rounded-xl border-none font-body text-base font-semibold ${deleting ? "cursor-not-allowed opacity-60" : "cursor-pointer opacity-100"}`}
-                style={{ background: "rgba(255,69,58,0.1)", color: "#ff453a" }}>
+                style={{ background: "rgba(255,59,48,0.1)", color: "var(--danger)" }}>
                 {deleting ? "Đang xoá…" : "Xoá"}
               </button>
             </div>

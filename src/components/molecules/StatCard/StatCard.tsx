@@ -21,17 +21,17 @@ function StatValue({ value, unit, textColor }: { value: number; unit: "vnd" | "p
 
 export function StatCard({ title, value, unit = "vnd", narrative, dark = false }: StatCardProps) {
   const bg = dark ? "rgba(255,255,255,0.07)" : "var(--canvas-parchment)";
-  const titleColor = dark ? "rgba(255,255,255,0.4)" : "var(--ink-muted-48)";
+  const titleColor = dark ? "var(--body-muted)" : "var(--ink-muted-48)";
   const textColor = dark ? "#fff" : "var(--ink)";
 
   return (
-    <div style={{ background: bg, borderRadius: "var(--radius-md)", padding: "14px 16px" }}>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: titleColor, marginBottom: 6 }}>
+    <div style={{ background: bg, borderRadius: "var(--radius-md)", padding: "var(--space-sm) var(--space-md)" }}>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: titleColor, marginBottom: "var(--space-xs)" }}>
         {title}
       </p>
       <StatValue value={value} unit={unit} textColor={textColor} />
       {narrative && (
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: dark ? "rgba(255,255,255,0.5)" : "var(--ink-muted-48)", marginTop: 6, lineHeight: 1.5 }}>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: dark ? "var(--body-muted)" : "var(--ink-muted-48)", marginTop: "var(--space-xs)", lineHeight: 1.43, letterSpacing: -0.224 }}>
           {narrative}
         </p>
       )}

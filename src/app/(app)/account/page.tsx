@@ -70,19 +70,21 @@ function ListRow({ icon, label, value, action, isLast = false }: {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontFamily: "var(--font-body)",
-          fontSize: 16,
+          fontSize: 17,
           fontWeight: 400,
           color: "var(--ink)",
-          lineHeight: 1.3,
+          lineHeight: 1.47,
+          letterSpacing: -0.374,
         }}>
           {label}
         </div>
         {value && (
           <div style={{
             fontFamily: "var(--font-body)",
-            fontSize: 13,
+            fontSize: 14,
             color: "var(--ink-muted-48)",
             marginTop: 1,
+            letterSpacing: -0.224,
           }}>
             {value}
           </div>
@@ -224,7 +226,7 @@ export default function AccountPage() {
             <div style={{
               padding: "10px var(--space-md)",
               fontFamily: "var(--font-body)",
-              fontSize: 13,
+              fontSize: 14,
               color: "var(--danger)",
               borderBottom: "1px solid var(--hairline)",
             }}>
@@ -299,9 +301,9 @@ export default function AccountPage() {
                 </div>
                 <div style={{
                   fontFamily: "var(--font-body)",
-                  fontSize: 13,
+                  fontSize: 14,
                   color: "var(--ink-muted-48)",
-                  lineHeight: 1.6,
+                  lineHeight: 1.43,
                 }}>
                   Đăng nhập, đăng ký, đặt mật khẩu và đặt lại mật khẩu sẽ có lại trong thời gian tới.
                   {hasPassword ? " Mật khẩu hiện có của bạn cũng đang tạm thời không sử dụng được." : ""}
@@ -316,7 +318,7 @@ export default function AccountPage() {
         <SectionGroup label="Dữ liệu chính">
           <Link href="/account/categories" style={{ textDecoration: "none" }}>
             <ListRow
-              icon={<span style={{ fontSize: 16 }}>⊞</span>}
+              icon={<span style={{ fontSize: 18 }}>⊞</span>}
               label="Danh mục"
               value="Quản lý danh mục thu chi"
               action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
@@ -332,7 +334,8 @@ export default function AccountPage() {
               fontFamily: "var(--font-body)",
               fontSize: 14,
               color: "var(--ink-muted-48)",
-              lineHeight: 1.5,
+              lineHeight: 1.43,
+              letterSpacing: -0.224,
               margin: "0 0 var(--space-md)",
             }}>
               Tải về toàn bộ giao dịch, danh mục và ngân sách của bạn.
@@ -352,7 +355,7 @@ export default function AccountPage() {
         <SectionGroup label="Phiên đăng nhập">
           <button type="button"
             onClick={() => signOut({ fetchOptions: { onSuccess: () => router.replace("/sign-in") } })}
-            className="w-full py-[14px] px-md bg-transparent border-none text-danger font-body text-base font-medium cursor-pointer text-left"
+            className="w-full py-[14px] px-md bg-transparent border-none text-danger font-body text-base font-normal cursor-pointer text-left"
           >
             Đăng xuất
           </button>
@@ -371,7 +374,7 @@ const actionBtnStyle: React.CSSProperties = {
   color: "var(--primary)",
   fontFamily: "var(--font-body)",
   fontSize: 14,
-  fontWeight: 500,
+  fontWeight: 400,
   cursor: "pointer",
   padding: "4px 0",
   flexShrink: 0,
@@ -383,7 +386,7 @@ const unlinkBtnStyle: React.CSSProperties = {
   color: "var(--danger)",
   fontFamily: "var(--font-body)",
   fontSize: 14,
-  fontWeight: 500,
+  fontWeight: 400,
   padding: "4px 0",
   flexShrink: 0,
 };
@@ -411,6 +414,6 @@ const exportBtnStyle: React.CSSProperties = {
   color: "var(--ink)",
   fontFamily: "var(--font-body)",
   fontSize: 14,
-  fontWeight: 500,
+  fontWeight: 400,
   cursor: "pointer",
 };

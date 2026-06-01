@@ -10,13 +10,13 @@ const _fmt = new Intl.NumberFormat("vi-VN");
 const config: Record<PaceStatus, { label: (n?: number) => string; color: string; bg: string }> = {
   under: {
     label: (n) => n != null ? `Còn ${_fmt.format(n)}₫` : "Đúng pace",
-    color: "#30d158",
-    bg: "rgba(48,209,88,0.1)",
+    color: "var(--success)",
+    bg: "rgba(52,199,89,0.1)",
   },
   over: {
     label: (n) => n != null ? `Vượt ${_fmt.format(Math.abs(n))}₫` : "Vượt pace",
-    color: "#ff453a",
-    bg: "rgba(255,69,58,0.1)",
+    color: "var(--danger)",
+    bg: "rgba(255,59,48,0.1)",
   },
   no_budget: {
     label: () => "Chưa có ngân sách",

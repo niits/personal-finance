@@ -28,8 +28,8 @@ export function TransactionGroup({ date, transactions, onTransactionClick }: Tra
 
   return (
     <div>
-      <div style={{ padding: "10px 16px 6px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.224 }}>
+      <div style={{ padding: "12px 16px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.224 }}>
           {formatDateHeader(date)}
         </span>
         <CurrencyDisplay amount={Math.abs(netAmount)} size="sm" muted />
