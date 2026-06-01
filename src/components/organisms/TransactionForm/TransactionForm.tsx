@@ -113,12 +113,13 @@ function CategoryDrillDown({
 
   const rowStyle: React.CSSProperties = {
     display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "11px 0", borderBottom: "1px solid var(--hairline)",
-    cursor: "pointer", background: "none", border: "none", width: "100%", textAlign: "left",
+    padding: "11px 16px", cursor: "pointer", width: "100%", textAlign: "left",
+    background: "none", borderTop: "none", borderLeft: "none", borderRight: "none",
+    borderBottom: "1px solid var(--hairline)",
   };
 
   return (
-    <div>
+    <div style={{ borderRadius: 11, border: "1px solid var(--hairline)", overflow: "hidden", background: "var(--canvas)" }}>
       {path.length > 0 && (
         <button type="button" onClick={() => setPath((p) => p.slice(0, -1))} style={{ ...rowStyle, color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14 }}>
           ← Quay lại
@@ -569,12 +570,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                   // create mode: category list is type-specific, so reset selection
                   if (!isEdit && !isRepayment) setCategoryId(null);
                 }}
-                  className={`flex-1 p-[9px] rounded-sm border-none font-body text-[15px] cursor-pointer transition-colors ${
-                    type === t ? "font-semibold" : "font-normal"
-                  }`}
                   style={{
+                    flex: 1, padding: "9px", borderRadius: 8, border: "none",
                     background: type === t ? (t === "expense" ? "#ff453a" : "#30d158") : "transparent",
                     color: type === t ? "#fff" : "var(--ink-muted-48)",
+                    fontFamily: "var(--font-body)", fontSize: 15, fontWeight: type === t ? 600 : 400,
+                    cursor: "pointer", transition: "background 0.15s, color 0.15s",
                   }}
                 >
                   {t === "expense" ? "Chi tiêu" : "Thu nhập"}
@@ -591,8 +592,13 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               value={amountStr}
               onChange={(e) => { const raw = e.target.value.replace(/[^\d]/g, ""); setAmountStr(raw ? fmt(parseInt(raw, 10)) : ""); setError(""); }}
               ref={amountRef}
-              className="w-full pt-[14px] pr-4 pb-[14px] pl-11 rounded-md border border-hairline font-display text-[28px] font-semibold bg-canvas-parchment outline-none text-right tracking-[-0.3px]"
-              style={{ color: amountColor }}
+              style={{
+                width: "100%", padding: "14px 16px 14px 44px", borderRadius: 11,
+                border: "1px solid var(--hairline)", fontFamily: "var(--font-display)",
+                fontSize: 28, fontWeight: 600, color: amountColor,
+                background: "var(--canvas-parchment)", outline: "none",
+                letterSpacing: -0.3, textAlign: "right",
+              }}
             />
           </div>
 
@@ -600,17 +606,6 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid var(--hairline)" }}>
             <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)" }}>Ngày</span>
             <DatePicker value={date} onChange={setDate} />
-          </div>
-
-          {/* Note + emoji */}
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "12px 0", borderTop: "1px solid var(--hairline)" }}>
-            <EmojiPicker value={emoji} onChange={setEmoji} />
-            <input
-              type="text" placeholder="Ghi chú (tuỳ chọn)" aria-label="Ghi chú"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="flex-1 px-[14px] py-3 rounded-md border border-hairline font-body text-[15px] text-ink bg-canvas-parchment outline-none"
-            />
           </div>
 
           {/* Category — hidden for debt transactions */}
@@ -631,10 +626,16 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                 {customBudgets.map((cb) => {
                   const on = selectedCbIds.includes(cb.id);
                   return (
-                    <button type="button" key={cb.id} onClick={() => setSelectedCbIds((p) => on ? p.filter((x) => x !== cb.id) : [...p, cb.id])}
-                      className={`px-[14px] py-[7px] rounded-full font-body text-[13px] cursor-pointer ${
-                        on ? "border-none bg-ink text-white font-semibold" : "border border-hairline bg-canvas-parchment text-ink-muted-48 font-normal"
-                      }`}
+                    <button type="button" key={cb.id}
+                      onClick={() => setSelectedCbIds((p) => on ? p.filter((x) => x !== cb.id) : [...p, cb.id])}
+                      style={{
+                        padding: "7px 14px", borderRadius: 999, cursor: "pointer",
+                        border: on ? "none" : "1px solid var(--hairline)",
+                        background: on ? "var(--ink)" : "var(--canvas-parchment)",
+                        color: on ? "#fff" : "var(--ink-muted-48)",
+                        fontFamily: "var(--font-body)", fontSize: 13, fontWeight: on ? 600 : 400,
+                        transition: "background 0.12s, color 0.12s, border-color 0.12s",
+                      }}
                     >
                       {on && "✓ "}{cb.name}
                     </button>
@@ -643,6 +644,21 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               </div>
             </div>
           )}
+
+          {/* Note + emoji */}
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "12px 0", borderTop: "1px solid var(--hairline)" }}>
+            <EmojiPicker value={emoji} onChange={setEmoji} />
+            <input
+              type="text" placeholder="Ghi chú (tuỳ chọn)" aria-label="Ghi chú"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              style={{
+                flex: 1, padding: "12px 16px", borderRadius: 11,
+                border: "1px solid var(--hairline)", fontFamily: "var(--font-body)",
+                fontSize: 15, color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none",
+              }}
+            />
+          </div>
 
           {/* Debt link section — only in create/edit-normal modes */}
           {!isRepayment && !(isEdit && editTx?.debt_id) && (
