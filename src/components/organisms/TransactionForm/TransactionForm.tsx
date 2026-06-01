@@ -551,7 +551,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               </div>
               <button type="button"
                 onClick={() => setUnlinkMode(true)}
-                style={{ background: "none", border: "none", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--destructive)", cursor: "pointer", fontWeight: 600 }}
+                className="bg-transparent border-none font-body text-[13px] text-danger cursor-pointer font-semibold"
               >
                 Hủy liên kết
               </button>
