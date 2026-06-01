@@ -49,3 +49,45 @@ describe("CSS custom property integrity", () => {
     expect(undefinedRefs, `Undefined CSS tokens:\n${undefinedRefs.join("\n")}`).toEqual([]);
   });
 });
+
+// Removes every balanced `@layer <names> { ... }` block, leaving only the
+// unlayered (top-level) CSS. Statement-form declarations like
+// `@layer theme, base, components, utilities;` end in `;` before any `{`, so
+// they are intentionally left in place — they declare order, not styles.
+function stripLayerBlocks(css: string): string {
+  let out = "";
+  let i = 0;
+  while (i < css.length) {
+    const open = css.slice(i).match(/^@layer\b[^{;]*\{/);
+    if (open) {
+      let depth = 0;
+      let j = i + open[0].length - 1; // position of the opening '{'
+      for (; j < css.length; j++) {
+        if (css[j] === "{") depth++;
+        else if (css[j] === "}" && --depth === 0) { j++; break; }
+      }
+      i = j; // skip the entire layer block
+    } else {
+      out += css[i++];
+    }
+  }
+  return out;
+}
+
+describe("CSS cascade layering", () => {
+  // An UNLAYERED universal reset (`* { margin:0; padding:0 }`) beats every
+  // Tailwind `p-*` / `m-*` utility — utilities live in `@layer utilities`, and
+  // unlayered styles win over any layer regardless of specificity. That silently
+  // collapses padding/margin on every element styled via classes instead of
+  // inline `style`. The reset must therefore stay inside a cascade layer
+  // (`@layer base`) so utilities can override it.
+  it("the universal margin/padding reset is not declared unlayered", () => {
+    const unlayered = stripLayerBlocks(readFileSync(GLOBALS, "utf8"));
+    const match = unlayered.match(/\*\s*\{[^}]*\b(?:padding|margin)\b[^}]*\}/);
+    expect(
+      match,
+      `Found an unlayered universal reset that will override Tailwind p-*/m-* ` +
+        `utilities:\n${match?.[0] ?? ""}\nWrap it in \`@layer base { … }\`.`,
+    ).toBeNull();
+  });
+});

@@ -88,7 +88,15 @@
   --font-body: var(--font-body);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/*
+ * Global reset lives in @layer base so Tailwind utilities (which sit in the
+ * later @layer utilities) can override it. Unlayered, this `padding: 0` /
+ * `margin: 0` would beat every `p-*` / `m-*` utility regardless of specificity
+ * — collapsing the padding of any element styled via classes instead of inline.
+ */
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+}
 
 /* Accessible focus: hide outline for mouse, show ring for keyboard navigation */
 :focus:not(:focus-visible) { outline: none; }
