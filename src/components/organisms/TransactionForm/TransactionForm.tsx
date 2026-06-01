@@ -206,7 +206,7 @@ function DebtLinkSection({
     <div>
       <button type="button"
         onClick={() => setExpanded((e) => !e)}
-        className="w-full flex justify-between items-center bg-transparent py-[13px] cursor-pointer border-t border-hairline"
+        className="w-full flex justify-between items-center bg-transparent py-[15px] cursor-pointer border-t border-hairline"
       >
         <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", textTransform: "uppercase", letterSpacing: 0.5 }}>
           Liên kết nợ
@@ -279,7 +279,7 @@ function Option({ label, sublabel, selected, onSelect }: { label: string; sublab
   return (
     <button type="button"
       onClick={onSelect}
-      className="w-full flex items-center gap-2.5 bg-transparent px-1 py-2.5 cursor-pointer border-b border-hairline"
+      className="w-full flex items-center gap-2.5 bg-transparent px-1 py-3 cursor-pointer border-b border-hairline"
     >
       <span
         className="size-[18px] rounded-full shrink-0 flex items-center justify-center"
@@ -523,7 +523,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         </div>
 
         {/* Scrollable body */}
-        <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "0 20px", paddingBottom: "max(32px, env(safe-area-inset-bottom))" } as React.CSSProperties}>
+        <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "8px 20px", paddingBottom: "max(40px, env(safe-area-inset-bottom))" } as React.CSSProperties}>
 
           {/* Repayment: locked debt chip */}
           {isRepayment && (
@@ -603,15 +603,15 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           </div>
 
           {/* Date */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid var(--hairline)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
             <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)" }}>Ngày</span>
             <DatePicker value={date} onChange={setDate} />
           </div>
 
           {/* Category — hidden for debt transactions */}
           {!isDebtMode && (
-            <div style={{ paddingTop: 8, borderTop: "1px solid var(--hairline)" }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
+            <div style={{ paddingTop: 14, paddingBottom: 8, borderTop: "1px solid var(--hairline)" }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 10, letterSpacing: 0.5, textTransform: "uppercase" }}>
                 Danh mục {selectedCatPath.length > 0 && <span style={{ color: "var(--primary)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 13 }}>· {selectedCatPath.join(" › ")}</span>}
               </p>
               <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => { setCategoryId(id); setError(""); }} />
@@ -620,7 +620,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
           {/* Custom budgets — expense only, hidden for debt */}
           {!isDebtMode && type === "expense" && customBudgets.length > 0 && (
-            <div style={{ padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
+            <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
               <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>Gán vào quỹ</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {customBudgets.map((cb) => {
@@ -646,7 +646,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {/* Note + emoji */}
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "12px 0", borderTop: "1px solid var(--hairline)" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
             <EmojiPicker value={emoji} onChange={setEmoji} />
             <input
               type="text" placeholder="Ghi chú (tuỳ chọn)" aria-label="Ghi chú"
@@ -672,7 +672,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {error && (
-            <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginTop: 12 }}>{error}</p>
+            <p style={{ color: "#ff453a", fontSize: 13, fontFamily: "var(--font-body)", marginTop: 16, marginBottom: 4 }}>{error}</p>
           )}
         </div>
       </div>
