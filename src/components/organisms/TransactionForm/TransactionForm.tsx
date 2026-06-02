@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
 import type { DebtWithRepayments } from "@/lib/debt";
+import { findSelectedChild, getCategoryPath, rootDisplay } from "./categoryDisplay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,35 +71,6 @@ function fmtDateLabel(s: string) {
 
 // ─── Category drill-down ──────────────────────────────────────────────────────
 
-function findSelectedChild(cat: Category, selectedId: number | null): string | null {
-  if (!selectedId) return null;
-  for (const child of cat.children) {
-    if (child.id === selectedId) return child.name;
-    const found = findSelectedChild(child, selectedId);
-    if (found) return found;
-  }
-  return null;
-}
-
-function getCategoryPath(cats: Category[], selectedId: number | null): string[] {
-  const result: string[] = [];
-  function walk(list: Category[]): boolean {
-    for (const c of list) {
-      if (c.id === selectedId) { result.push(c.name); return true; }
-      if (walk(c.children)) { result.unshift(c.name); return true; }
-    }
-    return false;
-  }
-  walk(cats);
-  return result;
-}
-
-function subtreeCount(cat: Category, usageCounts: Record<number, number>): number {
-  let n = usageCounts[cat.id] ?? 0;
-  for (const child of cat.children) n += subtreeCount(child, usageCounts);
-  return n;
-}
-
 const COLLAPSED_LIMIT = 3;
 
 function CategoryDrillDown({
@@ -116,10 +88,12 @@ function CategoryDrillDown({
     return list.find((c) => c.id === id)?.children ?? list;
   }, cats);
 
-  // At root level, sort by usage frequency descending
-  const sortedList = path.length === 0
-    ? [...currentList].sort((a, b) => subtreeCount(b, usageCounts) - subtreeCount(a, usageCounts))
-    : currentList;
+  const isRoot = path.length === 0;
+  // At root level: sort by usage frequency and collapse to the top few; deeper
+  // levels keep their natural order and never collapse.
+  const { sorted: sortedList, collapsed: collapsedList, hasMore: rootHasMore } = isRoot
+    ? rootDisplay(currentList, usageCounts, selected, COLLAPSED_LIMIT)
+    : { sorted: currentList, collapsed: currentList, hasMore: false };
 
   function handleSelect(cat: Category) {
     if (cat.children.length === 0) {
@@ -137,17 +111,8 @@ function CategoryDrillDown({
     borderBottom: "1px solid var(--hairline)",
   };
 
-  // At root level: show top COLLAPSED_LIMIT, plus always include the selected root
-  const top = sortedList.slice(0, COLLAPSED_LIMIT);
-  const selectedRoot = selected !== null
-    ? sortedList.find((c) => c.id === selected || findSelectedChild(c, selected) !== null)
-    : null;
-  const collapsedList = selectedRoot && !top.some((c) => c.id === selectedRoot.id)
-    ? [...top, selectedRoot]
-    : top;
-
-  const hasMore = path.length === 0 && sortedList.length > collapsedList.length;
-  const displayList = path.length === 0 && !expanded ? collapsedList : sortedList;
+  const hasMore = isRoot && rootHasMore;
+  const displayList = isRoot && !expanded ? collapsedList : sortedList;
 
   return (
     <div style={{ borderRadius: 11, border: "1px solid var(--hairline)", overflow: "hidden", background: "var(--canvas)" }}>

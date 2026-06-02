@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     if (row.category_id !== null) usageCounts[row.category_id] = Number(row.cnt);
   }
 
-  return Response.json({ categories: buildTree(results as CategoryRow[]), usage_counts: usageCounts });
+  return Response.json({ categories: buildTree(results), usage_counts: usageCounts });
 }
 
 export async function POST(request: NextRequest) {
