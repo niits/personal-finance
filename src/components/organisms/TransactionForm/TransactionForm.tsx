@@ -71,7 +71,7 @@ function fmtDateLabel(s: string) {
 
 // ─── Category drill-down ──────────────────────────────────────────────────────
 
-const COLLAPSED_LIMIT = 3;
+const COLLAPSED_LIMIT = 5;
 
 function CategoryDrillDown({
   cats, selected, onSelect, usageCounts,
@@ -529,7 +529,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         </div>
 
         {/* Scrollable body */}
-        <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "8px 20px", paddingBottom: "max(40px, env(safe-area-inset-bottom))" } as React.CSSProperties}>
+        <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", padding: "8px 20px", paddingBottom: "max(40px, env(safe-area-inset-bottom))" } as React.CSSProperties}>
 
           {/* Repayment: locked debt chip */}
           {isRepayment && (
@@ -599,7 +599,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               onChange={(e) => { const raw = e.target.value.replace(/[^\d]/g, ""); setAmountStr(raw ? fmt(parseInt(raw, 10)) : ""); setError(""); }}
               ref={amountRef}
               style={{
-                width: "100%", padding: "14px 16px 14px 44px", borderRadius: 11,
+                width: "100%", boxSizing: "border-box", padding: "14px 16px 14px 44px", borderRadius: 11,
                 border: "1px solid var(--hairline)", fontFamily: "var(--font-display)",
                 fontSize: 28, fontWeight: 600, color: amountColor,
                 background: "var(--canvas-parchment)", outline: "none",
