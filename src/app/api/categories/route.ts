@@ -37,16 +37,31 @@ export async function GET(request: NextRequest) {
   if (!session) return Errors.unauthorized();
 
   const db = await getKysely();
-  const results = (await db
-    .selectFrom("category")
-    .select(["id", "name", "emoji", "parent_id", "level", "sort_order", "type", "created_at"])
-    .where("user_id", "=", session.user.id)
-    .orderBy("level")
-    .orderBy("sort_order")
-    .orderBy("id")
-    .execute()) as CategoryRow[];
+  const [results, usageRows] = await Promise.all([
+    db
+      .selectFrom("category")
+      .select(["id", "name", "emoji", "parent_id", "level", "sort_order", "type", "created_at"])
+      .where("user_id", "=", session.user.id)
+      .orderBy("level")
+      .orderBy("sort_order")
+      .orderBy("id")
+      .execute() as Promise<CategoryRow[]>,
+    db
+      .selectFrom("transaction")
+      .select(["category_id"])
+      .select((eb) => eb.fn.countAll<number>().as("cnt"))
+      .where("user_id", "=", session.user.id)
+      .where("category_id", "is not", null)
+      .groupBy("category_id")
+      .execute(),
+  ]);
 
-  return Response.json({ categories: buildTree(results) });
+  const usageCounts: Record<number, number> = {};
+  for (const row of usageRows) {
+    if (row.category_id !== null) usageCounts[row.category_id] = Number(row.cnt);
+  }
+
+  return Response.json({ categories: buildTree(results), usage_counts: usageCounts });
 }
 
 export async function POST(request: NextRequest) {

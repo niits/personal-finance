@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
 import type { DebtWithRepayments } from "@/lib/debt";
+import { findSelectedChild, getCategoryPath, rootDisplay } from "./categoryDisplay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,37 +71,29 @@ function fmtDateLabel(s: string) {
 
 // ─── Category drill-down ──────────────────────────────────────────────────────
 
-function findSelectedChild(cat: Category, selectedId: number | null): string | null {
-  if (!selectedId) return null;
-  for (const child of cat.children) {
-    if (child.id === selectedId) return child.name;
-    const found = findSelectedChild(child, selectedId);
-    if (found) return found;
-  }
-  return null;
-}
-
-function getCategoryPath(cats: Category[], selectedId: number | null): string[] {
-  const result: string[] = [];
-  function walk(list: Category[]): boolean {
-    for (const c of list) {
-      if (c.id === selectedId) { result.push(c.name); return true; }
-      if (walk(c.children)) { result.unshift(c.name); return true; }
-    }
-    return false;
-  }
-  walk(cats);
-  return result;
-}
+const COLLAPSED_LIMIT = 3;
 
 function CategoryDrillDown({
-  cats, selected, onSelect,
-}: { cats: Category[]; selected: number | null; onSelect: (id: number) => void }) {
+  cats, selected, onSelect, usageCounts,
+}: {
+  cats: Category[];
+  selected: number | null;
+  onSelect: (id: number) => void;
+  usageCounts: Record<number, number>;
+}) {
   const [path, setPath] = useState<number[]>([]);
+  const [expanded, setExpanded] = useState(false);
 
   const currentList = path.reduce<Category[]>((list, id) => {
     return list.find((c) => c.id === id)?.children ?? list;
   }, cats);
+
+  const isRoot = path.length === 0;
+  // At root level: sort by usage frequency and collapse to the top few; deeper
+  // levels keep their natural order and never collapse.
+  const { sorted: sortedList, collapsed: collapsedList, hasMore: rootHasMore } = isRoot
+    ? rootDisplay(currentList, usageCounts, selected, COLLAPSED_LIMIT)
+    : { sorted: currentList, collapsed: currentList, hasMore: false };
 
   function handleSelect(cat: Category) {
     if (cat.children.length === 0) {
@@ -118,6 +111,9 @@ function CategoryDrillDown({
     borderBottom: "1px solid var(--hairline)",
   };
 
+  const hasMore = isRoot && rootHasMore;
+  const displayList = isRoot && !expanded ? collapsedList : sortedList;
+
   return (
     <div style={{ borderRadius: 11, border: "1px solid var(--hairline)", overflow: "hidden", background: "var(--canvas)" }}>
       {path.length > 0 && (
@@ -125,7 +121,7 @@ function CategoryDrillDown({
           ← Quay lại
         </button>
       )}
-      {currentList.map((cat) => {
+      {displayList.map((cat) => {
         const isSelected = cat.id === selected || (cat.children.length > 0 && findSelectedChild(cat, selected) !== null);
         const childLabel = findSelectedChild(cat, selected);
         return (
@@ -148,6 +144,15 @@ function CategoryDrillDown({
           </button>
         );
       })}
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          style={{ ...rowStyle, color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14, justifyContent: "center", borderBottom: "none" }}
+        >
+          {expanded ? "Thu gọn ↑" : `Xem thêm ${sortedList.length - collapsedList.length} danh mục ↓`}
+        </button>
+      )}
     </div>
   );
 }
@@ -341,7 +346,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   // the call site (see DashboardTemplate), so the useState initializers above
   // re-run for the new transaction — no prop-sync effect needed.
 
-  const { data: catData } = useSWR<{ categories: Category[] }>(
+  const { data: catData } = useSWR<{ categories: Category[]; usage_counts: Record<number, number> }>(
     open && !isRepayment ? "/api/categories" : null, fetcher,
   );
   const { data: debtsData } = useSWR<{ lending: OpenDebt[]; borrowing: OpenDebt[] }>(
@@ -353,6 +358,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
   const allCats = catData?.categories ?? [];
   const cats = allCats.filter((c) => c.type === type);
+  const usageCounts = catData?.usage_counts ?? {};
   const openLends = debtsData?.lending ?? [];
   const openBorrows = debtsData?.borrowing ?? [];
   const customBudgets = cbData?.custom_budgets ?? [];
@@ -614,7 +620,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 10, letterSpacing: 0.5, textTransform: "uppercase" }}>
                 Danh mục {selectedCatPath.length > 0 && <span style={{ color: "var(--primary)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>· {selectedCatPath.join(" › ")}</span>}
               </p>
-              <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => { setCategoryId(id); setError(""); }} />
+              <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => { setCategoryId(id); setError(""); }} usageCounts={usageCounts} />
             </div>
           )}
 
