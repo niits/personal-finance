@@ -36,16 +36,7 @@ export function RecategorizationRow({
       />
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{
-          fontFamily: "var(--font-body)",
-          fontSize: 15,
-          color: "var(--ink)",
-          letterSpacing: -0.374,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          lineHeight: 1.3,
-        }}>
+        <p className="font-body text-[15px] text-ink tracking-[-0.374px] truncate leading-[1.3]">
           {note}
         </p>
 

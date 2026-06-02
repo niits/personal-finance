@@ -54,12 +54,15 @@ Primitive building blocks. Zero dependencies on other `src/components/`. One res
 | Component | Description |
 |-----------|-------------|
 | `Button` | Primary, secondary, ghost, destructive variants; loading state |
-| `Input` | Text input with label slot, error state, disabled |
+| `Input` _(planned)_ | Text input with label slot, error state, disabled |
 | `CurrencyDisplay` | Formatted VND amount (uses vi-VN locale, `₫` suffix) |
 | `Badge` | Small label pill for status or categories |
 | `Spinner` | Loading indicator, size variants |
-| `Divider` | Horizontal rule, optional label |
+| `Divider` _(planned)_ | Horizontal rule, optional label |
 | `EmojiIcon` | Single emoji with consistent sizing and fallback |
+| `DebtProgressBar` | Repaid / remaining bar for a debt (lend=blue, borrow=amber, settled=green) |
+
+> The tables in §2 describe the target hierarchy (design intent). The shipped inventory is the `src/components/` tree in §3; rows marked _(planned)_ are not built yet.
 
 ### 2.3 Molecules
 
@@ -67,10 +70,10 @@ Meaningful combinations of atoms. No side effects — pure props in, JSX out.
 
 | Component | Atoms used | Description |
 |-----------|-----------|-------------|
-| `FormField` | Input | Label + Input + optional validation error |
-| `AmountInput` | Input, CurrencyDisplay | Sign toggle (+ / −) + numeric currency input |
-| `CategoryBadge` | EmojiIcon, Badge | Emoji + category name in a compact chip |
-| `TransactionListItem` | CurrencyDisplay, EmojiIcon, Badge | Single transaction row: emoji, name, amount, date |
+| `FormField` _(planned)_ | Input | Label + Input + optional validation error |
+| `AmountInput` _(planned)_ | Input, CurrencyDisplay | Sign toggle (+ / −) + numeric currency input |
+| `CategoryBadge` _(planned)_ | EmojiIcon, Badge | Emoji + category name in a compact chip |
+| `TransactionListItem` | CurrencyDisplay, EmojiIcon, Badge | Single transaction row: emoji, name, amount, date; shows debt context (cho vay / đi vay · party) |
 | `BudgetProgressBar` | — | Horizontal bar showing spent / budget with percentage |
 | `PaceChip` | Badge | Under / over / no_budget status pill with color coding |
 | `MonthStepper` | Button | Prev arrow + month label + next arrow (disabled when current month) |
@@ -78,6 +81,8 @@ Meaningful combinations of atoms. No side effects — pure props in, JSX out.
 | `OrganizeSectionHeader` | Badge | Section title + count badge inside the AI Organize review sheet |
 | `NewCategoryRow` | Badge, EmojiIcon | Checkable row for an AI-proposed new category |
 | `RecategorizationRow` | Badge | Checkable row for an AI-proposed transaction reclassification |
+| `DebtPartyCard` | DebtProgressBar, CurrencyDisplay | Debt summary card: party, remaining / opening, progress, overdue flag |
+| `DebtRepaymentItem` | CurrencyDisplay | One repayment row in the debt detail timeline (income/expense direction) |
 
 ### 2.4 Organisms
 
@@ -89,13 +94,14 @@ Complete, self-contained UI sections. May hold local UI state (open/closed, acti
 | `TransactionForm` | Full transaction entry: amount, type, category, date, note, custom budgets |
 | `TransactionGroup` | Date-headed list of `TransactionListItem`s for a single day |
 | `DashboardSummary` | Month overview: budget bar, savings, income/expense tiles |
-| `PaceLineChart` | Cumulative daily spending vs ideal pace — Vega-Lite chart |
-| `InsightPanel` | AI-generated stats: list of `StatCard`s + `VegaChart`s |
-| `BudgetAdjustmentForm` | Form to increase/decrease monthly budget with reason |
-| `CategoryTree` | Hierarchical category list with add/edit/delete actions |
-| `EmojiPicker` | Modal grid for selecting an emoji |
+| `PaceLineChart` _(planned)_ | Cumulative daily spending vs ideal pace — Vega-Lite chart (currently rendered via `VegaChart` inside the statistics flow) |
+| `InsightPanel` _(planned)_ | AI-generated stats: list of `StatCard`s + `VegaChart`s (currently inlined in `StatisticsTemplate`) |
+| `BudgetAdjustmentForm` _(planned)_ | Form to increase/decrease monthly budget with reason (currently inlined in `BudgetTemplate`) |
+| `CategoryTree` _(planned)_ | Hierarchical category list with add/edit/delete actions (currently inlined in `CategoriesTemplate`) |
+| `EmojiPicker` | Modal grid for selecting an emoji, with keyword-based suggestions |
 | `VegaChart` | Vega-Lite chart wrapper (handles CSP-safe interpreter, locale, theme) |
 | `OrganizeReviewSheet` | Bottom sheet: lists AI-proposed category/emoji/reclassification changes with checkboxes before applying |
+| `LinkTransactionSheet` | Bottom sheet listing eligible transactions to link to a debt as a repayment |
 
 ### 2.5 Templates
 
@@ -103,25 +109,36 @@ Page-level layout shells. Receive all data as props. No `useEffect`, no `fetch`,
 
 | Component | Description |
 |-----------|-------------|
-| `DashboardTemplate` | Home page layout: MonthStepper, DashboardSummary, TransactionGroup list, TransactionForm trigger |
-| `BudgetTemplate` | Budget page: current budget display, BudgetAdjustmentForm, adjustment history |
-| `CategoriesTemplate` | Category management: CategoryTree, add/edit modals |
-| `StatisticsTemplate` | Statistics page: month selector, InsightPanel |
+| `DashboardTemplate` | Home page layout: month stepper, DashboardSummary, TransactionGroup list, TransactionForm trigger, transaction action sheet |
+| `BudgetTemplate` | Budget page: monthly + custom budgets, inline create/adjust/edit forms, adjustment history |
+| `CategoriesTemplate` | Category management: hierarchical tree, AI suggest/recategorize review sheets |
+| `StatisticsTemplate` | Statistics page: month selector, AI insight cards + `VegaChart`s, regenerate flow |
+| `DebtOverviewTemplate` | Debts page (`/debts`): lend/borrow summary tiles, `DebtPartyCard` lists, settled section |
 
 ### 2.6 Pages (App Router)
 
 Next.js `page.tsx` files. Only responsibility: fetch data for the current month/state, handle loading/error states, render the matching template.
 
+Routes are flat under the `(app)` route group (Epic 2 flattened them from the old `/dashboard/*` prefix; Epic 4 moved categories under `/account` and added `/debts`).
+
 ```
-src/app/dashboard/page.tsx          → DashboardTemplate
-src/app/dashboard/budget/page.tsx   → BudgetTemplate
-src/app/dashboard/categories/page.tsx → CategoriesTemplate
-src/app/dashboard/statistics/page.tsx → StatisticsTemplate
+src/app/(app)/page.tsx                      → DashboardTemplate        (/)
+src/app/(app)/statistics/page.tsx           → StatisticsTemplate       (/statistics)
+src/app/(app)/debts/page.tsx                → DebtOverviewTemplate     (/debts)
+src/app/(app)/debts/[id]/page.tsx           → debt detail (DebtRepaymentItem, LinkTransactionSheet)
+src/app/(app)/budget/page.tsx               → BudgetTemplate           (/budget)
+src/app/(app)/account/page.tsx              → account settings         (/account)
+src/app/(app)/account/categories/page.tsx   → CategoriesTemplate       (/account/categories)
+src/app/(app)/categories/page.tsx           → redirect → /account/categories
 ```
+
+Bottom-nav tabs: Tổng quan (`/`) · Thống kê (`/statistics`) · Nợ (`/debts`) · Ngân sách (`/budget`) · Tài khoản (`/account`).
 
 ---
 
 ## 3. Directory Structure
+
+This mirrors the actual `src/components/` tree (the source of truth for what is shipped).
 
 ```
 src/
@@ -131,45 +148,45 @@ src/
         Button.tsx
         Button.stories.tsx
         index.ts
-      CurrencyDisplay/
-      Input/
       Badge/
-      Spinner/
-      Divider/
+      CurrencyDisplay/
+      DebtProgressBar/
       EmojiIcon/
+      Spinner/
     molecules/
-      FormField/
-      AmountInput/
-      CategoryBadge/
-      TransactionListItem/
       BudgetProgressBar/
-      PaceChip/
+      DebtPartyCard/
+      DebtRepaymentItem/
       MonthStepper/
+      NewCategoryRow/
+      OrganizeSectionHeader/
+      PaceChip/
+      RecategorizationRow/
       StatCard/
+      TransactionListItem/
     organisms/
+      DashboardSummary/
+      EmojiPicker/
+      LinkTransactionSheet/
       Navbar/
+      OrganizeReviewSheet/
       TransactionForm/
       TransactionGroup/
-      DashboardSummary/
-      PaceLineChart/
-      InsightPanel/
-      BudgetAdjustmentForm/
-      CategoryTree/
-      EmojiPicker/
       VegaChart/
     templates/
-      DashboardTemplate/
       BudgetTemplate/
       CategoriesTemplate/
+      DashboardTemplate/
+      DebtOverviewTemplate/
       StatisticsTemplate/
   lib/
     auth.ts           # Server-side auth (better-auth)
-    auth-client.ts    # Client-side auth hooks
     db.ts             # Kysely D1 adapter
+    debt.ts           # Debt computed values (remaining, overdue, repayment types)
     errors.ts         # Typed error helpers
     fetcher.ts        # SWR fetch wrapper
     holidays.ts       # VN public holidays
-    llm.ts            # AI/LLM wrappers (Anthropic, Workers AI)
+    llm.ts            # AI/LLM wrappers — OpenAI (gpt-4o, gpt-4.1-nano) via Cloudflare AI Gateway
     pace-line.ts      # Pace line business logic
     schema.ts         # Shared TypeScript types (DB entities)
     session.ts        # Session utilities
@@ -179,15 +196,20 @@ src/
     scheduler.ts      # Cloudflare scheduled worker
   app/
     api/              # Next.js API routes (server-side, thin controllers)
-    dashboard/
-      layout.tsx
-      page.tsx
-      budget/page.tsx
-      categories/page.tsx
+    (app)/            # Authenticated app shell (route group)
+      layout.tsx      # Bottom nav
+      page.tsx        # / (dashboard)
       statistics/page.tsx
+      debts/page.tsx
+      debts/[id]/page.tsx
+      budget/page.tsx
+      account/page.tsx
+      account/categories/page.tsx
+      categories/page.tsx        # redirect → /account/categories
     globals.css
     layout.tsx
     page.tsx          # Landing / auth gate
+    sign-in/ · forgot-password/ · reset-password/
 ```
 
 ---

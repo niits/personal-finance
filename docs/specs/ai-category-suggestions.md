@@ -1,9 +1,11 @@
 # AI Category Suggestions
 
+> **⚠️ Superseded by `EPIC_3_AI_REFACTOR.md`.** This spec describes the original Workers AI implementation (`createWorkersAI`, `@cf/…` models, `CF_AI_MODEL`). That stack is no longer used: all AI now runs on OpenAI (`gpt-4.1-nano` / `gpt-4o`) via the Cloudflare AI Gateway, and this feature is reached through the AI Organize flow rather than a standalone screen. Kept for history only — do not treat the model/config details below as current.
+
 | Field | Value |
 |-------|-------|
 | Type | Feature Specification |
-| Status | Implemented |
+| Status | Superseded |
 | Version | 1.0 |
 | Author | niits |
 | Created | 2026-04-29 |

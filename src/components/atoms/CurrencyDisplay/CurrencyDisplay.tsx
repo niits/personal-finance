@@ -1,8 +1,4 @@
-const _fmt = new Intl.NumberFormat("vi-VN");
-
-export function formatVND(amount: number): string {
-  return _fmt.format(amount);
-}
+import { formatVND } from "./format";
 
 type CurrencyDisplayProps = {
   amount: number;
@@ -13,7 +9,7 @@ type CurrencyDisplayProps = {
 };
 
 const sizes: Record<NonNullable<CurrencyDisplayProps["size"]>, React.CSSProperties> = {
-  sm: { fontSize: 13, fontWeight: 500, letterSpacing: -0.1 },
+  sm: { fontSize: 13, fontWeight: 600, letterSpacing: -0.1 },
   md: { fontSize: 15, fontWeight: 600, letterSpacing: -0.2 },
   lg: { fontSize: 22, fontWeight: 600, letterSpacing: -0.3 },
   xl: { fontSize: 38, fontWeight: 600, letterSpacing: -0.5, lineHeight: 1.1 },
@@ -25,8 +21,8 @@ export function CurrencyDisplay({ amount, signed, signType, size = "md", muted }
     ? "var(--ink-muted-48)"
     : signed
     ? signType === "income"
-      ? "#30d158"
-      : "#ff453a"
+      ? "var(--success)"
+      : "var(--danger)"
     : "inherit";
 
   return (

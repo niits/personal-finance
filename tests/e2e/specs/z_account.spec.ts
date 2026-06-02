@@ -29,7 +29,7 @@ test.describe("Account page — linked accounts", () => {
   test("shows Google auth as temporarily disabled", async ({ page }) => {
     await page.goto("/account");
     await expect(page.getByText("Google")).toBeVisible();
-    await expect(page.getByText("Tạm dừng")).toBeVisible();
+    await expect(page.getByText("Tạm dừng", { exact: true })).toBeVisible();
   });
 });
 

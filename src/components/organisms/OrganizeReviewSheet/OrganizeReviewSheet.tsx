@@ -46,23 +46,18 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
   return (
     <>
       {/* Backdrop */}
-      <div
+      <button
+        type="button"
+        aria-label="Đóng"
+        disabled={applying}
         onClick={applying ? undefined : onClose}
         style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100,
+          position: "fixed", inset: 0, border: "none", padding: 0, cursor: applying ? "default" : "pointer", background: "rgba(0,0,0,0.4)", zIndex: 100,
         }}
       />
 
       {/* Sheet */}
-      <div style={{
-        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 101,
-        background: "var(--canvas)",
-        borderRadius: "16px 16px 0 0",
-        maxHeight: "80dvh",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}>
+      <div className="fixed bottom-0 left-0 right-0 z-[101] bg-canvas rounded-t-2xl max-h-[80dvh] flex flex-col overflow-hidden">
         {/* Handle + title */}
         <div style={{ padding: "12px 16px 8px", flexShrink: 0 }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)", margin: "0 auto 12px" }} />
@@ -111,7 +106,7 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
                     count={preview!.emoji_assignments.length}
                     autoIncluded
                   />
-                  <p style={{ padding: "4px 16px 10px", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-muted-48)" }}>
+                  <p style={{ padding: "4px 16px 10px", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
                     Sẽ gán emoji cho {preview!.emoji_assignments.length} danh mục.
                   </p>
                 </section>
@@ -147,26 +142,14 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
 
         {/* CTA */}
         <div style={{ padding: "12px 16px 28px", flexShrink: 0, borderTop: "1px solid var(--hairline)" }}>
-          <button
+          <button type="button"
             onClick={handleApply}
             disabled={applying || !hasAnything}
-            style={{
-              width: "100%",
-              padding: "14px",
-              borderRadius: 12,
-              border: "none",
-              background: applying || !hasAnything ? "var(--canvas-parchment)" : "var(--primary)",
-              color: applying || !hasAnything ? "var(--ink-muted-48)" : "#fff",
-              fontFamily: "var(--font-body)",
-              fontSize: 17,
-              fontWeight: 600,
-              cursor: applying || !hasAnything ? "default" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              letterSpacing: -0.4,
-            }}
+            className={`w-full p-[14px] rounded-xl border-none font-body text-[17px] font-semibold flex items-center justify-center gap-2 tracking-[-0.4px] ${
+              applying || !hasAnything
+                ? "bg-canvas-parchment text-ink-muted-48 cursor-default"
+                : "bg-primary text-white cursor-pointer"
+            }`}
           >
             {applying ? "Đang áp dụng…" : "Áp dụng"}
           </button>

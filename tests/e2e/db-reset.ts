@@ -8,6 +8,7 @@
 const Database = require("better-sqlite3") as typeof import("better-sqlite3");
 import fs from "fs";
 import path from "path";
+import { currentBudgetMonth } from "@/lib/validators";
 
 function getDb(): InstanceType<typeof Database> {
   // Wrangler stores local D1 at .wrangler/state/v3/d1/miniflare-D1DatabaseObject/<hash>.sqlite
@@ -34,6 +35,7 @@ export function wipeUserData(userId: string): void {
   db.pragma("foreign_keys = OFF");
   db.transaction(() => {
     db.prepare(`DELETE FROM "transaction" WHERE user_id = ?`).run(userId);
+    db.prepare(`DELETE FROM debt WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM budget_adjustment WHERE monthly_budget_id IN (SELECT id FROM monthly_budget WHERE user_id = ?)`).run(userId);
     db.prepare(`DELETE FROM monthly_budget WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM custom_budget WHERE user_id = ?`).run(userId);
@@ -43,7 +45,7 @@ export function wipeUserData(userId: string): void {
   db.close();
 }
 
-export type SeedLevel = "minimal" | "categories" | "budget" | "full";
+export type SeedLevel = "minimal" | "categories" | "budget" | "full" | "debts";
 
 export function seedUserData(userId: string, seed: SeedLevel): void {
   if (seed === "minimal") return;
@@ -78,7 +80,10 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
 
   if (seed === "categories") { db.close(); return; }
 
-  const month = new Date().toISOString().substring(0, 7);
+  // Budget for the app's CURRENT budget month, not the calendar month — they
+  // diverge near month-end (date >= last working day rolls to the next month),
+  // which would otherwise leave the dashboard/budget view with no current budget.
+  const month = currentBudgetMonth();
   const budgetInfo = db.prepare(
     `INSERT INTO monthly_budget (user_id, month, amount) VALUES (?, ?, 5000000)`,
   ).run(userId, month);
@@ -93,6 +98,58 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
   db.prepare(
     `INSERT INTO "transaction" (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES (?, 15000000, 'income', ?, 'Lương tháng 5', ?, NULL)`,
   ).run(userId, catIds["Lương"], today);
+
+  if (seed !== "debts") { db.close(); return; }
+
+  // Seed debts using the 3-step atomic pattern (mirrors POST /api/debts):
+  //   1. INSERT debt (opening_transaction_id = NULL)
+  //   2. INSERT opening transaction → capture lastInsertRowid
+  //   3. UPDATE debt SET opening_transaction_id = rowid
+  //
+  // Debt layout:
+  //   Minh    lend  open   2,000,000 gốc · 500,000 repaid → 1,500,000 remaining
+  //   Chị Lan borrow open  1,000,000 gốc · 0 repaid        → 1,000,000 remaining
+  //   Anh Tuấn lend settled 500,000 gốc · 500,000 repaid  → 0 remaining
+
+  const lendId    = "e2e-debt-lend-1";
+  const borrowId  = "e2e-debt-borrow-1";
+  const settledId = "e2e-debt-settled-1";
+
+  db.transaction(() => {
+    // ── Minh (lend, open) ──────────────────────────────────────────────────
+    db.prepare(
+      `INSERT INTO debt (id, user_id, type, party, note) VALUES (?, ?, 'lend', 'Minh', 'Cho mượn tiền học')`,
+    ).run(lendId, userId);
+    const lendOpeningId = db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 2000000, 'expense', ?, ?)`,
+    ).run(userId, today, lendId).lastInsertRowid;
+    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(lendOpeningId, lendId);
+    // One partial repayment
+    db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, note) VALUES (?, 500000, 'income', ?, ?, 'Trả một phần')`,
+    ).run(userId, today, lendId);
+
+    // ── Chị Lan (borrow, open) ─────────────────────────────────────────────
+    db.prepare(
+      `INSERT INTO debt (id, user_id, type, party) VALUES (?, ?, 'borrow', 'Chị Lan')`,
+    ).run(borrowId, userId);
+    const borrowOpeningId = db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 1000000, 'income', ?, ?)`,
+    ).run(userId, today, borrowId).lastInsertRowid;
+    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(borrowOpeningId, borrowId);
+
+    // ── Anh Tuấn (lend, settled) ───────────────────────────────────────────
+    db.prepare(
+      `INSERT INTO debt (id, user_id, type, party, status) VALUES (?, ?, 'lend', 'Anh Tuấn', 'settled')`,
+    ).run(settledId, userId);
+    const settledOpeningId = db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 500000, 'expense', ?, ?)`,
+    ).run(userId, today, settledId).lastInsertRowid;
+    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(settledOpeningId, settledId);
+    db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, note) VALUES (?, 500000, 'income', ?, ?, 'Tất toán')`,
+    ).run(userId, today, settledId);
+  })();
 
   db.close();
 }

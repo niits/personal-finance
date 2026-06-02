@@ -71,14 +71,14 @@ test.describe("Dashboard — add transaction", () => {
     const catBtn = page.getByRole("button", { name: "Ăn uống" }).last();
     await catBtn.scrollIntoViewIfNeeded();
     await catBtn.click();
-    await page.locator("button", { hasText: "Lưu giao dịch" }).click();
-    await expect(page.getByText("Lưu giao dịch")).not.toBeVisible();
+    await page.getByRole("button", { name: "Lưu", exact: true }).click();
+    await expect(page.locator("input[inputmode='numeric']")).not.toBeVisible();
   });
 
   test("shows validation error when amount is missing", async ({ page }) => {
     await page.goto("/");
     await page.locator("button", { hasText: "+" }).click();
-    await page.locator("button", { hasText: "Lưu giao dịch" }).click();
+    await page.getByRole("button", { name: "Lưu", exact: true }).click();
     await expect(page.getByText("Nhập số tiền hợp lệ")).toBeVisible();
   });
 
@@ -86,7 +86,7 @@ test.describe("Dashboard — add transaction", () => {
     await page.goto("/");
     await page.locator("button", { hasText: "+" }).click();
     await page.locator("input[inputmode='numeric']").fill("50000");
-    await page.locator("button", { hasText: "Lưu giao dịch" }).click();
+    await page.getByRole("button", { name: "Lưu", exact: true }).click();
     await expect(page.getByText("Chọn danh mục")).toBeVisible();
   });
 });

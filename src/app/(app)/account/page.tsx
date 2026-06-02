@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   useSession,
   signOut,
@@ -32,16 +33,7 @@ const GoogleIcon = () => (
 function SectionGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: "var(--space-lg)" }}>
-      <div style={{
-        fontFamily: "var(--font-body)",
-        fontSize: 12,
-        fontWeight: 600,
-        color: "var(--ink-muted-48)",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        paddingLeft: "var(--space-md)",
-        marginBottom: "var(--space-xs)",
-      }}>
+      <div className="font-body text-xs font-semibold text-ink-muted-48 uppercase tracking-[0.5px] pl-md mb-xs">
         {label}
       </div>
       <div style={{
@@ -71,36 +63,28 @@ function ListRow({ icon, label, value, action, isLast = false }: {
       borderBottom: isLast ? "none" : "1px solid var(--hairline)",
     }}>
       {icon && (
-        <div style={{
-          width: 32,
-          height: 32,
-          borderRadius: "var(--radius-sm)",
-          background: "var(--canvas-parchment)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          color: "var(--ink-muted-80)",
-        }}>
+        <div className="size-8 rounded-sm bg-canvas-parchment flex items-center justify-center shrink-0 text-ink-muted-80">
           {icon}
         </div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontFamily: "var(--font-body)",
-          fontSize: 16,
+          fontSize: 17,
           fontWeight: 400,
           color: "var(--ink)",
-          lineHeight: 1.3,
+          lineHeight: 1.47,
+          letterSpacing: -0.374,
         }}>
           {label}
         </div>
         {value && (
           <div style={{
             fontFamily: "var(--font-body)",
-            fontSize: 13,
+            fontSize: 14,
             color: "var(--ink-muted-48)",
             marginTop: 1,
+            letterSpacing: -0.224,
           }}>
             {value}
           </div>
@@ -215,33 +199,11 @@ export default function AccountPage() {
           alignItems: "center",
           gap: "var(--space-md)",
         }}>
-          <div style={{
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            background: "var(--primary)",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "var(--font-display)",
-            fontSize: 22,
-            fontWeight: 600,
-            flexShrink: 0,
-          }}>
+          <div className="size-14 rounded-full bg-primary text-white flex items-center justify-center font-display text-[22px] font-semibold shrink-0">
             {userInitials}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontFamily: "var(--font-body)",
-              fontSize: 17,
-              fontWeight: 600,
-              color: "var(--ink)",
-              letterSpacing: -0.374,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}>
+            <div className="font-body text-[17px] font-semibold text-ink tracking-[-0.374px] truncate">
               {session.user.name ?? "Người dùng"}
             </div>
             <div style={{
@@ -264,7 +226,7 @@ export default function AccountPage() {
             <div style={{
               padding: "10px var(--space-md)",
               fontFamily: "var(--font-body)",
-              fontSize: 13,
+              fontSize: 14,
               color: "var(--danger)",
               borderBottom: "1px solid var(--hairline)",
             }}>
@@ -285,7 +247,7 @@ export default function AccountPage() {
             }
             action={
               accountLoadError || githubLinked === null ? null : githubLinked ? (
-                <button
+                <button type="button"
                   disabled
                   title="Tạm thời không thể bỏ liên kết GitHub trong lúc các phương thức khác đang bị tắt."
                   style={{ ...unlinkBtnStyle, opacity: 0.35, cursor: "not-allowed" }}
@@ -293,7 +255,7 @@ export default function AccountPage() {
                   Tạm khóa
                 </button>
               ) : (
-                <button onClick={handleLinkGitHub} style={actionBtnStyle}>
+                <button type="button" onClick={handleLinkGitHub} style={actionBtnStyle}>
                   <GitHubIcon /> Liên kết
                 </button>
               )
@@ -339,9 +301,9 @@ export default function AccountPage() {
                 </div>
                 <div style={{
                   fontFamily: "var(--font-body)",
-                  fontSize: 13,
+                  fontSize: 14,
                   color: "var(--ink-muted-48)",
-                  lineHeight: 1.6,
+                  lineHeight: 1.43,
                 }}>
                   Đăng nhập, đăng ký, đặt mật khẩu và đặt lại mật khẩu sẽ có lại trong thời gian tới.
                   {hasPassword ? " Mật khẩu hiện có của bạn cũng đang tạm thời không sử dụng được." : ""}
@@ -352,6 +314,19 @@ export default function AccountPage() {
           </div>
         </SectionGroup>
 
+        {/* Master data */}
+        <SectionGroup label="Dữ liệu chính">
+          <Link href="/account/categories" style={{ textDecoration: "none" }}>
+            <ListRow
+              icon={<span style={{ fontSize: 18 }}>⊞</span>}
+              label="Danh mục"
+              value="Quản lý danh mục thu chi"
+              action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
+              isLast
+            />
+          </Link>
+        </SectionGroup>
+
         {/* Export */}
         <SectionGroup label="Dữ liệu">
           <div style={{ padding: "var(--space-md)" }}>
@@ -359,16 +334,17 @@ export default function AccountPage() {
               fontFamily: "var(--font-body)",
               fontSize: 14,
               color: "var(--ink-muted-48)",
-              lineHeight: 1.5,
+              lineHeight: 1.43,
+              letterSpacing: -0.224,
               margin: "0 0 var(--space-md)",
             }}>
               Tải về toàn bộ giao dịch, danh mục và ngân sách của bạn.
             </p>
             <div style={{ display: "flex", gap: "var(--space-sm)" }}>
-              <button onClick={() => handleExport("json")} style={exportBtnStyle}>
+              <button type="button" onClick={() => handleExport("json")} style={exportBtnStyle}>
                 Tải JSON
               </button>
-              <button onClick={() => handleExport("csv")} style={exportBtnStyle}>
+              <button type="button" onClick={() => handleExport("csv")} style={exportBtnStyle}>
                 Tải CSV
               </button>
             </div>
@@ -377,20 +353,9 @@ export default function AccountPage() {
 
         {/* Sign out */}
         <SectionGroup label="Phiên đăng nhập">
-          <button
+          <button type="button"
             onClick={() => signOut({ fetchOptions: { onSuccess: () => router.replace("/sign-in") } })}
-            style={{
-              width: "100%",
-              padding: "14px var(--space-md)",
-              background: "none",
-              border: "none",
-              color: "var(--danger)",
-              fontFamily: "var(--font-body)",
-              fontSize: 16,
-              fontWeight: 500,
-              cursor: "pointer",
-              textAlign: "left",
-            }}
+            className="w-full py-[14px] px-md bg-transparent border-none text-danger font-body text-base font-normal cursor-pointer text-left"
           >
             Đăng xuất
           </button>
@@ -409,7 +374,7 @@ const actionBtnStyle: React.CSSProperties = {
   color: "var(--primary)",
   fontFamily: "var(--font-body)",
   fontSize: 14,
-  fontWeight: 500,
+  fontWeight: 400,
   cursor: "pointer",
   padding: "4px 0",
   flexShrink: 0,
@@ -421,7 +386,7 @@ const unlinkBtnStyle: React.CSSProperties = {
   color: "var(--danger)",
   fontFamily: "var(--font-body)",
   fontSize: 14,
-  fontWeight: 500,
+  fontWeight: 400,
   padding: "4px 0",
   flexShrink: 0,
 };
@@ -449,6 +414,6 @@ const exportBtnStyle: React.CSSProperties = {
   color: "var(--ink)",
   fontFamily: "var(--font-body)",
   fontSize: 14,
-  fontWeight: 500,
+  fontWeight: 400,
   cursor: "pointer",
 };

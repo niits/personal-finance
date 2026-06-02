@@ -5,6 +5,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Cancel an in-progress production deploy when a newer push lands — only the
+# latest commit matters. A cancelled migration/deploy is recoverable because
+# migrations are idempotent (ADD COLUMN / CREATE TABLE IF NOT EXISTS).
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml

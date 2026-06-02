@@ -88,8 +88,9 @@ user ────────────────┬──── budget_conf
 | `monthly_budget` | Budget for a specific budget period (see §6.4). | 1 per user per month |
 | `budget_adjustment` | Immutable audit log of each budget change. | N per monthly_budget |
 | `custom_budget` | Open-ended named budget (e.g. "Trip Đà Lạt"). | N per user |
-| `transaction` | Single expense or income event. | N per user |
+| `transaction` | Single expense or income event. May be a debt opening/repayment (`debt_id` set, `category_id` null). | N per user |
 | `transaction_custom_budget` | Junction: one expense ↔ many custom budgets. | N:M |
+| `debt` | A lending/borrowing relationship; principal derived from its opening transaction. | N per user |
 | `ai_suggestion_run` | Tracks each AI suggestion session and its transaction window. | N per user |
 
 ---
@@ -160,15 +161,16 @@ CREATE TABLE IF NOT EXISTS transaction (
   user_id            TEXT    NOT NULL REFERENCES user(id) ON DELETE CASCADE,
   amount             INTEGER NOT NULL CHECK (amount > 0),
   type               TEXT    NOT NULL CHECK (type IN ('expense', 'income')),
-  category_id        INTEGER NOT NULL REFERENCES category(id) ON DELETE RESTRICT,
+  category_id        INTEGER REFERENCES category(id) ON DELETE RESTRICT,  -- nullable since migration 0012: debt transactions have no category
   note               TEXT,
   date               TEXT    NOT NULL,   -- 'YYYY-MM-DD'
   monthly_budget_id  INTEGER REFERENCES monthly_budget(id) ON DELETE RESTRICT,
+  debt_id            TEXT    REFERENCES debt(id) ON DELETE SET NULL,      -- set => this txn is a debt opening or a repayment (migration 0011)
   created_at         INTEGER NOT NULL DEFAULT (unixepoch()),
-  -- Enforce: income must have null monthly_budget_id
+  -- An expense must belong to a monthly budget OR be a debt entry; income never has a budget (relaxed in migration 0012).
   CHECK (
-    (type = 'income' AND monthly_budget_id IS NULL) OR
-    (type = 'expense' AND monthly_budget_id IS NOT NULL)
+    (type = 'income') OR
+    (type = 'expense' AND (monthly_budget_id IS NOT NULL OR debt_id IS NOT NULL))
   )
 );
 
@@ -180,6 +182,25 @@ CREATE INDEX IF NOT EXISTS idx_transaction_user_category
 
 CREATE INDEX IF NOT EXISTS idx_transaction_monthly_budget
   ON transaction(monthly_budget_id);
+
+CREATE INDEX IF NOT EXISTS idx_transaction_debt
+  ON transaction(debt_id);
+
+-- Debt tracking (lending / borrowing). Repayments are stored as regular
+-- transactions with debt_id set; the opening transaction is linked back via
+-- opening_transaction_id. Principal is derived from the opening transaction's
+-- amount (migrations 0011 + 0013).
+CREATE TABLE IF NOT EXISTS debt (
+  id                     TEXT    PRIMARY KEY,
+  user_id                TEXT    NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+  type                   TEXT    NOT NULL CHECK (type IN ('lend', 'borrow')),
+  party                  TEXT    NOT NULL,                 -- who you lent to / borrowed from
+  note                   TEXT,
+  due_date               TEXT,                             -- 'YYYY-MM-DD' or null; drives overdue flag
+  status                 TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'settled')),
+  opening_transaction_id INTEGER REFERENCES "transaction"(id) ON DELETE SET NULL,
+  created_at             TEXT    NOT NULL DEFAULT (datetime('now'))
+);
 
 -- Junction: expense ↔ custom_budget (N:M)
 CREATE TABLE IF NOT EXISTS transaction_custom_budget (
@@ -224,6 +245,8 @@ CREATE TABLE IF NOT EXISTS budget_config (
 | `type` on category | All categories carry an income/expense label; child inherits from parent, enforced in API layer |
 | `start_date`/`end_date` on monthly_budget | Stored at creation time so period boundaries are stable even if the derivation logic changes later |
 | `ai_suggestion_run.status` flow | `pending` → `available` (user approves suggestions) → `done` (recategorize consumed the window) |
+| `debt` has no `amount` column | Principal is derived from `opening_transaction.amount`; `remaining = opening_amount − Σ repayments` and `is_overdue` (due_date past + status `open`) are computed in `src/lib/debt.ts`, not stored |
+| `ON DELETE SET NULL` on `transaction.debt_id` and `debt.opening_transaction_id` | Deleting one side detaches the link instead of cascading — a debt's repayments survive as plain transactions, and vice-versa |
 
 ---
 
@@ -829,7 +852,7 @@ Triggers AI insight generation for a given month. Returns a **streaming** respon
 **Behavior:**
 1. Fetch all transactions for the month from D1 (amount, category path, type, date, note)
 2. Build a structured prompt with the transaction data and insight rules
-3. Call the AI (Anthropic `claude-*` via `generateObject` with streaming)
+3. Call the AI (OpenAI `gpt-4o` via the Cloudflare AI Gateway, streaming the agent's structured insights)
 4. Stream each insight object as it is produced — the client renders cards progressively
 5. Each `Insight` has: `title`, `narrative`, `value` (numeric), `value_unit` (`vnd` | `percent` | `count`), optional `chart_type` and `chart_data`
 
@@ -925,6 +948,24 @@ Retained. Called internally by `/api/ai/organize`. Not user-facing in Epic 3+.
 #### ~~`POST /api/transactions/:id/suggest`~~ *(removed in Epic 3)*
 
 Removed. Replaced by `/api/ai/organize` batch flow.
+
+---
+
+### 4.11 Debts (Epic 4)
+
+Debts model lending/borrowing. A debt's **opening transaction** records the principal; **repayments** are ordinary transactions with `debt_id` set. See `docs/specs/debt-tracking.md` for the full SRS and `src/lib/debt.ts` for computed values.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/debts` | List the user's debts grouped into `lending`, `borrowing`, `settled` (each a `DebtWithRepayments`) |
+| POST | `/api/debts` | Create a debt + its opening transaction atomically. Body: `{ type: 'lend'\|'borrow', party, amount, date, note?, due_date?, transaction_note? }` → `{ debt }` (201) |
+| GET | `/api/debts/:id` | One debt with its repayment timeline and computed `opening_amount`, `total_repaid`, `remaining`, `is_overdue` |
+| PATCH | `/api/debts/:id` | Update `party` / `note` / `due_date` / `status` |
+| DELETE | `/api/debts/:id` | Delete the debt (linked transactions are detached, not deleted) |
+| PATCH | `/api/transactions/:id/link` | Link an existing transaction to a debt as a repayment |
+| DELETE | `/api/transactions/:id/link` | Unlink a transaction from its debt |
+
+`POST`/`PATCH /api/transactions` also accept `debt_id` to create or convert a transaction into a repayment. Direction is derived: a **lend** opening is an expense and its repayments are income; a **borrow** opening is income and its repayments are expense (`src/lib/debt.ts` → `debtOpeningTxType` / `repaymentTxType`).
 
 ---
 
@@ -1302,6 +1343,13 @@ DashboardTemplate (props: dashboardData, transactions, onSave, ...)
 | PATCH | `/api/transactions/:id` | Update transaction |
 | DELETE | `/api/transactions/:id` | Delete transaction |
 | POST | `/api/transactions/recategorize` | AI: suggest recategorizations for a run window |
+| PATCH | `/api/transactions/:id/link` | Link a transaction to a debt as a repayment |
+| DELETE | `/api/transactions/:id/link` | Unlink a transaction from its debt |
+| GET | `/api/debts` | List debts grouped into lending / borrowing / settled |
+| POST | `/api/debts` | Create a debt + opening transaction (atomic) |
+| GET | `/api/debts/:id` | One debt with repayments + computed values |
+| PATCH | `/api/debts/:id` | Update party / note / due_date / status |
+| DELETE | `/api/debts/:id` | Delete debt (detaches linked transactions) |
 | GET | `/api/monthly-budgets` | Get budget + period dates for a month |
 | POST | `/api/monthly-budgets` | Create monthly budget (stores period dates) |
 | PATCH | `/api/monthly-budgets/:id` | Adjust budget (creates audit record) |

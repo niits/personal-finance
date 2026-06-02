@@ -1,9 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import { TransactionForm } from "./TransactionForm";
 
-// TransactionForm uses useSWR internally — in Storybook it fetches nothing
-// (no real API) so category lists will be empty. Stories cover open/closed
-// states and the edit vs create modes.
 const meta: Meta<typeof TransactionForm> = {
   component: TransactionForm,
   parameters: {
@@ -20,28 +17,50 @@ export default meta;
 type Story = StoryObj<typeof TransactionForm>;
 
 export const CreateMode: Story = {
-  args: {
-    transaction: undefined,
-  },
+  args: { mode: { kind: "create" } },
+};
+
+export const CreateDebtOpen: Story = {
+  args: { mode: { kind: "create-debt-open" } },
 };
 
 export const EditMode: Story = {
   args: {
-    transaction: {
-      id: 1,
-      amount: 85000,
-      type: "expense",
-      emoji: "🍜",
-      category: { id: 3, name: "Ăn uống", path: "Sinh hoạt > Ăn uống" },
-      note: "Bún bò hôm nay",
-      date: "2026-05-15",
-      custom_budgets: [{ id: 1, name: "Quỹ gia đình" }],
+    mode: {
+      kind: "edit",
+      transaction: {
+        id: 1,
+        amount: 85000,
+        type: "expense",
+        emoji: "🍜",
+        category: { id: 3, name: "Ăn uống", path: "Sinh hoạt > Ăn uống" },
+        debt_id: null,
+        debt_party: null,
+        debt_type: null,
+        is_opening_tx: false,
+        note: "Bún bò hôm nay",
+        date: "2026-05-15",
+        custom_budgets: [{ id: 1, name: "Quỹ gia đình" }],
+      },
+    },
+  },
+};
+
+export const RepaymentMode: Story = {
+  args: {
+    mode: {
+      kind: "repayment",
+      debt: {
+        id: "d1", type: "lend", party: "Minh", note: "Tiền điện",
+        due_date: null, status: "open", opening_transaction_id: 1,
+        created_at: "2026-05-01", opening_amount: 2500000,
+        total_repaid: 1500000, remaining: 1000000, is_overdue: false,
+        transactions: [],
+      },
     },
   },
 };
 
 export const Closed: Story = {
-  args: {
-    open: false,
-  },
+  args: { open: false, mode: { kind: "create" } },
 };

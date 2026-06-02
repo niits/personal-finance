@@ -35,7 +35,7 @@ export function currentDate(): string {
 }
 
 // Returns the last working day (Mon-Fri, non-holiday per VN public calendar) of the given month.
-export function lastWorkingDay(year: number, month: number): string {
+function lastWorkingDay(year: number, month: number): string {
   const d = new Date(Date.UTC(year, month, 0)); // last calendar day of month
   while (d.getUTCDay() === 0 || d.getUTCDay() === 6 || isHoliday(d.toISOString().substring(0, 10))) {
     d.setUTCDate(d.getUTCDate() - 1);

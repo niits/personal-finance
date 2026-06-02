@@ -9,9 +9,14 @@ let authInstance: any;
 export async function getAuth() {
   if (authInstance) return authInstance;
 
-  const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-  const { betterAuth } = await import("better-auth");
+  const [{ getCloudflareContext }, { betterAuth }] = await Promise.all([
+    import("@opennextjs/cloudflare"),
+    import("better-auth"),
+  ]);
 
+  // false positive: getCloudflareContext is destructured from the dynamic import
+  // awaited above, so this call cannot race with it — it has a real data dependency.
+  // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
   const { env } = await getCloudflareContext({ async: true });
   const cfEnv = env as unknown as Cloudflare.Env & {
     GITHUB_CLIENT_ID: string;

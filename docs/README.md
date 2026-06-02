@@ -12,6 +12,8 @@ Stable project-wide standards. Written once, updated only when requirements or a
 | [TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md) | Technical Design | Draft | DB schema, API contracts, edge cases, computed values |
 | [COMPONENT_ARCHITECTURE.md](./COMPONENT_ARCHITECTURE.md) | Frontend Architecture | Active | CDD philosophy, component hierarchy, Storybook conventions, refactor roadmap |
 | [TESTING.md](./TESTING.md) | Testing Strategy | Draft | Unit and integration test setup, patterns, coverage targets |
+| [SEMANTIC_LAYER.md](./SEMANTIC_LAYER.md) | Technical Design | Active | Server-side metric layer between D1 and the AI statistics agent (LLMs never do arithmetic) |
+| [CDD_PROGRESS.md](./CDD_PROGRESS.md) | Progress Log | Historical | Snapshot of the original CDD refactor; not maintained — see COMPONENT_ARCHITECTURE.md |
 
 ### Architecture Decision Records (`adr/`)
 
@@ -35,6 +37,9 @@ One file per feature or topic. Accumulates as features are designed and built.
 | [transaction-recategorize.md](./specs/transaction-recategorize.md) | Superseded | AI-powered transaction recategorization — superseded by EPIC_3_AI_REFACTOR.md |
 | [EPIC_3_AI_REFACTOR.md](./EPIC_3_AI_REFACTOR.md) | Active | Epic 3 design: AI Organize button, statistics agent upgrade, model migration |
 | [ai-organize.md](./specs/ai-organize.md) | Active | CDD component design for the AI Organize button and review sheet (Epic 3 Part 2) |
+| [debt-tracking.md](./specs/debt-tracking.md) | Implemented | Debt Tracking (Epic 4) SRS — lend/borrow, repayments, computed balances, screens |
+| [debt-tracking-tests.md](./specs/debt-tracking-tests.md) | Implemented | Debt Tracking test cases & edge-case matrix |
+| [debt-tracking-fix-plan.md](./specs/debt-tracking-fix-plan.md) | Historical | Test-first fix plan used during Epic 4 implementation |
 
 ### Dev Logs (`dev_logs/`)
 
@@ -47,6 +52,7 @@ Chronological notes from debugging sessions, design decisions, and implementatio
 | [20260502_merge_transactions_into_home.md](./dev_logs/20260502_merge_transactions_into_home.md) | Merged Transactions tab into Home; full layout rewrite |
 | [20260506_migrate_to_firebase.md](./dev_logs/20260506_migrate_to_firebase.md) | Firebase migration analysis — full scope, rationale for staying on Cloudflare |
 | [20260516_staging_auth_redirect.md](./dev_logs/20260516_staging_auth_redirect.md) | HTTPS staging auth loop — secure Better Auth cookie not recognized by route guard |
+| [20260602_inline_style_to_tailwind_migration.md](./dev_logs/20260602_inline_style_to_tailwind_migration.md) | Exhaustive audit of staging vs main: inline-style→Tailwind-utility conversions per component + global UI settings (`@theme inline`, DESIGN.md, CSS integrity test) |
 
 ---
 
@@ -64,6 +70,8 @@ Chronological notes from debugging sessions, design decisions, and implementatio
 | CAT-xx | Category management |
 | CHART-xx | Pace line chart |
 | RPT-xx | Reporting & dashboard |
+| STAT-xx | Statistics & AI insights |
+| DEBT-xx | Debt tracking |
 | BR-xx | Business rules |
 | NFR-xx | Non-functional requirements |
 

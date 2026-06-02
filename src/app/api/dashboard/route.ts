@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
     .select([
       sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("total_expense"),
       sql<number>`COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0)`.as("total_income"),
+      // Budget spending counts every expense, including debt cash transfers, to keep one simple model.
+      sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("budget_expense"),
     ])
     .where("user_id", "=", userId)
     .where("date", ">=", periodStart);
@@ -65,6 +67,7 @@ export async function GET(request: NextRequest) {
 
   const totalExpense = summary?.total_expense ?? 0;
   const totalIncome = summary?.total_income ?? 0;
+  const budgetExpense = summary?.budget_expense ?? 0;
 
   let dailyExpenseQuery = db
     .selectFrom("transaction")
@@ -87,14 +90,14 @@ export async function GET(request: NextRequest) {
   let monthlyBudget: { id: number; amount: number; remaining: number } | null = null;
 
   if (budget) {
-    const remaining = budget.amount - totalExpense;
+    const remaining = budget.amount - budgetExpense;
     monthlyBudget = { id: budget.id, amount: budget.amount, remaining };
     const ideal = idealBudgetAtDay({
       budget: budget.amount,
       daysInMonth: periodDays,
       day: daysElapsed,
     });
-    paceStatus = totalExpense > ideal ? "over" : "under";
+    paceStatus = budgetExpense > ideal ? "over" : "under";
   }
 
   // must-revalidate ensures the browser always sends the session cookie to

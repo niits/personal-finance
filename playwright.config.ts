@@ -31,14 +31,21 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
 
-  // Reuse existing server locally (run `npm run dev:cf` separately).
-  // In CI, build first then start preview server.
-  webServer: {
-    command: "npx wrangler dev .open-next/worker.js --port 8787 --local",
-    url: "http://localhost:8787",
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-  },
+  // Locally: build + serve in one shot; reuse if already running.
+  // In CI: the build step runs before this — just start wrangler directly.
+  webServer: process.env.CI
+    ? {
+        command: "npx wrangler dev .open-next/worker.js --port 8787 --local",
+        url: "http://localhost:8787",
+        reuseExistingServer: false,
+        timeout: 60_000,
+      }
+    : {
+        command: "npm run dev:cf",
+        url: "http://localhost:8787",
+        reuseExistingServer: true,
+        timeout: 180_000,
+      },
 
   globalSetup: "./tests/e2e/global-setup.ts",
 });

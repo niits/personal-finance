@@ -1,5 +1,7 @@
 # Epic 3: AI Refactor
 
+> **As-built note (kept for history).** This is the original Epic 3 plan. The final implementation diverged from the model choices below: **all** AI now runs on OpenAI via the Cloudflare AI Gateway (`@ai-sdk/openai-compatible`) — **no Workers AI / Llama is used anywhere**. The statistics agent uses `gpt-4o`; the structured short-context tasks (organize, suggest categories, fill-emoji, recategorize) use `gpt-4.1-nano`. See `src/lib/llm.ts` and CLAUDE.md → Project for the current state. The "Model Configuration" table below reflects the plan, not the shipped result.
+
 ## Problem
 
 Current AI implementation has three pain points:
@@ -132,14 +134,14 @@ The following routes are kept because `/api/ai/organize` delegates to their logi
 
 ## Model Configuration
 
-| Component | Before | After |
-|-----------|--------|-------|
-| Statistics agent | Llama 4 Scout (Workers AI) | gpt-4o-mini (Cloudflare AI Gateway) |
-| Organize / category AI | Llama 4 Scout (Workers AI) | Llama 4 Scout (Workers AI) — unchanged |
-| Max output tokens (statistics) | 16,000 | 4,096 |
-| Fallback path in statistics.ts | Yes (generateObject) | Removed |
+| Component | Before | After (planned) | As shipped |
+|-----------|--------|-----------------|------------|
+| Statistics agent | Llama 4 Scout (Workers AI) | gpt-4o-mini (Cloudflare AI Gateway) | **`gpt-4o`** via Cloudflare AI Gateway |
+| Organize / category AI | Llama 4 Scout (Workers AI) | Llama 4 Scout (Workers AI) — unchanged | **`gpt-4.1-nano`** via Cloudflare AI Gateway |
+| Max output tokens (statistics) | 16,000 | 4,096 | 4,096 |
+| Fallback path in statistics.ts | Yes (generateObject) | Removed | Removed |
 
-**Why keep Workers AI for the organize endpoint:** The organize endpoint is a single structured `generateObject` call. Llama 4 Scout handles `generateObject` reliably (the fallback was only needed for tool-calling). Keeping Workers AI for this call avoids adding OpenAI billing for a use case that doesn't need it.
+**Why everything moved to the AI Gateway (as shipped):** rather than keeping Workers AI for the organize endpoint, all AI was consolidated onto OpenAI models behind the Cloudflare AI Gateway (`createOpenAICompatible`, auth via `CF_AIG_TOKEN`). The short-context structured calls use the cheap `gpt-4.1-nano`; the statistics agent uses `gpt-4o` for long context and streaming. This gives one provider path, unified billing, and reliable structured output everywhere.
 
 ## Files Changed
 

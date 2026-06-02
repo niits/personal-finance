@@ -14,7 +14,7 @@ export function OrganizeSectionHeader({ title, count, autoIncluded }: OrganizeSe
     }}>
       <span style={{
         fontFamily: "var(--font-body)",
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 600,
         color: "var(--ink)",
         letterSpacing: -0.08,
@@ -27,7 +27,7 @@ export function OrganizeSectionHeader({ title, count, autoIncluded }: OrganizeSe
         <span style={{
           fontFamily: "var(--font-body)",
           fontSize: 12,
-          fontWeight: 500,
+          fontWeight: 600,
           color: "var(--primary)",
           background: "rgba(0,102,204,0.08)",
           borderRadius: 99,

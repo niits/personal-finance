@@ -11,10 +11,10 @@ type BudgetProgressBarProps = {
 export function BudgetProgressBar({ budget, spent, remaining, pacePct, dark = false }: BudgetProgressBarProps) {
   const budgetPct = Math.min((spent / budget) * 100, 100);
   const isOver = remaining < 0;
-  const barColor = isOver ? "#ff453a" : "var(--primary)";
+  const barColor = isOver ? "var(--danger)" : "var(--primary)";
 
-  const textColor = dark ? "rgba(255,255,255,0.5)" : "var(--ink-muted-48)";
-  const accentColor = isOver ? "#ff453a" : "#30d158";
+  const textColor = dark ? "var(--body-muted)" : "var(--ink-muted-48)";
+  const accentColor = isOver ? "var(--danger)" : "var(--success)";
 
   return (
     <div>

@@ -37,8 +37,7 @@ export async function POST(request: NextRequest) {
 
   const { new_categories, emoji_assignments, recategorizations } = parsed.data;
   const userId = session.user.id;
-  const db = await getDB();
-  const kysely = await getKysely();
+  const [db, kysely] = await Promise.all([getDB(), getKysely()]);
   const now = Math.floor(Date.now() / 1000);
 
   // 1. Insert new categories, build temp_id → real_id map

@@ -42,17 +42,35 @@ export type CustomBudget = Selectable<CustomBudgetTable>;
 export type NewCustomBudget = Insertable<CustomBudgetTable>;
 export type CustomBudgetUpdate = Updateable<CustomBudgetTable>;
 
+// ─── debt ─────────────────────────────────────────────────────────────────────
+export interface DebtTable {
+  id: string;
+  user_id: string;
+  type: "lend" | "borrow";
+  party: string;
+  note: string | null;
+  due_date: string | null;
+  status: "open" | "settled";
+  opening_transaction_id: number | null;
+  created_at: Generated<string>;
+}
+
+export type Debt = Selectable<DebtTable>;
+export type NewDebt = Insertable<DebtTable>;
+export type DebtUpdate = Updateable<DebtTable>;
+
 // ─── transaction ─────────────────────────────────────────────────────────────
 export interface TransactionTable {
   id: Generated<number>;
   user_id: string;
   amount: number;
   type: "expense" | "income";
-  category_id: number;
+  category_id: number | null;
   note: string | null;
   emoji: string | null;
   date: string;
   monthly_budget_id: number | null;
+  debt_id: string | null;
   created_at: Generated<number>;
   updated_at: Generated<number>;
 }
@@ -120,4 +138,5 @@ export interface Database {
   category: CategoryTable;
   budget_config: BudgetConfigTable;
   statistics_report: StatisticsReportTable;
+  debt: DebtTable;
 }
