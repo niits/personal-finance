@@ -108,6 +108,8 @@ Gợi ý đổi danh mục cho các giao dịch có danh mục chưa phù hợp.
       schema: RecategorizeSchema,
       system: SYSTEM_PROMPT,
       prompt: userContent,
+      traceName: "recategorize",
+      userId,
     });
   } catch (err) {
     console.error("AI recategorize error:", err);

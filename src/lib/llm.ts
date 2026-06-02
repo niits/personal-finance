@@ -2,6 +2,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateText, generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { ZodType } from "zod";
+import { startAITrace } from "@/lib/telemetry";
 
 function createAIGatewayProvider(cfEnv: Cloudflare.Env) {
   return createOpenAICompatible({
@@ -25,6 +26,10 @@ export async function runAIObject<T>(opts: {
 }): Promise<T> {
   const { env } = await getCloudflareContext({ async: true });
   const model = createAIGatewayProvider(env as Cloudflare.Env)("openai/gpt-4.1-nano");
+  const trace = startAITrace(env as Cloudflare.Env, {
+    name: opts.traceName ?? "ai-object",
+    userId: opts.userId,
+  });
 
   try {
     const { object } = await generateObject({
@@ -35,6 +40,7 @@ export async function runAIObject<T>(opts: {
       system: opts.system,
       prompt: opts.prompt,
       maxOutputTokens: opts.maxOutputTokens ?? 4096,
+      experimental_telemetry: trace.telemetry,
     });
     return object;
   } catch (structuredErr) {
@@ -44,6 +50,8 @@ export async function runAIObject<T>(opts: {
       );
     }
     throw structuredErr;
+  } finally {
+    await trace.flush();
   }
 }
 

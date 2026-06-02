@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { sql } from "kysely";
 import { tool, stepCountIs } from "ai";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getKysely } from "@/lib/db";
 import { getOpenAIModel, generateText } from "@/lib/llm";
+import { startAITrace } from "@/lib/telemetry";
 import { getBudgetPeriod, currentDate } from "@/lib/validators";
 import { createAnalyticsService } from "@/lib/analytics/service";
 import { METRIC_NAMES, METRIC_CATALOG, DIMENSION_NAMES, TIME_GRAINS } from "@/lib/analytics/metrics";
@@ -195,6 +197,12 @@ When reporting a forecast or spending trend over time, use chart_type="line" wit
   let capturedInsights: Insight[] | null = null as Insight[] | null;
   let stepIndex = 0;
   const model = await getOpenAIModel();
+  const { env } = await getCloudflareContext({ async: true });
+  const trace = startAITrace(env as Cloudflare.Env, {
+    name: "statistics-agent",
+    userId,
+    metadata: { periodKey },
+  });
 
   try {
     await generateText({
@@ -202,6 +210,7 @@ When reporting a forecast or spending trend over time, use chart_type="line" wit
       system: SYSTEM,
       stopWhen: stepCountIs(10),
       maxOutputTokens: 4096,
+      experimental_telemetry: trace.telemetry,
       prompt: `Analyze spending for period ${periodKey} (${periodStart} to ${effectiveEnd}). Prior months: ${prevMonthKey(periodKey)}, ${prevMonthKey(prevMonthKey(periodKey))}.`,
       tools: {
         list_metrics: tool({
@@ -312,6 +321,8 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
     });
   } catch (agentErr) {
     console.error("[stats-agent] generateText error:", agentErr);
+  } finally {
+    await trace.flush();
   }
 
   if (!capturedInsights || capturedInsights.length === 0) {

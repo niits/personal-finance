@@ -4,6 +4,8 @@ import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { getOpenAIModel } from "@/lib/llm";
+import { startAITrace } from "@/lib/telemetry";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateObject } from "ai";
 
 type CategoryRow = { id: number; name: string; type: "income" | "expense"; level: number; emoji: string | null };
@@ -79,13 +81,17 @@ Giao dịch:
 ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type, category: t.cat_name, category_id: t.category_id })))}`;
 
   let result: z.infer<typeof OrganizeSchema>;
+  const { env } = await getCloudflareContext({ async: true });
+  const trace = startAITrace(env as Cloudflare.Env, { name: "organize", userId });
   try {
     const model = await getOpenAIModel();
-    const { object } = await generateObject({ model, schema: OrganizeSchema, system: SYSTEM_PROMPT, prompt: userContent, maxOutputTokens: 4096 });
+    const { object } = await generateObject({ model, schema: OrganizeSchema, system: SYSTEM_PROMPT, prompt: userContent, maxOutputTokens: 4096, experimental_telemetry: trace.telemetry });
     result = object;
   } catch (err) {
     console.error("[ai/organize] AI error:", err);
     return Response.json({ error: "AI_ERROR" }, { status: 502 });
+  } finally {
+    await trace.flush();
   }
 
   const validCategoryIds = new Set(categories.map((c) => c.id));

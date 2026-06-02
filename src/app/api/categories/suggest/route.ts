@@ -112,6 +112,8 @@ Gợi ý các danh mục mới nên thêm để tổ chức tốt hơn.`;
       schema: SuggestionSchema,
       system: SYSTEM_PROMPT,
       prompt: userContent,
+      traceName: "suggest-categories",
+      userId,
     });
   } catch (err) {
     console.error("AI suggest error:", err);
