@@ -93,14 +93,33 @@ function getCategoryPath(cats: Category[], selectedId: number | null): string[] 
   return result;
 }
 
+function subtreeCount(cat: Category, usageCounts: Record<number, number>): number {
+  let n = usageCounts[cat.id] ?? 0;
+  for (const child of cat.children) n += subtreeCount(child, usageCounts);
+  return n;
+}
+
+const COLLAPSED_LIMIT = 3;
+
 function CategoryDrillDown({
-  cats, selected, onSelect,
-}: { cats: Category[]; selected: number | null; onSelect: (id: number) => void }) {
+  cats, selected, onSelect, usageCounts,
+}: {
+  cats: Category[];
+  selected: number | null;
+  onSelect: (id: number) => void;
+  usageCounts: Record<number, number>;
+}) {
   const [path, setPath] = useState<number[]>([]);
+  const [expanded, setExpanded] = useState(false);
 
   const currentList = path.reduce<Category[]>((list, id) => {
     return list.find((c) => c.id === id)?.children ?? list;
   }, cats);
+
+  // At root level, sort by usage frequency descending
+  const sortedList = path.length === 0
+    ? [...currentList].sort((a, b) => subtreeCount(b, usageCounts) - subtreeCount(a, usageCounts))
+    : currentList;
 
   function handleSelect(cat: Category) {
     if (cat.children.length === 0) {
@@ -118,6 +137,18 @@ function CategoryDrillDown({
     borderBottom: "1px solid var(--hairline)",
   };
 
+  // At root level: show top COLLAPSED_LIMIT, plus always include the selected root
+  const top = sortedList.slice(0, COLLAPSED_LIMIT);
+  const selectedRoot = selected !== null
+    ? sortedList.find((c) => c.id === selected || findSelectedChild(c, selected) !== null)
+    : null;
+  const collapsedList = selectedRoot && !top.some((c) => c.id === selectedRoot.id)
+    ? [...top, selectedRoot]
+    : top;
+
+  const hasMore = path.length === 0 && sortedList.length > collapsedList.length;
+  const displayList = path.length === 0 && !expanded ? collapsedList : sortedList;
+
   return (
     <div style={{ borderRadius: 11, border: "1px solid var(--hairline)", overflow: "hidden", background: "var(--canvas)" }}>
       {path.length > 0 && (
@@ -125,7 +156,7 @@ function CategoryDrillDown({
           ← Quay lại
         </button>
       )}
-      {currentList.map((cat) => {
+      {displayList.map((cat) => {
         const isSelected = cat.id === selected || (cat.children.length > 0 && findSelectedChild(cat, selected) !== null);
         const childLabel = findSelectedChild(cat, selected);
         return (
@@ -148,6 +179,15 @@ function CategoryDrillDown({
           </button>
         );
       })}
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          style={{ ...rowStyle, color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14, justifyContent: "center", borderBottom: "none" }}
+        >
+          {expanded ? "Thu gọn ↑" : `Xem thêm ${sortedList.length - collapsedList.length} danh mục ↓`}
+        </button>
+      )}
     </div>
   );
 }
@@ -341,7 +381,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   // the call site (see DashboardTemplate), so the useState initializers above
   // re-run for the new transaction — no prop-sync effect needed.
 
-  const { data: catData } = useSWR<{ categories: Category[] }>(
+  const { data: catData } = useSWR<{ categories: Category[]; usage_counts: Record<number, number> }>(
     open && !isRepayment ? "/api/categories" : null, fetcher,
   );
   const { data: debtsData } = useSWR<{ lending: OpenDebt[]; borrowing: OpenDebt[] }>(
@@ -353,6 +393,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
   const allCats = catData?.categories ?? [];
   const cats = allCats.filter((c) => c.type === type);
+  const usageCounts = catData?.usage_counts ?? {};
   const openLends = debtsData?.lending ?? [];
   const openBorrows = debtsData?.borrowing ?? [];
   const customBudgets = cbData?.custom_budgets ?? [];
@@ -614,7 +655,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 10, letterSpacing: 0.5, textTransform: "uppercase" }}>
                 Danh mục {selectedCatPath.length > 0 && <span style={{ color: "var(--primary)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>· {selectedCatPath.join(" › ")}</span>}
               </p>
-              <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => { setCategoryId(id); setError(""); }} />
+              <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => { setCategoryId(id); setError(""); }} usageCounts={usageCounts} />
             </div>
           )}
 
