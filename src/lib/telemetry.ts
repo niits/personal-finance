@@ -65,10 +65,16 @@ export function startAITrace(
       tracer: provider.getTracer("ai"),
     },
     flush: async () => {
+      const timeout = new Promise<void>((resolve) => setTimeout(resolve, 5000));
       try {
-        await provider.forceFlush();
-        await exporter.forceFlush(); // drains the Langfuse HTTP queue
-        await provider.shutdown();
+        await Promise.race([
+          (async () => {
+            await provider.forceFlush();
+            await exporter.forceFlush();
+            await provider.shutdown();
+          })(),
+          timeout,
+        ]);
       } catch (err) {
         console.error("[langfuse] trace flush failed:", err);
       }
