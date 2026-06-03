@@ -22,7 +22,8 @@ Quy tắc:
 1. Mỗi danh mục nhận đúng 1 emoji Unicode
 2. Emoji phải đại diện trực quan cho danh mục (ví dụ: Ăn uống → 🍜, Di chuyển → 🚗, Lương → 💰)
 3. Ưu tiên emoji phổ biến, dễ nhận diện trên iPhone
-4. Không dùng chữ cái, số, hay ký tự đặc biệt — chỉ emoji`;
+4. Không dùng chữ cái, số, hay ký tự đặc biệt — chỉ emoji
+5. Trả về JSON với cấu trúc: {"assignments": [{"id": <số>, "emoji": "<emoji>"}]}`;
 
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);

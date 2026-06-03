@@ -43,7 +43,8 @@ Quy tắc:
 5. example_notes phải là ghi chú thực từ danh sách giao dịch, không tự tạo
 6. Gom nhóm theo hành vi chi tiêu, không theo tên thương hiệu
 7. Chỉ gợi ý khi có ít nhất 3 giao dịch tương tự
-8. Trả về danh sách rỗng nếu không tìm thấy gợi ý phù hợp`;
+8. Trả về danh sách rỗng nếu không tìm thấy gợi ý phù hợp
+9. Phản hồi theo định dạng JSON`;
 
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);

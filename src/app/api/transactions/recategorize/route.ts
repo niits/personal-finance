@@ -38,7 +38,8 @@ Quy tắc:
 2. suggested_category_id PHẢI là ID từ danh sách danh mục lá đã cung cấp
 3. Không gợi ý nếu danh mục hiện tại đã phù hợp
 4. reason ngắn gọn, 1 câu tiếng Việt
-5. Trả về danh sách rỗng nếu mọi danh mục đã phù hợp`;
+5. Trả về danh sách rỗng nếu mọi danh mục đã phù hợp
+6. Phản hồi theo định dạng JSON`;
 
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
