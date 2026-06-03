@@ -24,7 +24,7 @@ export async function runAIObject<T>(opts: {
   traceName?: string;
   userId?: string;
 }): Promise<T> {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env, ctx } = await getCloudflareContext({ async: true });
   const model = createAIGatewayProvider(env as Cloudflare.Env)("openai/gpt-4.1-nano");
   const trace = startAITrace(env as Cloudflare.Env, {
     name: opts.traceName ?? "ai-object",
@@ -51,7 +51,7 @@ export async function runAIObject<T>(opts: {
     }
     throw structuredErr;
   } finally {
-    await trace.flush();
+    ctx.waitUntil(trace.flush());
   }
 }
 
