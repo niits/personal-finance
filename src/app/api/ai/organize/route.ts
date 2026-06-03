@@ -81,7 +81,7 @@ Giao dịch:
 ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type, category: t.cat_name, category_id: t.category_id })))}`;
 
   let result: z.infer<typeof OrganizeSchema>;
-  const { env } = await getCloudflareContext({ async: true });
+  const { env, ctx } = await getCloudflareContext({ async: true });
   const trace = startAITrace(env as Cloudflare.Env, { name: "organize", userId });
   try {
     const model = await getOpenAIModel();
@@ -91,7 +91,7 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
     console.error("[ai/organize] AI error:", err);
     return Response.json({ error: "AI_ERROR" }, { status: 502 });
   } finally {
-    await trace.flush();
+    ctx.waitUntil(trace.flush());
   }
 
   const validCategoryIds = new Set(categories.map((c) => c.id));

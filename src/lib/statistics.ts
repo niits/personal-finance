@@ -197,7 +197,7 @@ When reporting a forecast or spending trend over time, use chart_type="line" wit
   let capturedInsights: Insight[] | null = null as Insight[] | null;
   let stepIndex = 0;
   const model = await getOpenAIModel();
-  const { env } = await getCloudflareContext({ async: true });
+  const { env, ctx } = await getCloudflareContext({ async: true });
   const trace = startAITrace(env as Cloudflare.Env, {
     name: "statistics-agent",
     userId,
@@ -322,7 +322,7 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
   } catch (agentErr) {
     console.error("[stats-agent] generateText error:", agentErr);
   } finally {
-    await trace.flush();
+    ctx.waitUntil(trace.flush());
   }
 
   if (!capturedInsights || capturedInsights.length === 0) {
