@@ -120,6 +120,7 @@ export interface StatisticsReportTable {
   user_id: string;
   period_type: "monthly";
   period_key: string;
+  headline: string | null; // Big Idea — one Vietnamese sentence the whole report supports
   insights: string; // JSON: Insight[]
   is_dirty: Generated<number>;
   generated_at: Generated<number>;

@@ -55,10 +55,18 @@ export async function runAIObject<T>(opts: {
   }
 }
 
-// gpt-4o via Cloudflare AI Gateway — used for statistics agent (long context, streaming)
+// gpt-4o via Cloudflare AI Gateway — the strong general model. Used by the organize
+// route and by the statistics synthesis phase (turning gathered data into insights).
 export async function getOpenAIModel(): Promise<LanguageModel> {
   const { env } = await getCloudflareContext({ async: true });
   return createAIGatewayProvider(env as Cloudflare.Env)("openai/gpt-4o");
+}
+
+// gpt-4o-mini via AI Gateway — cheap, fast tool-calling for the statistics exploration
+// phase, which only gathers metric data and writes no prose.
+export async function getStatsExploreModel(): Promise<LanguageModel> {
+  const { env } = await getCloudflareContext({ async: true });
+  return createAIGatewayProvider(env as Cloudflare.Env)("openai/gpt-4o-mini");
 }
 
 export { generateText };

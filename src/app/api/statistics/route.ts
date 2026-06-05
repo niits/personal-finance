@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const db = await getKysely();
     const row = await db
       .selectFrom("statistics_report")
-      .select(["insights", "is_dirty", "generated_at"])
+      .select(["headline", "insights", "is_dirty", "generated_at"])
       .where("user_id", "=", session.user.id)
       .where("period_type", "=", "monthly")
       .where("period_key", "=", periodKey)
@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
         found: true,
         period_key: periodKey,
         period_type: "monthly",
+        headline: row.headline,
         insights,
         is_dirty: row.is_dirty === 1,
         is_current_period: isCurrentPeriod,
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       const db = await getKysely();
       const row = await db
         .selectFrom("statistics_report")
-        .select(["insights", "generated_at"])
+        .select(["headline", "insights", "generated_at"])
         .where("user_id", "=", userId)
         .where("period_type", "=", "monthly")
         .where("period_key", "=", periodKey)
@@ -92,6 +93,7 @@ export async function POST(request: NextRequest) {
           found: true,
           period_key: periodKey,
           period_type: "monthly",
+          headline: row?.headline ?? null,
           insights,
           is_dirty: false,
           is_current_period: periodKey === currentBudgetMonth(),

@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { sql } from "kysely";
-import { tool, stepCountIs } from "ai";
+import { tool, stepCountIs, generateObject } from "ai";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getKysely } from "@/lib/db";
-import { getOpenAIModel, generateText } from "@/lib/llm";
+import { getStatsExploreModel, getOpenAIModel, generateText } from "@/lib/llm";
 import { startAITrace } from "@/lib/telemetry";
 import { getBudgetPeriod, currentDate } from "@/lib/validators";
 import { createAnalyticsService } from "@/lib/analytics/service";
@@ -23,7 +23,7 @@ export type ForecastMeta = {
   next_period_start: string;
 };
 
-export type ChartDatum = { name: string; value: number; series?: string };
+export type ChartDatum = { name: string; value: number; series?: string; highlight?: boolean };
 
 export type Insight = {
   type?: InsightType;
@@ -84,7 +84,7 @@ export async function generateStatisticsReport(
   const now = Math.floor(Date.now() / 1000);
 
   if (effectiveEnd < periodStart) {
-    await saveReport(db, userId, periodType, periodKey, [], now);
+    await saveReport(db, userId, periodType, periodKey, null, [], now);
     return;
   }
 
@@ -97,7 +97,7 @@ export async function generateStatisticsReport(
     .executeTakeFirst();
 
   if ((txCount?.cnt ?? 0) === 0) {
-    await saveReport(db, userId, periodType, periodKey, [], now);
+    await saveReport(db, userId, periodType, periodKey, null, [], now);
     return;
   }
 
@@ -107,20 +107,24 @@ export async function generateStatisticsReport(
     name: z.string().describe("Category label or ISO date — never the key 'category'"),
     value: z.number().describe("Raw numeric amount (no formatting, no units)"),
     series: z.string().optional().describe("Group label, only for bar_grouped"),
+    highlight: z.boolean().optional()
+      .describe("Set true on the SINGLE most important row (the one the takeaway is about). That bar renders in the accent color; every other bar renders gray. One chart = one focal point. Omit on grouped/series charts."),
   });
 
   const insightItemSchema = z.object({
     type: z.enum(["analysis", "recommendation", "alert"]),
     title: z.string().max(60).describe("Specific Vietnamese headline, max 45 chars"),
     summary: z.string().max(220).describe("One-sentence Vietnamese caption, ≤160 chars"),
-    chart_type: z.enum(["pie", "bar", "bar_grouped", "line"]).optional()
-      .describe("Required for 'analysis' and numeric 'alert'."),
+    chart_type: z.enum(["bar", "bar_grouped", "line"]).optional()
+      .describe("Required for 'analysis' and numeric 'alert'. Horizontal bar by default."),
     chart_data: z.array(chartDatumSchema).optional()
       .describe("Structured rows for the chart. Required whenever chart_type is set."),
     value_unit: z.enum(["currency", "percent", "count"]).optional(),
   });
 
-  const insightSchema = z.object({
+  const reportSchema = z.object({
+    headline: z.string().max(120)
+      .describe("ONE Vietnamese sentence — the single Big Idea of the month that every insight supports. State what the data MEANS and the action to take, ≤90 chars. e.g. 'Bạn đang trên đà vượt ngân sách 1.2tr vì ăn uống tăng mạnh.'"),
     insights: z.array(insightItemSchema).min(3).max(5),
   });
 
@@ -139,39 +143,40 @@ export async function generateStatisticsReport(
     ? `\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
     : "";
 
-  const SYSTEM = `You are a trusted personal finance advisor.${objectiveLine}
+  // Phase 1 — cheap model gathers evidence. It writes NO conclusions.
+  const EXPLORE_SYSTEM = `You are a financial data analyst gathering evidence for a monthly report. Use the tools to explore the user's spending from multiple angles. Do NOT write conclusions — a separate step does that.
 
 ## Available metrics
 ${catalogText}
 
-## Instructions
-Call query_metrics at least 3 times with DIFFERENT metrics or group_by to explore multiple angles.
-Suggested sequence:
+## Required exploration
+Call query_metrics at least 3 times with DIFFERENT metrics or group_by:
 1. query_metrics(["budget_remaining", "budget_used_pct", "daily_pace", "projected_total"]) — budget overview
 2. query_metrics(["total_expense"], group_by=[{name:"category__path"}], limit=8, compare_previous_period=true) — category breakdown with MoM
 3. query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"week"}]) — weekly trend
-Then call get_notable_transactions and generate_insights with 3–5 insights.
+Then call get_notable_transactions. Stop once you have enough evidence.`;
+
+  // Phase 2 — strong model turns the gathered data into the report. This is where
+  // the storytelling quality lives, so it runs on the more capable model.
+  const SYNTH_SYSTEM = `You are a trusted personal finance advisor writing a monthly report from data that has ALREADY been gathered.${objectiveLine}
+
+## Big Idea (headline)
+First write ONE headline: the single most important takeaway of the month, stating what the data MEANS and what to do about it. Every insight you write must support this one idea.
 
 ## Insight rules
 - Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.
   ❌ "Chi tiêu theo danh mục" ✅ "Ăn uống chiếm 35% — tăng 12% so tháng trước"
 - Summary = adds context the chart cannot show (max 160 chars, Vietnamese)
 - Mix types: include at least 1 "analysis", 1 "recommendation", and 1 "alert" (if data warrants it)
-- Never use pie charts — use bar (sorted desc) instead
-- chart_data values MUST be EXACT integers copied from tool results. Never round, estimate, or recalculate.
+- FOCUS: in each single-metric bar chart, set highlight=true on the ONE row the takeaway is about (the overspending category, the worst day). Leave all other rows unhighlighted so the chart has a single focal point. Do not highlight grouped/series charts.
+- Use bar (sorted desc) for category comparison and line for trends over time.
+- chart_data values MUST be EXACT integers copied from the DATA section. Never round, estimate, or recalculate.
 - Cap bar charts at 5 rows, group tail as "Khác"
 - For bar chart names: ≤ 12 chars, abbreviate if needed
-- budget_remaining, budget_used_pct etc. come from query_metrics — NEVER compute them yourself
+- budget_remaining, budget_used_pct etc. come straight from the DATA — NEVER compute them yourself
 - ALL values in chart_data MUST match value_unit: if value_unit="percent" every value must be 0–100; if value_unit="currency" every value must be a VND amount (≥ 1000). NEVER mix different unit types in one chart (e.g. budget_remaining in VND alongside budget_used_pct as percent is WRONG — pick one metric type only).
 - For a budget insight showing usage, use ONLY budget_used_pct with value_unit="percent" — do NOT add budget_remaining (a VND amount) to the same chart
-
-## Forecast insight chart rules
-When reporting a forecast or spending trend over time, use chart_type="line" with:
-- time series data: query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"day"}]) for each day
-- chart_data rows: [{name: "2026-05-01", value: 500000, series: "Thực tế"}, ...]
-- Add ONE extra row per day for the budget daily pace as series="Ngân sách":
-  budget daily = round(budget_amount / days_total); get budget_amount from query_metrics(["budget_remaining"]) result
-- Use bar_grouped or line chart, NOT a bar chart mixing different metric types (projected_total, budget_remaining, daily_pace in one chart is WRONG)`;
+- Do NOT produce a spending-over-time "Thực tế vs Ngân sách" chart — a forecast chart is added automatically.`;
 
   // ── Tool schemas derived from catalog ─────────────────────────────────────
 
@@ -192,26 +197,28 @@ When reporting a forecast or spending trend over time, use chart_type="line" wit
     descending: z.boolean().default(false),
   });
 
-  // ── Agent loop ─────────────────────────────────────────────────────────────
+  // ── Phase 1: exploration (cheap model gathers evidence) ────────────────────
 
-  let capturedInsights: Insight[] | null = null as Insight[] | null;
+  // Every query_metrics / get_notable_transactions result is captured here so the
+  // synthesis model writes insights only from real numbers it can see in-context.
+  const collected: { tool: string; input: unknown; output: unknown }[] = [];
   let stepIndex = 0;
-  const model = await getOpenAIModel();
+  const exploreModel = await getStatsExploreModel();
   const { env, ctx } = await getCloudflareContext({ async: true });
-  const trace = startAITrace(env as Cloudflare.Env, {
-    name: "statistics-agent",
+  const exploreTrace = startAITrace(env as Cloudflare.Env, {
+    name: "statistics-explore",
     userId,
     metadata: { periodKey },
   });
 
   try {
     await generateText({
-      model,
-      system: SYSTEM,
-      stopWhen: stepCountIs(10),
-      maxOutputTokens: 4096,
-      experimental_telemetry: trace.telemetry,
-      prompt: `Analyze spending for period ${periodKey} (${periodStart} to ${effectiveEnd}). Prior months: ${prevMonthKey(periodKey)}, ${prevMonthKey(prevMonthKey(periodKey))}.`,
+      model: exploreModel,
+      system: EXPLORE_SYSTEM,
+      stopWhen: stepCountIs(8),
+      maxOutputTokens: 2048,
+      experimental_telemetry: exploreTrace.telemetry,
+      prompt: `Explore spending for period ${periodKey} (${periodStart} to ${effectiveEnd}). Prior months: ${prevMonthKey(periodKey)}, ${prevMonthKey(prevMonthKey(periodKey))}.`,
       tools: {
         list_metrics: tool({
           description: "List all available metrics with their valid dimensions and time grains. Call this first to discover what you can query.",
@@ -251,6 +258,7 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
                 ...args,
               });
               emit?.({ type: "tool_result", tool: "query_metrics", rows: result.rows.length, callId, durationMs: Date.now() - startMs });
+              collected.push({ tool: "query_metrics", input: args, output: result });
               return result;
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
@@ -292,42 +300,72 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
               .limit(args.limit)
               .execute();
             emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: rows.length, callId, durationMs: Date.now() - startMs });
+            collected.push({ tool: "get_notable_transactions", input: args, output: rows });
             return rows;
           },
         }),
 
-        generate_insights: tool({
-          description: "Generate the final structured finance report with 3–5 insights. Call this LAST after querying data.",
-          inputSchema: insightSchema,
-          outputSchema: z.object({ status: z.string(), count: z.number() }),
-          execute: async (args) => {
-            capturedInsights = (args as z.infer<typeof insightSchema>).insights as Insight[];
-            const callId = Math.random().toString(36).slice(2, 10);
-            emit?.({ type: "tool_call", tool: "generate_insights", label: "Tổng hợp nhận xét", callId, stepIndex });
-            emit?.({ type: "tool_result", tool: "generate_insights", rows: capturedInsights.length, callId, durationMs: 0 });
-            return { status: "saved", count: capturedInsights.length };
-          },
-        }),
       },
-      onStepFinish({ stepNumber, toolCalls, finishReason, text }) {
+      onStepFinish({ stepNumber }) {
         stepIndex = stepNumber;
-        console.log("[stats-agent] step", {
-          stepNumber,
-          finishReason,
-          toolCalls: toolCalls.map((tc) => tc.toolName),
-          hasText: !!text?.trim(),
-        });
       },
     });
-  } catch (agentErr) {
-    console.error("[stats-agent] generateText error:", agentErr);
+  } catch (exploreErr) {
+    console.error("[stats-agent] exploration error:", exploreErr);
   } finally {
-    ctx.waitUntil(trace.flush());
+    ctx.waitUntil(exploreTrace.flush());
   }
 
-  if (!capturedInsights || capturedInsights.length === 0) {
+  if (collected.length === 0) {
+    throw new Error("AI không thu thập được dữ liệu — thử lại sau");
+  }
+
+  // ── Phase 2: synthesis (strong model writes the report from gathered data) ──
+
+  const dataContext = collected
+    .map((c, i) => `[${i + 1}] ${c.tool}(${JSON.stringify(c.input)})\n${JSON.stringify(c.output)}`)
+    .join("\n\n");
+
+  const synthCallId = Math.random().toString(36).slice(2, 10);
+  emit?.({ type: "tool_call", tool: "generate_insights", label: "Tổng hợp nhận xét", callId: synthCallId, stepIndex });
+
+  const synthTrace = startAITrace(env as Cloudflare.Env, {
+    name: "statistics-synthesize",
+    userId,
+    metadata: { periodKey },
+  });
+
+  let report: z.infer<typeof reportSchema> | null = null;
+  try {
+    const synthModel = await getOpenAIModel();
+    const { object } = await generateObject({
+      model: synthModel,
+      schema: reportSchema,
+      system: SYNTH_SYSTEM,
+      maxOutputTokens: 4096,
+      experimental_telemetry: synthTrace.telemetry,
+      prompt: `Period ${periodKey} (${periodStart} → ${effectiveEnd}).
+
+## DATA (use ONLY these numbers — copy integers exactly)
+${dataContext}
+
+Write the headline and 3–5 insights.`,
+    });
+    report = object;
+  } catch (synthErr) {
+    console.error("[stats-agent] synthesis error:", synthErr);
+    emit?.({ type: "tool_error", tool: "generate_insights", message: synthErr instanceof Error ? synthErr.message : String(synthErr), callId: synthCallId });
+  } finally {
+    ctx.waitUntil(synthTrace.flush());
+  }
+
+  if (!report || report.insights.length === 0) {
     throw new Error("AI không tạo được nhận xét — thử lại sau");
   }
+  emit?.({ type: "tool_result", tool: "generate_insights", rows: report.insights.length, callId: synthCallId, durationMs: 0 });
+
+  const capturedInsights: Insight[] = report.insights as Insight[];
+  const headline = report.headline;
 
   // Pre-build the forecast line chart so it always uses accurate cumsum data,
   // not the AI's approximation (which caused NaN y-axis labels).
@@ -425,7 +463,7 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
     ? [forecastInsight, ...sanitizedAiInsights]
     : sanitizedAiInsights;
 
-  await saveReport(db, userId, periodType, periodKey, finalInsights, now);
+  await saveReport(db, userId, periodType, periodKey, headline, finalInsights, now);
 }
 
 async function saveReport(
@@ -433,6 +471,7 @@ async function saveReport(
   userId: string,
   periodType: "monthly",
   periodKey: string,
+  headline: string | null,
   insights: Insight[],
   now: number,
 ): Promise<void> {
@@ -443,12 +482,14 @@ async function saveReport(
       user_id: userId,
       period_type: periodType,
       period_key: periodKey,
+      headline,
       insights: payload,
       is_dirty: 0,
       generated_at: now,
     })
     .onConflict((oc) =>
       oc.columns(["user_id", "period_type", "period_key"]).doUpdateSet({
+        headline,
         insights: payload,
         is_dirty: 0,
         generated_at: now,

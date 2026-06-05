@@ -13,6 +13,7 @@ export type AgentStep = AgentEvent & { id: number };
 export type Report = {
   found: true;
   period_key: string;
+  headline?: string | null;
   insights: Insight[];
   is_dirty: boolean;
   is_current_period: boolean;
@@ -292,6 +293,15 @@ function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec |
     } as TopLevelSpec;
   }
 
+  // storytelling-with-data Step 4 (focus attention): when the synthesizer flags one
+  // row as highlight=true, paint that bar in the accent color and everything else gray
+  // so the chart has a single focal point. Without a flag, all bars stay accent.
+  const hasHighlight = !grouped && data.some((d) => d.highlight === true);
+  const barMuted = onDark ? "rgba(255,255,255,0.22)" : "#cfcfd4";
+  const singleBarColor = hasHighlight
+    ? { condition: { test: "datum.highlight === true", value: PRIMARY }, value: barMuted }
+    : { value: PRIMARY };
+
   return {
     ...base,
     height: Math.max(180, Math.min(360, distinctNames * (grouped ? 32 : 28) + 40)),
@@ -304,7 +314,7 @@ function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec |
             color: { field: "series", type: "nominal", legend: { title: null } },
             yOffset: { field: "series", type: "nominal" },
           }
-        : { color: { value: PRIMARY } }),
+        : { color: singleBarColor }),
       tooltip: [
         { field: "name", type: "nominal", title: "Mục" },
         ...(grouped ? [{ field: "series", type: "nominal" as const, title: "Nhóm" }] : []),
@@ -497,8 +507,8 @@ export function StatisticsTemplate({
           </span>
           <button type="button" style={chevron(isAtUpperBound)} onClick={() => !isAtUpperBound && onNextMonth()}>›</button>
         </div>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--body-muted)", textAlign: "center", letterSpacing: -0.1 }}>
-          Phân tích chi tiêu
+        <p style={{ fontFamily: "var(--font-body)", fontSize: report?.headline ? 14 : 12, fontWeight: report?.headline ? 500 : 400, color: "var(--body-muted)", textAlign: "center", letterSpacing: -0.1, lineHeight: 1.4, margin: 0 }}>
+          {report?.headline || "Phân tích chi tiêu"}
         </p>
       </div>
 
