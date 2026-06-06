@@ -17,6 +17,7 @@ import { markStatsDirty } from "@/lib/statistics";
 type TxnRow = {
   id: number;
   amount: number;
+  linked_amount: number | null;
   type: "expense" | "income";
   note: string | null;
   emoji: string | null;
@@ -67,6 +68,7 @@ function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: s
   return {
     id: row.id,
     amount: row.amount,
+    linked_amount: row.linked_amount ?? null,
     type: row.type,
     emoji: row.emoji ?? null,
     category: row.cat_id
@@ -118,6 +120,7 @@ export async function GET(request: NextRequest) {
     .select([
       "t.id",
       "t.amount",
+      "t.linked_amount",
       "t.type",
       "t.note",
       "t.emoji",
@@ -253,9 +256,12 @@ export async function POST(request: NextRequest) {
     if (debt.status === "settled")
       return Errors.validation("Khoản nợ này đã tất toán");
 
+    const linkedAmount = (typeof b.linked_amount === "number" && Number.isInteger(b.linked_amount) && b.linked_amount > 0)
+      ? b.linked_amount : null;
+
     const result = await db
       .insertInto("transaction")
-      .values({ user_id: userId, amount, type: b.type as "expense" | "income", note, emoji, date, debt_id: debtId })
+      .values({ user_id: userId, amount, type: b.type as "expense" | "income", note, emoji, date, debt_id: debtId, linked_amount: linkedAmount })
       .returning("id")
       .executeTakeFirst();
 

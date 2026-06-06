@@ -5,6 +5,7 @@ export type LinkedTransaction = {
   id: number;
   type: "expense" | "income";
   amount: number;
+  linked_amount: number | null;
   date: string;
   note: string | null;
   emoji: string | null;
@@ -74,7 +75,7 @@ export async function getDebtWithRepayments(
 
   const txRows = await db
     .selectFrom("transaction")
-    .select(["id", "type", "amount", "date", "note", "emoji"])
+    .select(["id", "type", "amount", "linked_amount", "date", "note", "emoji"])
     .where("debt_id", "=", debtId)
     .orderBy("date", "asc")
     .orderBy("id", "asc")
@@ -84,8 +85,8 @@ export async function getDebtWithRepayments(
   const openingTx = txRows.find((t) => t.id === openingId);
   const repayments = txRows.filter((t) => t.id !== openingId);
 
-  const opening_amount = openingTx?.amount ?? 0;
-  const total_repaid = repayments.reduce((s, t) => s + t.amount, 0);
+  const opening_amount = openingTx ? (openingTx.linked_amount ?? openingTx.amount) : 0;
+  const total_repaid = repayments.reduce((s, t) => s + (t.linked_amount ?? t.amount), 0);
   const remaining = computeRemaining(opening_amount, total_repaid);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -108,6 +109,7 @@ export async function getDebtWithRepayments(
       id: t.id,
       type: t.type,
       amount: t.amount,
+      linked_amount: t.linked_amount,
       date: t.date,
       note: t.note,
       emoji: t.emoji,

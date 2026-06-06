@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   try { body = await req.json() as Record<string, unknown>; }
   catch { return Errors.validation("Invalid JSON"); }
 
-  const { type, party, note, due_date, amount, date, transaction_note } = body;
+  const { type, party, note, due_date, amount, date, transaction_note, linked_amount } = body;
 
   if (type !== "lend" && type !== "borrow")
     return Errors.validation("type must be 'lend' or 'borrow'");
@@ -52,6 +52,11 @@ export async function POST(req: NextRequest) {
     return Errors.validation("date must be YYYY-MM-DD");
   if (due_date !== undefined && due_date !== null && typeof due_date !== "string")
     return Errors.validation("due_date must be YYYY-MM-DD or null");
+
+  const linkedAmount = (linked_amount !== undefined && linked_amount !== null)
+    ? (typeof linked_amount === "number" && Number.isInteger(linked_amount) && linked_amount > 0
+        ? linked_amount : null)
+    : null;
 
   const debtId = crypto.randomUUID();
   const txType = debtOpeningTxType(type);
@@ -67,9 +72,9 @@ export async function POST(req: NextRequest) {
     ).bind(debtId, userId, type, party.trim(), note ?? null, due_date ?? null),
 
     d1.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, note, debt_id)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).bind(userId, amount, txType, date, transaction_note ?? null, debtId),
+      `INSERT INTO "transaction" (user_id, amount, type, date, note, debt_id, linked_amount)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(userId, amount, txType, date, transaction_note ?? null, debtId, linkedAmount),
   ]);
 
   const openingTxId = (txResult as { meta: { last_row_id: number } }).meta.last_row_id;

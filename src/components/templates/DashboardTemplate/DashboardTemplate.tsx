@@ -24,6 +24,7 @@ export type DashboardData = {
 export type Transaction = {
   id: number;
   amount: number;
+  linked_amount: number | null;
   type: "expense" | "income";
   emoji: string | null;
   category: { id: number; name: string; emoji: string | null; path: string } | null;
@@ -483,6 +484,7 @@ export function DashboardTemplate({
           transaction: {
             id: editTxn.id,
             amount: editTxn.amount,
+            linked_amount: editTxn.linked_amount,
             type: editTxn.type,
             emoji: editTxn.emoji,
             category: editTxn.category,

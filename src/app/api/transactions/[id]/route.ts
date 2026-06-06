@@ -253,6 +253,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     updated_at: sql`unixepoch()`,
   };
   if (b.amount !== undefined) updateValues.amount = newAmount;
+  if ("linked_amount" in b) {
+    const la = b.linked_amount;
+    updateValues.linked_amount = (typeof la === "number" && Number.isInteger(la) && la > 0) ? la : null;
+  }
   if (b.type !== undefined) updateValues.type = newType;
   if (b.category_id !== undefined) updateValues.category_id = newCategoryId;
   if (b.note !== undefined) updateValues.note = newNote;

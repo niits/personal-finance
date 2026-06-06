@@ -31,6 +31,7 @@ export const EditMode: Story = {
       transaction: {
         id: 1,
         amount: 85000,
+        linked_amount: null,
         type: "expense",
         emoji: "🍜",
         category: { id: 3, name: "Ăn uống", path: "Sinh hoạt > Ăn uống" },
