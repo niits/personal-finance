@@ -43,6 +43,25 @@ describe("computeRemaining (SRS §3.4)", () => {
     expect(computeRemaining(0, 0)).toBe(0);
     expect(computeRemaining(0, 300_000)).toBe(-300_000);
   });
+
+  // linked_amount contract: callers pass COALESCE(linked_amount, amount) for each
+  // transaction; computeRemaining itself is just arithmetic on those resolved values.
+
+  it("UNIT-CALC-LA-1: partial opening + partial repayment → correct remaining", () => {
+    // opening tx: 900k but only 300k is the debt obligation
+    // repayment tx: 200k but only 150k goes toward the debt
+    expect(computeRemaining(300_000, 150_000)).toBe(150_000);
+  });
+
+  it("UNIT-CALC-LA-2: partial opening, full repayments can fully settle", () => {
+    // opening obligation 400k; two repayments 250k + 150k = 400k
+    expect(computeRemaining(400_000, 400_000)).toBe(0);
+  });
+
+  it("UNIT-CALC-LA-3: partial opening overpaid by partial repayments", () => {
+    // obligation 200k; partial repayments sum to 300k
+    expect(computeRemaining(200_000, 300_000)).toBe(-100_000);
+  });
 });
 
 describe("isOverdue (SRS §3.4)", () => {
