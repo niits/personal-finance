@@ -159,11 +159,11 @@ describe("PATCH transaction — link_debt_id: unlink (null)", () => {
       body: JSON.stringify({ link_debt_id: debtId }),
     });
 
-    // Log a repayment (creates a repayment income transaction linked to the same debt)
-    await SELF.fetch(`http://localhost/api/debts/${debtId}/repayments`, {
+    // Log a repayment — lend debt is repaid by an income transaction
+    await SELF.fetch("http://localhost/api/transactions", {
       method: "POST",
       headers: authHeaders(cookie),
-      body: JSON.stringify({ amount: 200_000, date: "2026-05-15" }),
+      body: JSON.stringify({ amount: 200_000, type: "income", date: "2026-05-15", debt_id: debtId }),
     });
 
     // Attempt to unlink the opening transaction — should be blocked

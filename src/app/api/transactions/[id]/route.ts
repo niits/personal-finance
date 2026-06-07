@@ -18,6 +18,7 @@ type Params = Promise<{ id: string }>;
 type TxnRow = {
   id: number;
   amount: number;
+  linked_amount: number | null;
   type: "expense" | "income";
   note: string | null;
   emoji: string | null;
@@ -53,6 +54,7 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
     .select([
       "t.id",
       "t.amount",
+      "t.linked_amount",
       "t.type",
       "t.note",
       "t.emoji",
@@ -85,6 +87,7 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
   return {
     id: txn.id,
     amount: txn.amount,
+    linked_amount: txn.linked_amount ?? null,
     type: txn.type,
     emoji: txn.emoji ?? null,
     category: txn.cat_id
