@@ -363,8 +363,15 @@ function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: 
             </div>
           )}
         </div>
-        <div style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: directionColor, flexShrink: 0 }}>
-          {fmt(tx.amount)}₫
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: directionColor }}>
+            {fmt(tx.linked_amount ?? tx.amount)}₫
+          </div>
+          {tx.linked_amount !== null && tx.linked_amount !== tx.amount && (
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
+              / {fmt(tx.amount)}₫
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -45,7 +45,7 @@ export function wipeUserData(userId: string): void {
   db.close();
 }
 
-export type SeedLevel = "minimal" | "categories" | "budget" | "full" | "debts";
+export type SeedLevel = "minimal" | "categories" | "budget" | "full" | "debts" | "debts-partial";
 
 export function seedUserData(userId: string, seed: SeedLevel): void {
   if (seed === "minimal") return;
@@ -99,7 +99,7 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
     `INSERT INTO "transaction" (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES (?, 15000000, 'income', ?, 'Lương tháng 5', ?, NULL)`,
   ).run(userId, catIds["Lương"], today);
 
-  if (seed !== "debts") { db.close(); return; }
+  if (seed !== "debts" && seed !== "debts-partial") { db.close(); return; }
 
   // Seed debts using the 3-step atomic pattern (mirrors POST /api/debts):
   //   1. INSERT debt (opening_transaction_id = NULL)
@@ -149,6 +149,31 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
     db.prepare(
       `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, note) VALUES (?, 500000, 'income', ?, ?, 'Tất toán')`,
     ).run(userId, today, settledId);
+  })();
+
+  if (seed !== "debts-partial") { db.close(); return; }
+
+  // ── Extra debt with partial linked_amount (for linked_amount E2E tests) ────
+  //
+  // Scenario: dinner bill 900k, only 300k is a loan to "Bạn Tùng".
+  // Friend gave back 200k cash, of which 150k applies to the debt.
+  //
+  //   opening_amount = 300k (linked_amount)
+  //   total_repaid   = 150k (linked_amount on repayment)
+  //   remaining      = 150k
+
+  const partialId = "e2e-debt-partial-1";
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO debt (id, user_id, type, party, note) VALUES (?, ?, 'lend', 'Bạn Tùng', 'Tiền ăn tối')`,
+    ).run(partialId, userId);
+    const partialOpeningId = db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, linked_amount) VALUES (?, 900000, 'expense', ?, ?, 300000)`,
+    ).run(userId, today, partialId).lastInsertRowid;
+    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(partialOpeningId, partialId);
+    db.prepare(
+      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, linked_amount, note) VALUES (?, 200000, 'income', ?, ?, 150000, 'Trả một phần')`,
+    ).run(userId, today, partialId);
   })();
 
   db.close();

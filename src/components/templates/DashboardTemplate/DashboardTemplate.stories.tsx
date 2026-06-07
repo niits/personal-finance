@@ -25,14 +25,14 @@ const mockData = {
 
 const mockTransactions = [
   {
-    id: 1, amount: 85_000, type: "expense" as const, emoji: "🍜",
+    id: 1, amount: 85_000, linked_amount: null, type: "expense" as const, emoji: "🍜",
     category: { id: 2, name: "Ăn uống", emoji: "🍜", path: "Chi tiêu / Ăn uống" },
     root_category_name: "Chi tiêu",
     note: "Bún bò sáng", date: "2025-05-15",
     custom_budgets: [], debt_id: null, debt_party: null, debt_type: null, created_at: 1747296000, updated_at: 1747296000,
   },
   {
-    id: 2, amount: 320_000, type: "expense" as const, emoji: null,
+    id: 2, amount: 320_000, linked_amount: null, type: "expense" as const, emoji: null,
     category: { id: 3, name: "Di chuyển", emoji: "🚗", path: "Chi tiêu / Di chuyển" },
     root_category_name: "Chi tiêu",
     note: "Xăng xe", date: "2025-05-15",
@@ -40,7 +40,7 @@ const mockTransactions = [
     created_at: 1747282000, updated_at: 1747282000,
   },
   {
-    id: 3, amount: 200_000, type: "expense" as const, emoji: "☕",
+    id: 3, amount: 200_000, linked_amount: null, type: "expense" as const, emoji: "☕",
     category: { id: 4, name: "Cafe", emoji: "☕", path: "Chi tiêu / Cafe" },
     root_category_name: "Chi tiêu",
     note: null, date: "2025-05-14",

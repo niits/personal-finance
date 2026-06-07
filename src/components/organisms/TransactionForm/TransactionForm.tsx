@@ -12,6 +12,7 @@ import { findSelectedChild, getCategoryPath, rootDisplay } from "./categoryDispl
 export type EditTransaction = {
   id: number;
   amount: number;
+  linked_amount: number | null;
   type: "expense" | "income";
   emoji: string | null;
   category: { id: number; name: string; path: string } | null;
@@ -181,8 +182,28 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
 
 type DebtLinkState =
   | { kind: "none" }
-  | { kind: "new-debt"; party: string; due_date: string }   // debtSubType derived from tx type
-  | { kind: "existing"; debtId: string; party: string };
+  | { kind: "new-debt"; party: string; due_date: string; linked_amount_str: string }
+  | { kind: "existing"; debtId: string; party: string; linked_amount_str: string };
+
+function DueDatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const display = value
+    ? new Date(value + "T12:00:00").toLocaleDateString("vi-VN", { day: "numeric", month: "numeric", year: "numeric" })
+    : "Chưa chọn";
+  return (
+    <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: value ? "var(--ink)" : "var(--ink-muted-48)" }}>
+        {display}
+      </span>
+      <input
+        type="date"
+        aria-label="Hạn trả"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
+      />
+    </div>
+  );
+}
 
 function DebtLinkSection({
   txType, state, onChange, openLends, openBorrows,
@@ -227,9 +248,13 @@ function DebtLinkSection({
           <Option label="Không liên kết" selected={state.kind === "none"} onSelect={() => onChange({ kind: "none" })} />
 
           {/* New debt */}
-          <Option label={newLabel} selected={state.kind === "new-debt"} onSelect={() => onChange({ kind: "new-debt", party: "", due_date: "" })} />
+          <Option
+            label={newLabel}
+            selected={state.kind === "new-debt"}
+            onSelect={() => onChange({ kind: "new-debt", party: "", due_date: "", linked_amount_str: "" })}
+          />
           {state.kind === "new-debt" && (
-            <div style={{ paddingLeft: 20, paddingBottom: 8 }}>
+            <div style={{ paddingLeft: 20, paddingBottom: 8, display: "flex", flexDirection: "column", gap: 8 }}>
               <input
                 aria-label={txType === "expense" ? "Cho vay ai" : "Vay của ai"}
                 placeholder={txType === "expense" ? "Cho vay ai…" : "Vay của ai…"}
@@ -237,15 +262,21 @@ function DebtLinkSection({
                 onChange={(e) => onChange({ ...state, party: e.target.value })}
                 style={inputStyle}
               />
-              <div style={{ marginTop: 8, position: "relative" }}>
-                <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginRight: 8 }}>Hạn trả:</span>
-                <input
-                  type="date"
-                  aria-label="Hạn trả"
-                  value={state.due_date}
-                  onChange={(e) => onChange({ ...state, due_date: e.target.value })}
-                  style={{ ...inputStyle, display: "inline-block", width: "auto" }}
-                />
+              <input
+                type="text"
+                inputMode="numeric"
+                aria-label="Số tiền nợ"
+                placeholder="Số tiền nợ (để trống = toàn bộ)"
+                value={state.linked_amount_str}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^\d]/g, "");
+                  onChange({ ...state, linked_amount_str: raw ? fmt(parseInt(raw, 10)) : "" });
+                }}
+                style={inputStyle}
+              />
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>Hạn trả:</span>
+                <DueDatePicker value={state.due_date} onChange={(v) => onChange({ ...state, due_date: v })} />
               </div>
             </div>
           )}
@@ -256,15 +287,35 @@ function DebtLinkSection({
               <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", padding: "8px 0 4px", fontWeight: 600 }}>
                 {existingLabel}
               </div>
-              {existingList.map((d) => (
-                <Option
-                  key={d.id}
-                  label={d.party}
-                  sublabel={`còn ${fmt(d.remaining)}₫`}
-                  selected={state.kind === "existing" && state.debtId === d.id}
-                  onSelect={() => onChange({ kind: "existing", debtId: d.id, party: d.party })}
-                />
-              ))}
+              {existingList.map((d) => {
+                const isSelected = state.kind === "existing" && state.debtId === d.id;
+                return (
+                  <div key={d.id}>
+                    <Option
+                      label={d.party}
+                      sublabel={`còn ${fmt(d.remaining)}₫`}
+                      selected={isSelected}
+                      onSelect={() => onChange({ kind: "existing", debtId: d.id, party: d.party, linked_amount_str: "" })}
+                    />
+                    {isSelected && (
+                      <div style={{ paddingLeft: 20, paddingBottom: 8 }}>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          aria-label="Số tiền trả nợ"
+                          placeholder="Số tiền trả (để trống = toàn bộ)"
+                          value={state.linked_amount_str}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^\d]/g, "");
+                            onChange({ ...state, linked_amount_str: raw ? fmt(parseInt(raw, 10)) : "" });
+                          }}
+                          style={inputStyle}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </>
           )}
         </div>
@@ -325,6 +376,9 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const [emoji, setEmoji] = useState<string | null>(editTx?.emoji ?? null);
   const [selectedCbIds, setSelectedCbIds] = useState<number[]>(editTx?.custom_budgets.map((c) => c.id) ?? []);
   const [debtLink, setDebtLink] = useState<DebtLinkState>({ kind: "none" });
+  const [editLinkedAmountStr, setEditLinkedAmountStr] = useState(
+    isEdit && editTx?.linked_amount ? fmt(editTx.linked_amount) : ""
+  );
   const [unlinkMode, setUnlinkMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -377,6 +431,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     setEmoji(null);
     setSelectedCbIds([]);
     setDebtLink({ kind: "none" });
+    setEditLinkedAmountStr("");
     setUnlinkMode(false);
     setError("");
   }
@@ -414,13 +469,17 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             setError(e.error ?? "Không thể hủy liên kết");
             return;
           }
-        } else if (!editTx.debt_id) {
+        } else if (editTx.debt_id) {
+          // Debt edit — also update linked_amount
+          const rawLa = editLinkedAmountStr.replace(/[^\d]/g, "");
+          body.linked_amount = rawLa ? parseInt(rawLa, 10) : null;
+        } else {
           // Normal edit — no debt
           if (!categoryId) { setError("Chọn danh mục"); return; }
           body.category_id = categoryId;
           if (type === "expense") body.custom_budget_ids = selectedCbIds;
         }
-        // debt edit: amount/note/date only
+        // debt edit: amount/note/date/linked_amount
 
         const r = await fetch(`/api/transactions/${editTx.id}`, {
           method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -434,12 +493,15 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       if (debtLink.kind === "new-debt") {
         if (!debtLink.party.trim()) { setError("Nhập tên người"); return; }
         const debtType = type === "expense" ? "lend" : "borrow";
+        const rawLa = debtLink.linked_amount_str.replace(/[^\d]/g, "");
+        const linkedAmt = rawLa ? parseInt(rawLa, 10) : null;
         const r = await fetch("/api/debts", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type: debtType, party: debtLink.party.trim(),
             due_date: debtLink.due_date || null,
             amount, date, transaction_note: note || null,
+            linked_amount: linkedAmt,
           }),
         });
         if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Lỗi"); return; }
@@ -447,9 +509,11 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       }
 
       if (debtLink.kind === "existing") {
+        const rawLa = debtLink.linked_amount_str.replace(/[^\d]/g, "");
+        const linkedAmt = rawLa ? parseInt(rawLa, 10) : null;
         const r = await fetch("/api/transactions", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: debtLink.debtId }),
+          body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: debtLink.debtId, linked_amount: linkedAmt }),
         });
         if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Lỗi"); return; }
         onSaved(); handleClose(); return;
@@ -548,20 +612,37 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
           {/* Edit: debt chip if tx is a debt tx */}
           {isEdit && editTx?.debt_id && !unlinkMode && (
-            <div style={{ background: "var(--canvas-parchment)", borderRadius: 12, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>💸</span>
-                <span style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
-                  {editTx.debt_party} · {editTx.debt_type === "lend" ? "Cho vay" : "Đi vay"}
-                  {editTx.is_opening_tx && <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginLeft: 6 }}>(Gốc)</span>}
-                </span>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ background: "var(--canvas-parchment)", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>💸</span>
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
+                    {editTx.debt_party} · {editTx.debt_type === "lend" ? "Cho vay" : "Đi vay"}
+                    {editTx.is_opening_tx && <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginLeft: 6 }}>(Gốc)</span>}
+                  </span>
+                </div>
+                <button type="button"
+                  onClick={() => setUnlinkMode(true)}
+                  className="bg-transparent border-none font-body text-[13px] text-danger cursor-pointer font-semibold"
+                >
+                  Hủy liên kết
+                </button>
               </div>
-              <button type="button"
-                onClick={() => setUnlinkMode(true)}
-                className="bg-transparent border-none font-body text-[13px] text-danger cursor-pointer font-semibold"
-              >
-                Hủy liên kết
-              </button>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 4px 2px" }}>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>Số tiền nợ</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  aria-label="Số tiền nợ"
+                  placeholder="Toàn bộ"
+                  value={editLinkedAmountStr}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^\d]/g, "");
+                    setEditLinkedAmountStr(raw ? fmt(parseInt(raw, 10)) : "");
+                  }}
+                  style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 500, color: editLinkedAmountStr ? "var(--primary)" : "var(--ink-muted-48)", border: "none", outline: "none", background: "transparent", textAlign: "right", width: 160 }}
+                />
+              </div>
             </div>
           )}
 

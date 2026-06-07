@@ -24,9 +24,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   try { body = await req.json() as Record<string, unknown>; }
   catch { return Errors.validation("Invalid JSON"); }
 
-  const { debt_id } = body;
+  const { debt_id, linked_amount } = body;
   if (typeof debt_id !== "string" || !debt_id)
     return Errors.validation("debt_id is required");
+
+  const linkedAmount = (typeof linked_amount === "number" && Number.isInteger(linked_amount) && linked_amount > 0)
+    ? linked_amount : null;
 
   const tx = await db
     .selectFrom("transaction")
@@ -57,7 +60,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   await db
     .updateTable("transaction")
-    .set({ debt_id })
+    .set({ debt_id, linked_amount: linkedAmount })
     .where("id", "=", txId)
     .execute();
 
