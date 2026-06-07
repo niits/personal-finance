@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
     const txnId = result!.id;
     const txn = await db
       .selectFrom("transaction as t")
-      .select(["t.id", "t.amount", "t.type", "t.note", "t.emoji", "t.date", "t.debt_id", "t.created_at", "t.updated_at"])
+      .select(["t.id", "t.amount", "t.linked_amount", "t.type", "t.note", "t.emoji", "t.date", "t.debt_id", "t.created_at", "t.updated_at"])
       .where("t.id", "=", txnId)
       .executeTakeFirst();
     return Response.json({ transaction: { ...txn, category: null, custom_budgets: [] } }, { status: 201 });

@@ -276,10 +276,10 @@ test.describe("linked_amount UI — TransactionForm existing debt", () => {
 
     // "Nhận lại từ:" heading and Minh row visible
     await expect(page.getByText(/Nhận lại từ/)).toBeVisible();
-    await expect(page.getByText("Minh").first()).toBeVisible();
+    await expect(page.getByText("Minh").last()).toBeVisible();
 
-    // Select Minh
-    await page.getByText("Minh").first().click();
+    // Select Minh (use .last() — the background debt page also has "Minh" in DOM)
+    await page.getByText("Minh").last().click();
 
     // Partial amount placeholder appears below the selected debt
     await expect(page.getByPlaceholder(/Số tiền trả/)).toBeVisible();
@@ -304,9 +304,9 @@ test.describe("linked_amount UI — TransactionForm existing debt", () => {
     // Enter full received amount: 400k
     await page.locator('input[aria-label="Số tiền"]').fill("400000");
 
-    // Open debt section and select Minh
+    // Open debt section and select Minh (use .last() — background debt page also has "Minh" in DOM)
     await page.getByText(/Liên kết nợ/).click();
-    await page.getByText("Minh").first().click();
+    await page.getByText("Minh").last().click();
 
     // Enter partial amount toward debt: 100k
     await page.getByPlaceholder(/Số tiền trả/).fill("100000");
