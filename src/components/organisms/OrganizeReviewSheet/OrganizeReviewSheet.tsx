@@ -90,7 +90,7 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
                       onChange={(id, checked) =>
                         setSelectedCats((prev) => {
                           const next = new Set(prev);
-                          checked ? next.add(id) : next.delete(id);
+                          if (checked) next.add(id); else next.delete(id);
                           return next;
                         })
                       }
@@ -128,7 +128,7 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
                       onChange={(id, checked) =>
                         setSelectedTxns((prev) => {
                           const next = new Set(prev);
-                          checked ? next.add(id) : next.delete(id);
+                          if (checked) next.add(id); else next.delete(id);
                           return next;
                         })
                       }

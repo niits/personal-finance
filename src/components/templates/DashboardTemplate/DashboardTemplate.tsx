@@ -80,16 +80,6 @@ function toMonthLabel(m: string) {
   return `Tháng ${parseInt(mo)}/${y}`;
 }
 
-function prevMonth(m: string) {
-  const [y, mo] = m.split("-").map(Number);
-  return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, "0")}`;
-}
-
-function nextMonth(m: string) {
-  const [y, mo] = m.split("-").map(Number);
-  return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
-}
-
 const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 function formatDateHeader(s: string) {
@@ -159,11 +149,6 @@ export function DashboardTemplate({
   onCloseForm,
   onSaved,
   onDelete,
-  organizeState,
-  organizePreview,
-  onOrganize,
-  onOrganizeApply,
-  onOrganizeClose,
   onFillEmoji,
 }: DashboardTemplateProps) {
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);

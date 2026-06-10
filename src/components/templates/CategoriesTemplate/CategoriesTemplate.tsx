@@ -100,13 +100,10 @@ export function CategoriesTemplate({
   recatSuggestions,
   recatState,
   onAddCategory,
-  onEditCategory,
-  onDeleteCategory,
   onAcceptSuggestion,
   onAcceptRecat,
   onLoadSuggestions,
   onLoadRecatSuggestions,
-  fillEmojiState,
   onFillEmoji,
 }: CategoriesTemplateProps) {
   const [newName, setNewName] = useState("");
