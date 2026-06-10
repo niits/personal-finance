@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import type { Kysely, RawBuilder } from "kysely";
 import type { Database } from "@/lib/schema";
-import { METRICS, DERIVED_METRICS, METRIC_CATALOG, type MetricName, type Breakdown, type AnyMetricName, type DimensionName, type TimeGrain } from "./metrics";
+import { METRICS, DERIVED_METRICS, type MetricName, type Breakdown, type AnyMetricName, type DimensionName, type TimeGrain } from "./metrics";
 import { getBudgetPeriod } from "@/lib/validators";
 
 export type QueryResult = {

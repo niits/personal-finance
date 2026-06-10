@@ -23,7 +23,7 @@ export type ForecastMeta = {
   next_period_start: string;
 };
 
-export type ChartDatum = { name: string; value: number; series?: string };
+export type ChartDatum = { name: string; value: number; series?: string; highlight?: boolean };
 
 export type Insight = {
   type?: InsightType;
@@ -107,14 +107,16 @@ export async function generateStatisticsReport(
     name: z.string().describe("Category label or ISO date — never the key 'category'"),
     value: z.number().describe("Raw numeric amount (no formatting, no units)"),
     series: z.string().optional().describe("Group label, only for bar_grouped"),
+    highlight: z.boolean().optional()
+      .describe("Set true on EXACTLY ONE 'bar' row — the category the title is about. It renders in the accent colour; all other rows turn grey so the eye lands on your point. Leave unset for line/bar_grouped."),
   });
 
   const insightItemSchema = z.object({
     type: z.enum(["analysis", "recommendation", "alert"]),
     title: z.string().max(60).describe("Specific Vietnamese headline, max 45 chars"),
     summary: z.string().max(220).describe("One-sentence Vietnamese caption, ≤160 chars"),
-    chart_type: z.enum(["pie", "bar", "bar_grouped", "line"]).optional()
-      .describe("Required for 'analysis' and numeric 'alert'."),
+    chart_type: z.enum(["bar", "bar_grouped", "line"]).optional()
+      .describe("Required for 'analysis' and numeric 'alert'. 'bar' = compare categories (default), 'line' = change over time, 'bar_grouped' = two series across categories."),
     chart_data: z.array(chartDatumSchema).optional()
       .describe("Structured rows for the chart. Required whenever chart_type is set."),
     value_unit: z.enum(["currency", "percent", "count"]).optional(),
@@ -157,13 +159,29 @@ Then call get_notable_transactions and generate_insights with 3–5 insights.
   ❌ "Chi tiêu theo danh mục" ✅ "Ăn uống chiếm 35% — tăng 12% so tháng trước"
 - Summary = adds context the chart cannot show (max 160 chars, Vietnamese)
 - Mix types: include at least 1 "analysis", 1 "recommendation", and 1 "alert" (if data warrants it)
-- Never use pie charts — use bar (sorted desc) instead
 - chart_data values MUST be EXACT integers copied from tool results. Never round, estimate, or recalculate.
-- Cap bar charts at 5 rows, group tail as "Khác"
-- For bar chart names: ≤ 12 chars, abbreviate if needed
 - budget_remaining, budget_used_pct etc. come from query_metrics — NEVER compute them yourself
 - ALL values in chart_data MUST match value_unit: if value_unit="percent" every value must be 0–100; if value_unit="currency" every value must be a VND amount (≥ 1000). NEVER mix different unit types in one chart (e.g. budget_remaining in VND alongside budget_used_pct as percent is WRONG — pick one metric type only).
 - For a budget insight showing usage, use ONLY budget_used_pct with value_unit="percent" — do NOT add budget_remaining (a VND amount) to the same chart
+
+## Choosing a chart — every chart MUST reveal a relationship the text cannot
+A chart earns its place only by letting the eye COMPARE. Pick the type from the data:
+- Compare amounts across categories → chart_type="bar" (horizontal, sorted desc, ≤5 rows, group the tail as "Khác", names ≤12 chars). This is the DEFAULT.
+- Change over time, ≥4 time points → chart_type="line". With <4 points, use "bar" instead.
+- Two series across SEVERAL categories (e.g. this-month vs last-month for 3–5 categories) → chart_type="bar_grouped".
+
+NEVER emit a chart that shows a single value:
+- One bar / one point conveys nothing the summary number already states. If your insight is about ONE number, put it in the title/summary and OMIT chart_type and chart_data entirely.
+- ❌ chart_data=[{name:"Cho tặng", value:2500000}] — a lone bar. Just write the number in the summary.
+- The ONLY way to chart a single value is AGAINST A REFERENCE: emit two series where the reference is named exactly "Ngân sách", "Giới hạn", "Trung bình", or "Mục tiêu" (e.g. actual spend vs its budget).
+
+## Focus attention — one accent colour per bar chart
+For every chart_type="bar", set highlight=true on EXACTLY ONE row: the category your title names. That row renders in the accent colour and the rest turn grey, so the reader's eye lands on your point. Never highlight zero or multiple rows. (line and bar_grouped manage their own colours — leave highlight unset.)
+
+## Don't manufacture a fake trend from an incomplete period
+The current period is still in progress, so its last day/week is PARTIAL and will look like a sudden crash on a line. When you build a time series:
+- Stop the line at the last COMPLETE period, OR exclude the in-progress final point.
+- Never let a partial final period drive an "alert" about spending dropping — that drop is an artifact, not a behaviour.
 
 ## Forecast insight chart rules
 When reporting a forecast or spending trend over time, use chart_type="line" with:
@@ -272,8 +290,8 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
             const rows = await db
               .selectFrom("transaction as t")
               .innerJoin("category as c", "c.id", "t.category_id")
-              .leftJoin("category as p1", "p1.id", "c.parent_id" as any)
-              .leftJoin("category as p2", "p2.id", "p1.parent_id" as any)
+              .leftJoin("category as p1", (join) => join.onRef("p1.id", "=", "c.parent_id"))
+              .leftJoin("category as p2", (join) => join.onRef("p2.id", "=", "p1.parent_id"))
               .select([
                 "t.amount",
                 "t.type",
@@ -415,8 +433,10 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
   // A percent chart with any value > 1000 is certainly carrying a VND amount by mistake.
   const sanitizedAiInsights = aiInsights.map((ins) => {
     if (ins.value_unit === "percent" && ins.chart_data?.some((d) => Math.abs(d.value) > 1000)) {
-      const { chart_type: _ct, chart_data: _cd, ...rest } = ins;
-      return rest as Insight;
+      const stripped = { ...ins };
+      delete stripped.chart_type;
+      delete stripped.chart_data;
+      return stripped;
     }
     return ins;
   });
