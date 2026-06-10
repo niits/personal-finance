@@ -9,6 +9,9 @@ import type { Insight } from "@/lib/statistics";
 // ─── Design tokens (must stay in sync with DESIGN.md) ────────────────────────
 
 const PRIMARY = "#0066cc";
+// Storytelling-with-data "focus attention": the highlighted bar is PRIMARY, every
+// other bar drops to this neutral grey so the eye lands on the one that matters.
+const MUTED = "#c7c7cc";
 const CHART_PALETTE = [PRIMARY, "#30d158", "#ff9f0a", "#bf5af2", "#32ade6", "#ff453a", "#ac8e68", "#5856d6"];
 const INK = "#1d1d1f";
 const INK_MUTED = "#7a7a7a";
@@ -102,24 +105,6 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
     data: { values: data },
   };
 
-  if (insight.chart_type === "pie") {
-    return {
-      ...base,
-      height: 260,
-      // DESIGN.md: 18px radius on cards. Donut hole + 2px white stroke gives the
-      // "tile within tile" feel without a hard border.
-      mark: { type: "arc", innerRadius: 64, outerRadius: 108, stroke: "#ffffff", strokeWidth: 2, cornerRadius: 2 },
-      encoding: {
-        theta: { field: "value", type: "quantitative", stack: true },
-        color: { field: "name", type: "nominal", legend: { title: null } },
-        tooltip: [
-          { field: "name", type: "nominal", title: "Danh mục" },
-          { field: "value", type: "quantitative", title: valueTitle, format },
-        ],
-      },
-    } as TopLevelSpec;
-  }
-
   if (insight.chart_type === "forecast_line") {
     const meta = insight.forecast_meta;
     if (!meta) return null;
@@ -167,6 +152,8 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
   }
 
   if (insight.chart_type === "line") {
+    // A line through a single point is not a trend — show nothing.
+    if (data.length < 2) return null;
     const isDate = data.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.name));
     const xEnc = isDate
       ? { field: "name", type: "temporal" as const, title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 5 } }
@@ -186,9 +173,9 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
           mark: { type: "line", color: PRIMARY, strokeWidth: 2, interpolate: "monotone" },
           encoding: { x: xEnc, y: yEnc, tooltip: lineTooltip },
         },
-        // Invisible points to widen the tooltip hit area on mobile
+        // Visible markers so each data point is locatable, not just the trend line.
         {
-          mark: { type: "point", color: PRIMARY, filled: true, size: 48, opacity: 0 },
+          mark: { type: "point", color: PRIMARY, filled: true, size: 56 },
           encoding: { x: { ...xEnc, axis: null }, y: { field: "value", type: "quantitative" as const }, tooltip: lineTooltip },
         },
       ],
@@ -199,6 +186,7 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
   const hasSeries = data.some((d) => d.series);
   const grouped = insight.chart_type === "bar_grouped" || hasSeries;
   const distinctNames = new Set(data.map((d) => d.name)).size;
+  const hasHighlight = data.some((d) => d.highlight === true);
 
   // Apple-style reference-rule: bar_grouped where exactly one series is a
   // budget/limit/average marker → draw actual data as bars, reference as a
@@ -253,6 +241,10 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
     } as TopLevelSpec;
   }
 
+  // A bar chart with a single category compares nothing — its one number already
+  // lives in the summary. Render no chart so a lone bar can never ship.
+  if (distinctNames < 2) return null;
+
   return {
     ...base,
     height: Math.max(180, Math.min(360, distinctNames * (grouped ? 32 : 28) + 40)),
@@ -265,7 +257,12 @@ function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
             color: { field: "series", type: "nominal", legend: { title: null } },
             yOffset: { field: "series", type: "nominal" },
           }
-        : { color: { value: PRIMARY } }),
+        : {
+            // Focus attention: highlighted row in the accent colour, rest grey.
+            color: hasHighlight
+              ? { condition: { test: "datum.highlight === true", value: PRIMARY }, value: MUTED }
+              : { value: PRIMARY },
+          }),
       tooltip: [
         { field: "name", type: "nominal", title: "Mục" },
         ...(grouped ? [{ field: "series", type: "nominal" as const, title: "Nhóm" }] : []),
