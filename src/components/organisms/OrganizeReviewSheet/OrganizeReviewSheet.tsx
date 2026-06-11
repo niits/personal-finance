@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { OrganizeSectionHeader } from "@/components/molecules/OrganizeSectionHeader";
 import { NewCategoryRow } from "@/components/molecules/NewCategoryRow";
 import { RecategorizationRow } from "@/components/molecules/RecategorizationRow";
+import { TransactionEmojiRow } from "@/components/molecules/TransactionEmojiRow";
 import type { OrganizePreview, OrganizeSelection } from "./types";
 
 type OrganizeReviewSheetProps = {
@@ -17,12 +18,14 @@ type OrganizeReviewSheetProps = {
 export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose }: OrganizeReviewSheetProps) {
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
   const [selectedTxns, setSelectedTxns] = useState<Set<number>>(new Set());
+  const [selectedEmojiTxns, setSelectedEmojiTxns] = useState<Set<number>>(new Set());
 
   // Reset selection whenever a new preview arrives
   useEffect(() => {
     if (preview) {
       setSelectedCats(new Set(preview.new_categories.map((c) => c.temp_id)));
       setSelectedTxns(new Set(preview.recategorizations.map((r) => r.transaction_id)));
+      setSelectedEmojiTxns(new Set(preview.emoji_reassignments.map((r) => r.transaction_id)));
     }
   }, [preview]);
 
@@ -34,13 +37,15 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
       new_categories: preview.new_categories.filter((c) => selectedCats.has(c.temp_id)),
       emoji_assignments: preview.emoji_assignments,
       recategorizations: preview.recategorizations.filter((r) => selectedTxns.has(r.transaction_id)),
+      emoji_reassignments: preview.emoji_reassignments.filter((r) => selectedEmojiTxns.has(r.transaction_id)),
     });
   }
 
   const hasAnything = preview && (
     preview.new_categories.length > 0 ||
     preview.emoji_assignments.length > 0 ||
-    preview.recategorizations.length > 0
+    preview.recategorizations.length > 0 ||
+    preview.emoji_reassignments.length > 0
   );
 
   return (
@@ -127,6 +132,30 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
                       checked={selectedTxns.has(r.transaction_id)}
                       onChange={(id, checked) =>
                         setSelectedTxns((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(id); else next.delete(id);
+                          return next;
+                        })
+                      }
+                    />
+                  ))}
+                </section>
+              )}
+
+              {(preview?.emoji_reassignments.length ?? 0) > 0 && (
+                <section>
+                  <OrganizeSectionHeader title="Đổi emoji giao dịch" count={preview!.emoji_reassignments.length} />
+                  {preview!.emoji_reassignments.map((r) => (
+                    <TransactionEmojiRow
+                      key={r.transaction_id}
+                      transactionId={r.transaction_id}
+                      note={r.note}
+                      currentEmoji={r.current_emoji}
+                      suggestedEmoji={r.emoji}
+                      reason={r.reason}
+                      checked={selectedEmojiTxns.has(r.transaction_id)}
+                      onChange={(id, checked) =>
+                        setSelectedEmojiTxns((prev) => {
                           const next = new Set(prev);
                           if (checked) next.add(id); else next.delete(id);
                           return next;
