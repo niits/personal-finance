@@ -111,9 +111,9 @@ test.describe("Dashboard — AI surface controls", () => {
     await resetTestData("full");
   });
 
-  test("sparkle button (Gợi ý emoji) is visible in header", async ({ page }) => {
+  test("sparkle button (Sắp xếp bằng AI) is visible in header", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByTitle("Gợi ý emoji")).toBeVisible();
+    await expect(page.getByTitle("Sắp xếp bằng AI")).toBeVisible();
   });
 
   test("no Tổ chức button on dashboard", async ({ page }) => {

@@ -25,6 +25,13 @@ const ApplySchema = z.object({
     suggested_category_name: z.string(),
     reason: z.string(),
   })),
+  emoji_reassignments: z.array(z.object({
+    transaction_id: z.number().int(),
+    note: z.string(),
+    current_emoji: z.string().nullable(),
+    emoji: z.string(),
+    reason: z.string(),
+  })),
 });
 
 export async function POST(request: NextRequest) {
@@ -35,7 +42,7 @@ export async function POST(request: NextRequest) {
   const parsed = ApplySchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: "INVALID_BODY" }, { status: 400 });
 
-  const { new_categories, emoji_assignments, recategorizations } = parsed.data;
+  const { new_categories, emoji_assignments, recategorizations, emoji_reassignments } = parsed.data;
   const userId = session.user.id;
   const [db, kysely] = await Promise.all([getDB(), getKysely()]);
   const now = Math.floor(Date.now() / 1000);
@@ -81,6 +88,16 @@ export async function POST(request: NextRequest) {
     await kysely
       .updateTable("transaction")
       .set({ category_id: resolvedId, updated_at: now })
+      .where("id", "=", r.transaction_id)
+      .where("user_id", "=", userId)
+      .execute();
+  }
+
+  // 4. Update emoji on individual transactions (based on their note)
+  for (const r of emoji_reassignments) {
+    await kysely
+      .updateTable("transaction")
+      .set({ emoji: r.emoji, updated_at: now })
       .where("id", "=", r.transaction_id)
       .where("user_id", "=", userId)
       .execute();

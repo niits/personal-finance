@@ -66,6 +66,18 @@ export const Default: Story = {
     onCloseForm: () => {},
     onSaved: () => {},
     onDelete: () => {},
+    organizeState: "idle",
+    organizePreview: null,
+    onOrganize: () => {},
+    onOrganizeApply: () => {},
+    onOrganizeClose: () => {},
+  },
+};
+
+export const Organizing: Story = {
+  args: {
+    ...Default.args,
+    organizeState: "loading",
   },
 };
 

@@ -36,6 +36,10 @@ const mockPreview: OrganizePreview = {
       reason: "Dịch vụ streaming giải trí",
     },
   ],
+  emoji_reassignments: [
+    { transaction_id: 20, note: "cà phê sáng với khách", current_emoji: "🍜", emoji: "☕", reason: "Ghi chú nói về cà phê" },
+    { transaction_id: 21, note: "mua thuốc cảm", current_emoji: null, emoji: "💊", reason: "Ghi chú liên quan đến thuốc" },
+  ],
 };
 
 export const Full: Story = {
@@ -45,7 +49,17 @@ export const Full: Story = {
 export const CategoriesOnly: Story = {
   args: {
     open: true,
-    preview: { new_categories: mockPreview.new_categories, emoji_assignments: [], recategorizations: [] },
+    preview: { new_categories: mockPreview.new_categories, emoji_assignments: [], recategorizations: [], emoji_reassignments: [] },
+    applying: false,
+    onApply: () => {},
+    onClose: () => {},
+  },
+};
+
+export const EmojiReassignmentsOnly: Story = {
+  args: {
+    open: true,
+    preview: { new_categories: [], emoji_assignments: [], recategorizations: [], emoji_reassignments: mockPreview.emoji_reassignments },
     applying: false,
     onApply: () => {},
     onClose: () => {},
@@ -55,7 +69,7 @@ export const CategoriesOnly: Story = {
 export const Empty: Story = {
   args: {
     open: true,
-    preview: { new_categories: [], emoji_assignments: [], recategorizations: [] },
+    preview: { new_categories: [], emoji_assignments: [], recategorizations: [], emoji_reassignments: [] },
     applying: false,
     onApply: () => {},
     onClose: () => {},
