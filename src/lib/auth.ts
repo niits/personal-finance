@@ -3,12 +3,11 @@ import { D1Dialect } from "kysely-d1";
 import type { Database } from "@/lib/schema";
 import { seedNewUser } from "./seed";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let authInstance: any;
-
+// Built per request — never cache in module scope. The auth instance closes over
+// the request-scoped D1 binding from getCloudflareContext(); reusing it across
+// requests in a warm isolate queries through a stale binding whose proxy can no
+// longer resolve the request state ("No request state found"). See AGENTS.md.
 export async function getAuth() {
-  if (authInstance) return authInstance;
-
   const [{ getCloudflareContext }, { betterAuth }] = await Promise.all([
     import("@opennextjs/cloudflare"),
     import("better-auth"),
@@ -49,7 +48,7 @@ export async function getAuth() {
     }
   }
 
-  authInstance = betterAuth({
+  return betterAuth({
     secret: cfEnv.BETTER_AUTH_SECRET,
     baseURL: cfEnv.BETTER_AUTH_URL,
     database: cfEnv.DB,
@@ -91,6 +90,4 @@ export async function getAuth() {
       },
     },
   });
-
-  return authInstance;
 }
