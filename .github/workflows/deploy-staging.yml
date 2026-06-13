@@ -22,6 +22,9 @@ jobs:
 
   deploy:
     needs: [ci]
+    permissions:
+      contents: read
+      deployments: write
     uses: ./.github/workflows/cd.yml
     secrets: inherit
     with:
