@@ -1,0 +1,65 @@
+name: CD
+
+# Reusable deploy workflow — the single definition of how we ship to Cloudflare.
+# Called by deploy.yml (production) and deploy-staging.yml (staging); the only
+# differences between environments are the inputs below.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Wrangler --env target (production | staging).
+        required: true
+        type: string
+      app-url:
+        description: NEXT_PUBLIC_APP_URL baked into the build.
+        required: true
+        type: string
+      d1-database:
+        description: D1 database to migrate before deploying.
+        required: true
+        type: string
+      wrangler-secrets:
+        description: Newline-separated secret names to push with the deploy (empty = none).
+        required: false
+        type: string
+        default: ""
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - uses: ./.github/actions/build-cf
+        with:
+          app-url: ${{ inputs.app-url }}
+
+      - name: Run D1 migrations
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply ${{ inputs.d1-database }} --remote --env ${{ inputs.environment }}
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --env ${{ inputs.environment }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          secrets: ${{ inputs.wrangler-secrets }}
+        env:
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}

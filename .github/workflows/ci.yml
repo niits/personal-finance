@@ -1,8 +1,11 @@
 name: CI
 
-# Reusable workflow — called by deploy.yml and deploy-staging.yml.
+# Reusable workflow — called by pr.yml, deploy.yml and deploy-staging.yml.
 on:
   workflow_call:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   test:
@@ -10,28 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: node-modules-cache
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Install dependencies
-        if: steps.node-modules-cache.outputs.cache-hit != 'true'
-        run: npm ci
-
+      - uses: ./.github/actions/setup
       - name: Run unit tests
         run: npm run test:unit
 
@@ -40,39 +24,34 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
+      - uses: ./.github/actions/setup
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: node-modules-cache
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Install dependencies
-        if: steps.node-modules-cache.outputs.cache-hit != 'true'
-        run: npm ci
-
+      # React Doctor is a PR regression gate: it only blocks on errors *newly
+      # introduced* relative to the PR base. On a push event there is no base to
+      # diff against (you are the base), so it runs advisory-only and never
+      # blocks the deploy — the change was already gated on its PR.
       - name: Fetch base ref for diff
+        if: github.base_ref != ''
         env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
+          BASE_REF: ${{ github.base_ref }}
         run: git fetch origin "${BASE_REF}:${BASE_REF}" || true
 
       - name: Run React Doctor
         env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
-        run: npx -y react-doctor@latest . --fail-on error --offline --diff "$BASE_REF"
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            echo "PR context → gating on new errors vs ${BASE_REF}"
+            npx -y react-doctor@latest . --fail-on error --offline --diff "$BASE_REF"
+          else
+            echo "Push context (no PR base) → React Doctor advisory only, not gating the deploy"
+            npx -y react-doctor@latest . --offline || true
+          fi
 
   e2e:
     name: E2E Tests
@@ -81,36 +60,11 @@ jobs:
     permissions:
       contents: read
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       CI: true
-
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: node-modules-cache
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Install dependencies
-        if: steps.node-modules-cache.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Cache Next.js build
-        uses: actions/cache@v4
-        with:
-          path: .next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('src/**/*.{ts,tsx,css}') }}
-          restore-keys: |
-            nextjs-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-
-            nextjs-${{ runner.os }}-
+      - uses: ./.github/actions/setup
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -137,11 +91,9 @@ jobs:
       - name: Apply local D1 migrations
         run: npx wrangler d1 migrations apply personal-finance-auth --local
 
-      - name: Build for Cloudflare
-        run: npm run build:cf
-        env:
-          NEXT_PUBLIC_APP_URL: http://localhost:8787
-          APP_VERSION: ${{ github.sha }}
+      - uses: ./.github/actions/build-cf
+        with:
+          app-url: http://localhost:8787
 
       - name: Run E2E tests
         run: npm run test:e2e
