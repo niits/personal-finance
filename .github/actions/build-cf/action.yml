@@ -1,0 +1,30 @@
+name: Build for Cloudflare
+description: Cache .next and run the OpenNext Cloudflare build.
+
+inputs:
+  app-url:
+    description: NEXT_PUBLIC_APP_URL baked into the build.
+    required: true
+  app-version:
+    description: APP_VERSION stamp (defaults to the commit SHA).
+    required: false
+    default: ${{ github.sha }}
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Next.js build
+      uses: actions/cache@v4
+      with:
+        path: .next/cache
+        key: nextjs-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('src/**/*.{ts,tsx,css}') }}
+        restore-keys: |
+          nextjs-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-
+          nextjs-${{ runner.os }}-
+
+    - name: Build for Cloudflare
+      shell: bash
+      run: npm run build:cf
+      env:
+        NEXT_PUBLIC_APP_URL: ${{ inputs.app-url }}
+        APP_VERSION: ${{ inputs.app-version }}

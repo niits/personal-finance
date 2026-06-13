@@ -1,4 +1,4 @@
-name: CI / Deploy
+name: CD / Production
 
 on:
   push:
@@ -21,69 +21,15 @@ jobs:
       pull-requests: write
 
   deploy:
-    name: Deploy to Cloudflare
-    runs-on: ubuntu-latest
     needs: [ci]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      contents: read
-      deployments: write
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: node-modules-cache
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Install dependencies
-        if: steps.node-modules-cache.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Cache Next.js build
-        uses: actions/cache@v4
-        with:
-          path: .next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('src/**/*.{ts,tsx,css}') }}
-          restore-keys: |
-            nextjs-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-
-            nextjs-${{ runner.os }}-
-
-      - name: Build for Cloudflare
-        run: npm run build:cf
-        env:
-          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
-          APP_VERSION: ${{ github.sha }}
-
-      - name: Run D1 migrations (production)
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: d1 migrations apply personal-finance-auth --remote --env production
-
-      - name: Deploy to Cloudflare Workers (production)
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --env production
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          secrets: |
-            LANGFUSE_SECRET_KEY
-            LANGFUSE_PUBLIC_KEY
-            LANGFUSE_BASE_URL
-        env:
-          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
-          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
-          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/cd.yml
+    secrets: inherit
+    with:
+      environment: production
+      app-url: ${{ vars.NEXT_PUBLIC_APP_URL }}
+      d1-database: personal-finance-auth
+      wrangler-secrets: |
+        LANGFUSE_SECRET_KEY
+        LANGFUSE_PUBLIC_KEY
+        LANGFUSE_BASE_URL
