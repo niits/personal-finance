@@ -23,6 +23,9 @@ jobs:
   deploy:
     needs: [ci]
     if: github.event_name == 'push'
+    permissions:
+      contents: read
+      deployments: write
     uses: ./.github/workflows/cd.yml
     secrets: inherit
     with:
