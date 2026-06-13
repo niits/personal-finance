@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
+import { OrganizeReviewSheet } from "@/components/organisms/OrganizeReviewSheet";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -61,7 +62,6 @@ export type DashboardTemplateProps = {
   onOrganize: () => void;
   onOrganizeApply: (selection: OrganizeSelection) => void;
   onOrganizeClose: () => void;
-  onFillEmoji?: () => void;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -79,16 +79,6 @@ function fmtPeriodDate(s: string) {
 function toMonthLabel(m: string) {
   const [y, mo] = m.split("-");
   return `Tháng ${parseInt(mo)}/${y}`;
-}
-
-function prevMonth(m: string) {
-  const [y, mo] = m.split("-").map(Number);
-  return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, "0")}`;
-}
-
-function nextMonth(m: string) {
-  const [y, mo] = m.split("-").map(Number);
-  return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
 }
 
 const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -165,8 +155,8 @@ export function DashboardTemplate({
   onOrganize,
   onOrganizeApply,
   onOrganizeClose,
-  onFillEmoji,
 }: DashboardTemplateProps) {
+  const organizeBusy = organizeState === "loading" || organizeState === "applying";
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
 
   const budgetPct = data?.monthly_budget
@@ -248,16 +238,19 @@ export function DashboardTemplate({
           <p style={{ fontFamily: "var(--font-display)", fontSize: 38, fontWeight: 600, lineHeight: 1.1, letterSpacing: -0.5 }}>
             {loading ? "—" : `${fmt(displayedAmount)}₫`}
           </p>
-          {onFillEmoji && (
-            <button type="button"
-              onClick={onFillEmoji}
-              className="border-none rounded-full size-8 flex items-center justify-center cursor-pointer text-base shrink-0 mt-0.5"
-              style={{ background: "rgba(255,255,255,0.12)" }}
-              title="Gợi ý emoji"
-            >
-              ✦
-            </button>
-          )}
+          <button type="button"
+            onClick={onOrganize}
+            disabled={organizeState !== "idle"}
+            aria-label="Sắp xếp bằng AI"
+            aria-busy={organizeBusy}
+            className="border-none rounded-full size-8 flex items-center justify-center text-base shrink-0 mt-0.5"
+            style={{ background: "rgba(255,255,255,0.12)", cursor: organizeState === "idle" ? "pointer" : "default", opacity: organizeBusy ? 0.6 : 1 }}
+            title="Sắp xếp bằng AI"
+          >
+            {organizeBusy
+              ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" aria-hidden />
+              : "✦"}
+          </button>
         </div>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--body-muted)", marginTop: 4, letterSpacing: -0.224 }}>
           {selectedRoot && !loading
@@ -497,6 +490,14 @@ export function DashboardTemplate({
             custom_budgets: editTxn.custom_budgets,
           },
         } : { kind: "create" }}
+      />
+
+      <OrganizeReviewSheet
+        open={organizeState === "review" || organizeState === "applying"}
+        preview={organizePreview}
+        applying={organizeState === "applying"}
+        onApply={onOrganizeApply}
+        onClose={onOrganizeClose}
       />
 
     </div>

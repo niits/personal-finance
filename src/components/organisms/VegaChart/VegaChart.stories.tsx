@@ -15,12 +15,13 @@ export const BarChart: Story = {
   args: {
     insight: {
       type: "analysis",
-      title: "Chi tiêu theo danh mục",
+      title: "Ăn uống chiếm phần lớn chi tiêu",
       summary: "Ăn uống chiếm tỷ trọng lớn nhất trong tháng này.",
       chart_type: "bar",
       value_unit: "currency",
+      // highlight on the focal category — it renders accent, the rest grey.
       chart_data: [
-        { name: "Ăn uống", value: 2800000 },
+        { name: "Ăn uống", value: 2800000, highlight: true },
         { name: "Di chuyển", value: 1200000 },
         { name: "Giải trí", value: 800000 },
         { name: "Mua sắm", value: 600000 },
@@ -47,20 +48,36 @@ export const LineChart: Story = {
   },
 };
 
-export const PieChart: Story = {
+// Focus follows the narrative, not the biggest bar: the highlighted row is the
+// one the title is about, even when it is not the largest value.
+export const HighlightNotLargest: Story = {
   args: {
     insight: {
-      type: "analysis",
-      title: "Tỷ lệ chi tiêu",
-      summary: "Phân bổ chi tiêu theo nhóm danh mục.",
-      chart_type: "pie",
-      value_unit: "percent",
+      type: "alert",
+      title: "Giải trí tăng vọt tháng này",
+      summary: "Giải trí tuy nhỏ nhưng tăng mạnh — đáng chú ý.",
+      chart_type: "bar",
+      value_unit: "currency",
       chart_data: [
-        { name: "Ăn uống", value: 45 },
-        { name: "Di chuyển", value: 20 },
-        { name: "Giải trí", value: 15 },
-        { name: "Khác", value: 20 },
+        { name: "Ăn uống", value: 2800000 },
+        { name: "Di chuyển", value: 1200000 },
+        { name: "Giải trí", value: 800000, highlight: true },
+        { name: "Mua sắm", value: 600000 },
       ],
+    },
+  },
+};
+
+// A lone-bar chart conveys nothing — the renderer drops it and keeps title + summary.
+export const SingleValueDropsChart: Story = {
+  args: {
+    insight: {
+      type: "recommendation",
+      title: "Nên đặt ngân sách cho quà tặng",
+      summary: "Chi tiêu cho quà tặng hiện là 2.500.000 ₫. Hãy đặt ngân sách để tránh vượt chi.",
+      chart_type: "bar",
+      value_unit: "currency",
+      chart_data: [{ name: "Cho tặng", value: 2500000 }],
     },
   },
 };

@@ -6,7 +6,6 @@ import { TransactionForm } from "@/components/organisms/TransactionForm";
 import { LinkTransactionSheet } from "@/components/organisms/LinkTransactionSheet";
 import type { EligibleTransaction } from "@/components/organisms/LinkTransactionSheet";
 import { DebtProgressBar } from "@/components/atoms/DebtProgressBar";
-import { formatVND } from "@/components/atoms/CurrencyDisplay";
 import { repaymentTxType, type DebtWithRepayments, type LinkedTransaction } from "@/lib/debt";
 import type { TransactionFormMode } from "@/components/organisms/TransactionForm";
 
@@ -224,7 +223,6 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
             <DebtTransactionRow
               key={tx.id}
               tx={tx}
-              debtType={debt.type}
               showDivider={i > 0}
               canUnlink={!tx.is_opening || debt.transactions.length === 1}
               onUnlink={() => handleUnlink(tx.id)}
@@ -312,9 +310,8 @@ export default function DebtDetailPage({ params }: { params: Promise<{ id: strin
 
 // ─── DebtTransactionRow ───────────────────────────────────────────────────────
 
-function DebtTransactionRow({ tx, debtType, showDivider, canUnlink, onUnlink }: {
+function DebtTransactionRow({ tx, showDivider, canUnlink, onUnlink }: {
   tx: LinkedTransaction;
-  debtType: "lend" | "borrow";
   showDivider: boolean;
   canUnlink: boolean;
   onUnlink: () => void;

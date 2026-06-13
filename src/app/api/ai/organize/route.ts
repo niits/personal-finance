@@ -4,12 +4,13 @@ import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { getOpenAIModel } from "@/lib/llm";
+import { resolveEmojiReassignments } from "@/lib/organize";
 import { startAITrace } from "@/lib/telemetry";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateObject } from "ai";
 
 type CategoryRow = { id: number; name: string; type: "income" | "expense"; level: number; emoji: string | null };
-type TransactionRow = { id: number; note: string; type: "income" | "expense"; category_id: number; cat_name: string };
+type TransactionRow = { id: number; note: string; type: "income" | "expense"; category_id: number; cat_name: string; emoji: string | null; cat_emoji: string | null };
 
 const OrganizeSchema = z.object({
   new_categories: z.array(z.object({
@@ -28,20 +29,27 @@ const OrganizeSchema = z.object({
     suggested_category_id: z.union([z.number().int(), z.string()]).describe("ID danh mục hiện có hoặc temp_id của danh mục mới"),
     reason: z.string().describe("Lý do ngắn gọn tiếng Việt"),
   })),
+  emoji_reassignments: z.array(z.object({
+    transaction_id: z.number().int(),
+    emoji: z.string().describe("Một emoji Unicode duy nhất, phù hợp hơn với ghi chú"),
+    reason: z.string().describe("Lý do ngắn gọn tiếng Việt"),
+  })),
 });
 
 const SYSTEM_PROMPT = `Bạn là trợ lý tài chính cá nhân phân tích giao dịch của người dùng Việt Nam.
 
-Nhiệm vụ: Phân tích toàn bộ dữ liệu và trả về 3 loại gợi ý trong một lần:
+Nhiệm vụ: Phân tích toàn bộ dữ liệu và trả về 4 loại gợi ý trong một lần:
 
 1. new_categories: Danh mục MỚI nên thêm (chưa tồn tại). Chỉ gợi ý khi có ≥3 giao dịch tương tự. Tên tiếng Việt ngắn gọn.
 2. emoji_assignments: Gán emoji cho các danh mục CHƯA có emoji (emoji = null hoặc rỗng).
 3. recategorizations: Giao dịch đang phân loại sai — chuyển sang danh mục phù hợp hơn (có thể là danh mục mới với temp_id).
+4. emoji_reassignments: Dựa trên GHI CHÚ của giao dịch, gán emoji riêng phù hợp hơn cho giao dịch đó. Emoji này KHÔNG nhất thiết kế thừa từ danh mục — ưu tiên nội dung ghi chú (ví dụ ghi chú "cà phê" → ☕, "mua thuốc" → 💊). Chỉ gợi ý khi emoji mới khác và phù hợp hơn emoji hiện tại của giao dịch.
 
 Quy tắc:
 - parent_category_id phải là ID thực từ danh sách, hoặc null
 - temp_id dùng định dạng "new:0", "new:1", ...
 - suggested_category_id có thể là số (ID hiện có) hoặc chuỗi temp_id (danh mục mới)
+- emoji_reassignments.emoji là đúng 1 emoji Unicode, không kèm chữ/số
 - Không tự tạo ghi chú — chỉ dùng dữ liệu thực`;
 
 export async function POST(request: NextRequest) {
@@ -57,7 +65,7 @@ export async function POST(request: NextRequest) {
       .bind(userId)
       .all<CategoryRow>(),
     db
-      .prepare(`SELECT t.id, t.note, t.type, t.category_id, c.name as cat_name
+      .prepare(`SELECT t.id, t.note, t.type, t.category_id, t.emoji, c.name as cat_name, c.emoji as cat_emoji
                 FROM "transaction" t JOIN category c ON t.category_id = c.id
                 WHERE t.user_id = ? AND t.note IS NOT NULL AND t.note != ''
                 ORDER BY t.updated_at DESC LIMIT 300`)
@@ -66,7 +74,7 @@ export async function POST(request: NextRequest) {
   ]);
 
   if (transactions.length === 0) {
-    return Response.json({ new_categories: [], emoji_assignments: [], recategorizations: [] });
+    return Response.json({ new_categories: [], emoji_assignments: [], recategorizations: [], emoji_reassignments: [] });
   }
 
   const catMap = new Map(categories.map((c) => [c.id, c]));
@@ -77,8 +85,8 @@ ${JSON.stringify(categories.map((c) => ({ id: c.id, name: c.name, type: c.type, 
 
 Danh mục chưa có emoji (cần gán): ${JSON.stringify(categoriesWithoutEmoji.map((c) => ({ id: c.id, name: c.name })))}
 
-Giao dịch:
-${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type, category: t.cat_name, category_id: t.category_id })))}`;
+Giao dịch (emoji là emoji hiện tại của giao dịch — null nghĩa là đang kế thừa emoji danh mục):
+${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type, category: t.cat_name, category_id: t.category_id, emoji: t.emoji ?? t.cat_emoji })))}`;
 
   let result: z.infer<typeof OrganizeSchema>;
   const { env, ctx } = await getCloudflareContext({ async: true });
@@ -121,9 +129,12 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
       }];
     });
 
+  const emoji_reassignments = resolveEmojiReassignments(result.emoji_reassignments, transactions);
+
   return Response.json({
     new_categories: result.new_categories,
     emoji_assignments: result.emoji_assignments.filter((a) => validCategoryIds.has(a.category_id)),
     recategorizations,
+    emoji_reassignments,
   });
 }

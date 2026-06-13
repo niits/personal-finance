@@ -45,6 +45,8 @@ export type StatisticsTemplateProps = {
 // ── Design constants ───────────────────────────────────────────────────────
 
 const PRIMARY = "#0066cc";
+// Storytelling-with-data "focus attention": highlighted bar is PRIMARY, the rest grey.
+const MUTED = "#c7c7cc";
 const CHART_PALETTE = [PRIMARY, "#30d158", "#ff9f0a", "#bf5af2", "#32ade6", "#ff453a", "#ac8e68", "#5856d6"];
 const INK = "#1d1d1f";
 const INK_MUTED = "#7a7a7a";
@@ -73,16 +75,6 @@ const VEGA_TIME_FORMAT_LOCALE = {
 function toMonthLabel(m: string) {
   const [y, mo] = m.split("-");
   return `Tháng ${parseInt(mo)}/${y}`;
-}
-
-function prevMonth(m: string) {
-  const [y, mo] = m.split("-").map(Number);
-  return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, "0")}`;
-}
-
-function nextMonth(m: string) {
-  const [y, mo] = m.split("-").map(Number);
-  return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
 }
 
 function vegaFormat(unit?: Insight["value_unit"]): string {
@@ -154,22 +146,6 @@ function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec |
     data: { values: data as ChartDatum[] },
   };
 
-  if (insight.chart_type === "pie") {
-    return {
-      ...base,
-      height: 260,
-      mark: { type: "arc", innerRadius: 64, outerRadius: 108, stroke: "#ffffff", strokeWidth: 2, cornerRadius: 2 },
-      encoding: {
-        theta: { field: "value", type: "quantitative", stack: true },
-        color: { field: "name", type: "nominal", legend: { title: null } },
-        tooltip: [
-          { field: "name", type: "nominal", title: "Danh mục" },
-          { field: "value", type: "quantitative", title: valueTitle, format },
-        ],
-      },
-    } as TopLevelSpec;
-  }
-
   if (insight.chart_type === "forecast_line") {
     const meta = insight.forecast_meta;
     if (!meta) return null;
@@ -217,6 +193,8 @@ function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec |
   }
 
   if (insight.chart_type === "line") {
+    // A line through a single point is not a trend — show nothing.
+    if (data.length < 2) return null;
     const isDate = data.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.name));
     const xEnc = isDate
       ? { field: "name", type: "temporal" as const, title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 5 } }
@@ -236,6 +214,11 @@ function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec |
           mark: { type: "line", color: PRIMARY, strokeWidth: 2, interpolate: "monotone" },
           encoding: { x: xEnc, y: yEnc, tooltip: lineTooltip },
         },
+        // Visible markers so each data point is locatable, not just the trend line.
+        {
+          mark: { type: "point", color: PRIMARY, filled: true, size: 56 },
+          encoding: { x: { ...xEnc, axis: null }, y: { field: "value", type: "quantitative" as const }, tooltip: lineTooltip },
+        },
       ],
     } as TopLevelSpec;
   }
@@ -243,6 +226,7 @@ function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec |
   const hasSeries = data.some((d) => d.series);
   const grouped = insight.chart_type === "bar_grouped" || hasSeries;
   const distinctNames = new Set(data.map((d) => d.name)).size;
+  const hasHighlight = data.some((d) => d.highlight === true);
 
   const REF_SERIES_RE = /^(Ngân sách|Giới hạn|Trung bình|Mục tiêu)$/;
   const allSeriesNames = [...new Set(data.filter((d) => d.series).map((d) => d.series!))];
@@ -292,6 +276,10 @@ function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec |
     } as TopLevelSpec;
   }
 
+  // A bar chart with a single category compares nothing — its one number already
+  // lives in the summary. Render no chart so a lone bar can never ship.
+  if (distinctNames < 2) return null;
+
   return {
     ...base,
     height: Math.max(180, Math.min(360, distinctNames * (grouped ? 32 : 28) + 40)),
@@ -304,7 +292,12 @@ function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec |
             color: { field: "series", type: "nominal", legend: { title: null } },
             yOffset: { field: "series", type: "nominal" },
           }
-        : { color: { value: PRIMARY } }),
+        : {
+            // Focus attention: highlighted row in the accent colour, rest grey.
+            color: hasHighlight
+              ? { condition: { test: "datum.highlight === true", value: PRIMARY }, value: MUTED }
+              : { value: PRIMARY },
+          }),
       tooltip: [
         { field: "name", type: "nominal", title: "Mục" },
         ...(grouped ? [{ field: "series", type: "nominal" as const, title: "Nhóm" }] : []),
