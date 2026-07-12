@@ -77,3 +77,30 @@ export const Error: Story = {
     error: { status: 500, error: "Internal Server Error", details: { message: "AI model timeout" } },
   },
 };
+
+// Regression guard: a "line" chart whose data carries a "Ngân sách" reference series
+// (per the AI system prompt's forecast/reference-value rules) must render as two
+// distinct colored lines, not collapse into one line with a bogus flat-then-vertical jump.
+export const WithReferenceLineChart: Story = {
+  args: {
+    ...Ready.args,
+    report: {
+      ...mockReport,
+      insights: [
+        {
+          title: "Dự báo chi tiêu vượt 28 triệu",
+          summary: "Dự báo chi tiêu cuối kỳ là 28,223,082 đồng, gấp đôi ngân sách dự kiến.",
+          type: "alert" as const,
+          value_unit: "currency" as const,
+          chart_type: "line" as const,
+          chart_data: [
+            { name: "2025-05-01", value: 0 },
+            { name: "2025-05-06", value: 800_000 },
+            { name: "2025-05-12", value: 28_223_082 },
+            { name: "2025-05-12", value: 14_100_000, series: "Ngân sách" },
+          ],
+        },
+      ],
+    },
+  },
+};

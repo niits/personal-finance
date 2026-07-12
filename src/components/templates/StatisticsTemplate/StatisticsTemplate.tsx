@@ -200,24 +200,37 @@ function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec |
       ? { field: "name", type: "temporal" as const, title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 5 } }
       : { field: "name", type: "ordinal" as const, title: null, axis: { labelAngle: 0 } };
     const yEnc = { field: "value", type: "quantitative" as const, title: null, axis: { format, labelExpr: valueLabelExpr } };
+    // A "series" field (e.g. an actual-vs-"Ngân sách" reference row) must split into
+    // separate colored lines — otherwise points from different series but the same/nearby
+    // x get stitched into one path, producing a bogus flat-then-vertical jump.
+    const hasSeriesField = data.some((d) => d.series);
+    const colorEnc = hasSeriesField
+      ? { field: "series", type: "nominal" as const, scale: { range: CHART_PALETTE }, legend: { title: null } }
+      : undefined;
     const lineTooltip = [
       isDate
         ? { field: "name", type: "temporal" as const, title: "Ngày", format: "%d/%m/%Y" }
         : { field: "name", type: "ordinal" as const, title: "Mục" },
       { field: "value", type: "quantitative" as const, title: valueTitle, format },
+      ...(hasSeriesField ? [{ field: "series", type: "nominal" as const, title: "Nhóm" }] : []),
     ];
     return {
       ...base,
       height: 200,
       layer: [
         {
-          mark: { type: "line", color: PRIMARY, strokeWidth: 2, interpolate: "monotone" },
-          encoding: { x: xEnc, y: yEnc, tooltip: lineTooltip },
+          mark: { type: "line", ...(colorEnc ? {} : { color: PRIMARY }), strokeWidth: 2, interpolate: "monotone" },
+          encoding: { x: xEnc, y: yEnc, ...(colorEnc ? { color: colorEnc } : {}), tooltip: lineTooltip },
         },
         // Visible markers so each data point is locatable, not just the trend line.
         {
-          mark: { type: "point", color: PRIMARY, filled: true, size: 56 },
-          encoding: { x: { ...xEnc, axis: null }, y: { field: "value", type: "quantitative" as const }, tooltip: lineTooltip },
+          mark: { type: "point", ...(colorEnc ? {} : { color: PRIMARY }), filled: true, size: 56 },
+          encoding: {
+            x: { ...xEnc, axis: null },
+            y: { field: "value", type: "quantitative" as const },
+            ...(colorEnc ? { color: colorEnc } : {}),
+            tooltip: lineTooltip,
+          },
         },
       ],
     } as TopLevelSpec;
