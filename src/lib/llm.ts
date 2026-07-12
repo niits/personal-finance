@@ -1,14 +1,11 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { generateText, generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { generateText, generateObject, NoObjectGeneratedError, createGateway, type LanguageModel } from "ai";
 import type { ZodType } from "zod";
 import { startAITrace } from "@/lib/telemetry";
 
 function createAIGatewayProvider(cfEnv: Cloudflare.Env) {
-  return createOpenAICompatible({
-    name: "cloudflare-aig",
-    apiKey: (cfEnv as Cloudflare.Env & { CF_AIG_TOKEN: string }).CF_AIG_TOKEN,
-    baseURL: `https://gateway.ai.cloudflare.com/v1/${(cfEnv as Cloudflare.Env & { CLOUDFLARE_ACCOUNT_ID: string }).CLOUDFLARE_ACCOUNT_ID}/default/compat`,
+  return createGateway({
+    apiKey: (cfEnv as Cloudflare.Env & { AI_GATEWAY_API_KEY: string }).AI_GATEWAY_API_KEY,
   });
 }
 
@@ -55,7 +52,7 @@ export async function runAIObject<T>(opts: {
   }
 }
 
-// gpt-4o via Cloudflare AI Gateway — used for statistics agent (long context, streaming)
+// gpt-4o via Vercel AI Gateway — used for statistics agent (long context, streaming)
 export async function getOpenAIModel(): Promise<LanguageModel> {
   const { env } = await getCloudflareContext({ async: true });
   return createAIGatewayProvider(env as Cloudflare.Env)("openai/gpt-4o");

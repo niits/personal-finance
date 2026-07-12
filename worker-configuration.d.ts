@@ -8,8 +8,8 @@ declare namespace Cloudflare {
 	interface Env {
 		DB: D1Database;
 		AI: Ai;
-		CF_AIG_TOKEN: string;
 		CLOUDFLARE_ACCOUNT_ID: string;
+		AI_GATEWAY_API_KEY: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
