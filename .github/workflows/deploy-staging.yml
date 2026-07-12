@@ -31,3 +31,5 @@ jobs:
       environment: staging
       app-url: ${{ vars.STAGING_APP_URL }}
       d1-database: personal-finance-auth-staging
+      wrangler-secrets: |
+        AI_GATEWAY_API_KEY

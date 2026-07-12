@@ -10,3 +10,6 @@ BETTER_AUTH_URL=http://localhost:8787
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=
 LANGFUSE_BASE_URL=https://cloud.langfuse.com
+
+# Vercel AI Gateway — get a key from https://vercel.com/ai-gateway
+AI_GATEWAY_API_KEY=
