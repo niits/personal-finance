@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
+import { CreditCardToggle } from "@/components/atoms/CreditCardToggle";
 import type { DebtWithRepayments } from "@/lib/debt";
 import { findSelectedChild, getCategoryPath, rootDisplay } from "./categoryDisplay";
 
@@ -13,6 +14,7 @@ export type EditTransaction = {
   id: number;
   amount: number;
   linked_amount: number | null;
+  is_credit_card: boolean;
   type: "expense" | "income";
   emoji: string | null;
   category: { id: number; name: string; path: string } | null;
@@ -375,6 +377,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const [note, setNote] = useState(editTx?.note ?? "");
   const [emoji, setEmoji] = useState<string | null>(editTx?.emoji ?? null);
   const [selectedCbIds, setSelectedCbIds] = useState<number[]>(editTx?.custom_budgets.map((c) => c.id) ?? []);
+  const [isCreditCard, setIsCreditCard] = useState(editTx?.is_credit_card ?? false);
   const [debtLink, setDebtLink] = useState<DebtLinkState>({ kind: "none" });
   const [editLinkedAmountStr, setEditLinkedAmountStr] = useState(
     isEdit && editTx?.linked_amount ? fmt(editTx.linked_amount) : ""
@@ -430,6 +433,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     setNote("");
     setEmoji(null);
     setSelectedCbIds([]);
+    setIsCreditCard(false);
     setDebtLink({ kind: "none" });
     setEditLinkedAmountStr("");
     setUnlinkMode(false);
@@ -477,7 +481,10 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           // Normal edit — no debt
           if (!categoryId) { setError("Chọn danh mục"); return; }
           body.category_id = categoryId;
-          if (type === "expense") body.custom_budget_ids = selectedCbIds;
+          if (type === "expense") {
+            body.custom_budget_ids = selectedCbIds;
+            body.is_credit_card = isCreditCard;
+          }
         }
         // debt edit: amount/note/date/linked_amount
 
@@ -524,7 +531,10 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       const body: Record<string, unknown> = {
         amount, type, date, note: note || null, emoji: emoji || null, category_id: categoryId,
       };
-      if (type === "expense") body.custom_budget_ids = selectedCbIds;
+      if (type === "expense") {
+        body.custom_budget_ids = selectedCbIds;
+        body.is_credit_card = isCreditCard;
+      }
       const r = await fetch("/api/transactions", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -653,7 +663,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                 <button key={t} type="button" onClick={() => {
                   setType(t);
                   setError("");
-                  if (t === "income") setSelectedCbIds([]);
+                  if (t === "income") { setSelectedCbIds([]); setIsCreditCard(false); }
                   // create mode: category list is type-specific, so reset selection
                   if (!isEdit && !isRepayment) setCategoryId(null);
                 }}
@@ -729,6 +739,13 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Credit card — expense only, hidden for debt */}
+          {!isDebtMode && type === "expense" && (
+            <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
+              <CreditCardToggle checked={isCreditCard} onChange={setIsCreditCard} />
             </div>
           )}
 

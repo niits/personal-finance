@@ -72,6 +72,7 @@ export interface TransactionTable {
   monthly_budget_id: number | null;
   debt_id: string | null;
   linked_amount: number | null;
+  is_credit_card: Generated<number>;
   created_at: Generated<number>;
   updated_at: Generated<number>;
 }

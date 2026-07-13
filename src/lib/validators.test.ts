@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAmount, parseDate, parseMonth, getMonthFromDate } from "@/lib/validators";
+import { parseAmount, parseDate, parseMonth, parseBooleanFlag, getMonthFromDate } from "@/lib/validators";
 
 describe("parseAmount", () => {
   it("accepts positive integers", () => expect(parseAmount(50000)).toBe(50000));
@@ -27,6 +27,19 @@ describe("parseMonth", () => {
   it("rejects full date string", () => expect(parseMonth("2026-04-29")).toBeNull());
   it("rejects wrong format", () => expect(parseMonth("04-2026")).toBeNull());
   it("rejects non-string", () => expect(parseMonth(202604)).toBeNull());
+});
+
+describe("parseBooleanFlag", () => {
+  it("accepts boolean true", () => expect(parseBooleanFlag(true)).toBe(1));
+  it("accepts boolean false", () => expect(parseBooleanFlag(false)).toBe(0));
+  it("accepts number 1", () => expect(parseBooleanFlag(1)).toBe(1));
+  it("accepts number 0", () => expect(parseBooleanFlag(0)).toBe(0));
+  it("accepts string \"1\"", () => expect(parseBooleanFlag("1")).toBe(1));
+  it("accepts string \"0\"", () => expect(parseBooleanFlag("0")).toBe(0));
+  it("rejects other strings", () => expect(parseBooleanFlag("yes")).toBeNull());
+  it("rejects other numbers", () => expect(parseBooleanFlag(2)).toBeNull());
+  it("rejects null", () => expect(parseBooleanFlag(null)).toBeNull());
+  it("rejects undefined", () => expect(parseBooleanFlag(undefined)).toBeNull());
 });
 
 describe("getMonthFromDate", () => {

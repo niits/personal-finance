@@ -13,7 +13,8 @@ async function withSpent(
   db: Kysely<Database>,
   budgets: BudgetWithActive[],
 ) {
-  if (budgets.length === 0) return budgets.map((b) => ({ ...b, spent: 0 }));
+ok  if (budgets.length === 0)
+    return budgets.map((b) => ({ ...b, spent: 0, credit_card_spent: 0, has_linked_transactions: false }));
 
   const ids = budgets.map((b) => b.id);
   const results = await db
@@ -22,6 +23,7 @@ async function withSpent(
     .select([
       "tcb.custom_budget_id",
       sql<number>`COALESCE(SUM(t.amount), 0)`.as("spent"),
+      sql<number>`COALESCE(SUM(CASE WHEN t.is_credit_card = 1 THEN t.amount ELSE 0 END), 0)`.as("credit_card_spent"),
     ])
     .where("tcb.custom_budget_id", "in", ids)
     .where("t.type", "=", "expense")
@@ -29,7 +31,24 @@ async function withSpent(
     .execute();
 
   const spentMap = new Map(results.map((r) => [r.custom_budget_id, r.spent]));
-  return budgets.map((b) => ({ ...b, spent: spentMap.get(b.id) ?? 0 }));
+  const ccSpentMap = new Map(results.map((r) => [r.custom_budget_id, r.credit_card_spent]));
+
+  // Linked transactions can exist independent of expense spend (e.g. all linked
+  // transactions could be income), so this is checked separately from `spent`.
+  const linkedResults = await db
+    .selectFrom("transaction_custom_budget")
+    .select(["custom_budget_id", (eb) => eb.fn.countAll<number>().as("n")])
+    .where("custom_budget_id", "in", ids)
+    .groupBy("custom_budget_id")
+    .execute();
+  const linkedSet = new Set(linkedResults.filter((r) => r.n > 0).map((r) => r.custom_budget_id));
+
+  return budgets.map((b) => ({
+    ...b,
+    spent: spentMap.get(b.id) ?? 0,
+    credit_card_spent: ccSpentMap.get(b.id) ?? 0,
+    has_linked_transactions: linkedSet.has(b.id),
+  }));
 }
 
 export async function GET(request: NextRequest) {
@@ -76,5 +95,8 @@ export async function POST(request: NextRequest) {
     .returning(["id", "name", "amount", "is_active", "created_at"])
     .executeTakeFirst()) as BudgetWithActive;
 
-  return Response.json({ custom_budget: { ...result, spent: 0 } }, { status: 201 });
+  return Response.json(
+    { custom_budget: { ...result, spent: 0, credit_card_spent: 0, has_linked_transactions: false } },
+    { status: 201 },
+  );
 }

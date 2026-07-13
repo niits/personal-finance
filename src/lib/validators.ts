@@ -22,6 +22,13 @@ export function parseMonth(val: unknown): string | null {
   return val;
 }
 
+export function parseBooleanFlag(val: unknown): 0 | 1 | null {
+  if (typeof val === "boolean") return val ? 1 : 0;
+  if (val === 0 || val === 1) return val;
+  if (val === "0" || val === "1") return Number(val) as 0 | 1;
+  return null;
+}
+
 export function getMonthFromDate(date: string): string {
   return date.substring(0, 7);
 }

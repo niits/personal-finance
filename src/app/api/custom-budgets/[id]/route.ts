@@ -82,7 +82,14 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
     .executeTakeFirst();
   if (!existing) return Errors.notFound("Custom budget không tồn tại");
 
-  // transaction_custom_budget rows cascade-deleted by DB; transactions are NOT deleted
+  const linked = await db
+    .selectFrom("transaction_custom_budget")
+    .select((eb) => eb.fn.countAll<number>().as("n"))
+    .where("custom_budget_id", "=", budgetId)
+    .executeTakeFirst();
+  if ((linked?.n ?? 0) > 0)
+    return Errors.validation("Không thể xoá quỹ đang có giao dịch liên kết");
+
   await db
     .deleteFrom("custom_budget")
     .where("id", "=", budgetId)

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
+import { BudgetProgressBar } from "@/components/molecules/BudgetProgressBar";
 import { OrganizeReviewSheet } from "@/components/organisms/OrganizeReviewSheet";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
 
@@ -14,7 +15,14 @@ export type DashboardData = {
   total_expense: number;
   total_income: number;
   savings: number;
-  monthly_budget: { id: number; amount: number; remaining: number } | null;
+  monthly_budget: {
+    id: number;
+    amount: number;
+    remaining: number;
+    credit_card_expense: number;
+    cash_remaining: number;
+    credit_card_overuse: boolean;
+  } | null;
   days_in_period: number;
   days_elapsed: number;
   days_remaining: number;
@@ -26,6 +34,7 @@ export type Transaction = {
   id: number;
   amount: number;
   linked_amount: number | null;
+  is_credit_card: boolean;
   type: "expense" | "income";
   emoji: string | null;
   category: { id: number; name: string; emoji: string | null; path: string } | null;
@@ -159,9 +168,6 @@ export function DashboardTemplate({
   const organizeBusy = organizeState === "loading" || organizeState === "applying";
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
 
-  const budgetPct = data?.monthly_budget
-    ? Math.min((data.total_expense / data.monthly_budget.amount) * 100, 100) : 0;
-
   const pacePct = data
     ? Math.min((data.days_elapsed / data.days_in_period) * 100, 100) : 0;
 
@@ -209,9 +215,6 @@ export function DashboardTemplate({
     color: disabled ? "transparent" : "var(--body-muted)",
     fontSize: 18, padding: "0 6px", lineHeight: 1, flexShrink: 0,
   });
-
-  const isOver = data?.monthly_budget ? data.monthly_budget.remaining < 0 : false;
-  const barColor = isOver ? "var(--danger)" : "var(--primary)";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 44px - 72px)" }}>
@@ -261,30 +264,15 @@ export function DashboardTemplate({
         {/* Budget bar with pace background */}
         {data?.monthly_budget && (
           <div style={{ marginTop: 18 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: "var(--body-muted)", fontFamily: "var(--font-body)" }}>
-                Ngân sách {fmt(data.monthly_budget.amount)}₫
-              </span>
-              <span style={{ fontSize: 12, fontFamily: "var(--font-body)", fontWeight: 600, color: isOver ? "var(--danger)" : "var(--success)" }}>
-                {isOver ? "Vượt " : "Còn "}{fmt(Math.abs(data.monthly_budget.remaining))}₫
-              </span>
-            </div>
-
-            <div style={{ position: "relative", height: 4, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-              <div style={{
-                position: "absolute", inset: 0,
-                width: `${pacePct}%`,
-                background: "rgba(255,255,255,0.18)",
-                borderRadius: 2,
-              }} />
-              <div style={{
-                position: "absolute", inset: 0,
-                width: `${budgetPct}%`,
-                background: barColor,
-                borderRadius: 2,
-                transition: "width 0.6s ease",
-              }} />
-            </div>
+            <BudgetProgressBar
+              dark
+              budget={data.monthly_budget.amount}
+              spent={data.total_expense}
+              remaining={data.monthly_budget.remaining}
+              pacePct={pacePct}
+              creditCardSpend={data.monthly_budget.credit_card_expense}
+              overuse={data.monthly_budget.credit_card_overuse}
+            />
           </div>
         )}
 
@@ -478,6 +466,7 @@ export function DashboardTemplate({
             id: editTxn.id,
             amount: editTxn.amount,
             linked_amount: editTxn.linked_amount,
+            is_credit_card: editTxn.is_credit_card,
             type: editTxn.type,
             emoji: editTxn.emoji,
             category: editTxn.category,

@@ -6,6 +6,7 @@ import {
   parseAmount,
   parseDate,
   parseMonth,
+  parseBooleanFlag,
   getBudgetMonthForDate,
   getBudgetPeriod,
   currentBudgetMonth,
@@ -18,6 +19,7 @@ type TxnRow = {
   id: number;
   amount: number;
   linked_amount: number | null;
+  is_credit_card: number;
   type: "expense" | "income";
   note: string | null;
   emoji: string | null;
@@ -69,6 +71,7 @@ function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: s
     id: row.id,
     amount: row.amount,
     linked_amount: row.linked_amount ?? null,
+    is_credit_card: row.is_credit_card === 1,
     type: row.type,
     emoji: row.emoji ?? null,
     category: row.cat_id
@@ -121,6 +124,7 @@ export async function GET(request: NextRequest) {
       "t.id",
       "t.amount",
       "t.linked_amount",
+      "t.is_credit_card",
       "t.type",
       "t.note",
       "t.emoji",
@@ -268,10 +272,10 @@ export async function POST(request: NextRequest) {
     const txnId = result!.id;
     const txn = await db
       .selectFrom("transaction as t")
-      .select(["t.id", "t.amount", "t.linked_amount", "t.type", "t.note", "t.emoji", "t.date", "t.debt_id", "t.created_at", "t.updated_at"])
+      .select(["t.id", "t.amount", "t.linked_amount", "t.is_credit_card", "t.type", "t.note", "t.emoji", "t.date", "t.debt_id", "t.created_at", "t.updated_at"])
       .where("t.id", "=", txnId)
       .executeTakeFirst();
-    return Response.json({ transaction: { ...txn, category: null, custom_budgets: [] } }, { status: 201 });
+    return Response.json({ transaction: { ...txn, is_credit_card: txn?.is_credit_card === 1, category: null, custom_budgets: [] } }, { status: 201 });
   }
 
   // ── Normal transaction path ───────────────────────────────────────────────
@@ -285,6 +289,14 @@ export async function POST(request: NextRequest) {
 
   if (b.type === "income" && Array.isArray(b.custom_budget_ids) && b.custom_budget_ids.length > 0)
     return Errors.validation("Giao dịch thu nhập không thể gán vào Custom Budget");
+
+  // Credit-card charges are an expense concept only; force 0 for income.
+  let isCreditCard: 0 | 1 = 0;
+  if (b.type === "expense" && b.is_credit_card !== undefined) {
+    const parsed = parseBooleanFlag(b.is_credit_card);
+    if (parsed === null) return Errors.validation("is_credit_card phải là boolean hoặc 0/1");
+    isCreditCard = parsed;
+  }
 
   // Validate category belongs to user and is leaf
   const cat = await db
@@ -329,7 +341,17 @@ export async function POST(request: NextRequest) {
 
   const result = await db
     .insertInto("transaction")
-    .values({ user_id: userId, amount, type: b.type as "expense" | "income", category_id: categoryId, note, emoji, date, monthly_budget_id: monthlyBudgetId })
+    .values({
+      user_id: userId,
+      amount,
+      type: b.type as "expense" | "income",
+      category_id: categoryId,
+      note,
+      emoji,
+      date,
+      monthly_budget_id: monthlyBudgetId,
+      is_credit_card: isCreditCard,
+    })
     .returning("id")
     .executeTakeFirst();
 
@@ -358,6 +380,7 @@ export async function POST(request: NextRequest) {
       "t.monthly_budget_id",
       "t.debt_id",
       "t.created_at",
+      "t.is_credit_card",
       "c.id as cat_id",
       "c.name as cat_name",
       "c.emoji as cat_emoji",

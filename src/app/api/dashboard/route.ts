@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { parseMonth, currentBudgetMonth, getBudgetPeriod, getBudgetPeriodInclusive } from "@/lib/validators";
 import { idealBudgetAtDay } from "@/lib/pace-line";
+import { cashAlignedRemaining, isCreditCardOveruse } from "@/lib/credit-card";
 import { sql } from "kysely";
 
 export async function GET(request: NextRequest) {
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
       sql<number>`COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0)`.as("total_income"),
       // Budget spending counts every expense, including debt cash transfers, to keep one simple model.
       sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("budget_expense"),
+      sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' AND is_credit_card = 1 THEN amount ELSE 0 END), 0)`.as("credit_card_expense"),
     ])
     .where("user_id", "=", userId)
     .where("date", ">=", periodStart);
@@ -68,6 +70,7 @@ export async function GET(request: NextRequest) {
   const totalExpense = summary?.total_expense ?? 0;
   const totalIncome = summary?.total_income ?? 0;
   const budgetExpense = summary?.budget_expense ?? 0;
+  const creditCardExpense = summary?.credit_card_expense ?? 0;
 
   let dailyExpenseQuery = db
     .selectFrom("transaction")
@@ -87,11 +90,25 @@ export async function GET(request: NextRequest) {
   const dailyExpenses = await dailyExpenseQuery.execute();
 
   let paceStatus: "under" | "over" | "no_budget" = "no_budget";
-  let monthlyBudget: { id: number; amount: number; remaining: number } | null = null;
+  let monthlyBudget: {
+    id: number;
+    amount: number;
+    remaining: number;
+    credit_card_expense: number;
+    cash_remaining: number;
+    credit_card_overuse: boolean;
+  } | null = null;
 
   if (budget) {
     const remaining = budget.amount - budgetExpense;
-    monthlyBudget = { id: budget.id, amount: budget.amount, remaining };
+    monthlyBudget = {
+      id: budget.id,
+      amount: budget.amount,
+      remaining,
+      credit_card_expense: creditCardExpense,
+      cash_remaining: cashAlignedRemaining(remaining, creditCardExpense),
+      credit_card_overuse: isCreditCardOveruse(creditCardExpense, budgetExpense),
+    };
     const ideal = idealBudgetAtDay({
       budget: budget.amount,
       daysInMonth: periodDays,

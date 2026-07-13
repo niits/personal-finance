@@ -1,6 +1,9 @@
 import { env } from "cloudflare:test";
 
-const TEST_SECRET = "test-secret-vitest-do-not-use-in-production";
+// Sign with whatever secret the Worker actually resolves at runtime (wrangler.jsonc
+// vars, .dev.vars, and poolOptions.miniflare.vars merge in a version-dependent order),
+// rather than a hardcoded value that can silently drift out of sync with it.
+const TEST_SECRET = (env as { BETTER_AUTH_SECRET: string }).BETTER_AUTH_SECRET;
 
 // Use Vite's import.meta.glob to bundle SQL files at compile time.
 // This avoids node:fs calls which are not available in the Workers test runtime.
@@ -58,7 +61,9 @@ async function makeSignature(value: string, secret: string): Promise<string> {
 export async function seedUser(opts?: { id?: string; email?: string }) {
   const id = opts?.id ?? "user-test-1";
   const email = opts?.email ?? "test@example.com";
-  const now = Math.floor(Date.now() / 1000);
+  // better-auth's D1 adapter stores date fields as ISO 8601 strings, not
+  // raw epoch integers — match that format so session reads parse correctly.
+  const now = new Date().toISOString();
 
   await env.DB.prepare(
     "INSERT OR IGNORE INTO user (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?, ?, ?, 0, ?, ?)",
@@ -71,13 +76,13 @@ export async function seedUser(opts?: { id?: string; email?: string }) {
 
 export async function createTestSession(userId: string): Promise<string> {
   const token = `test-token-${userId}-${Date.now()}`;
-  const now = Math.floor(Date.now() / 1000);
-  const expiresAt = now + 60 * 60 * 24 * 7; // 7 days
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 60 * 60 * 24 * 7 * 1000); // 7 days
 
   await env.DB.prepare(
     "INSERT OR IGNORE INTO session (id, token, userId, expiresAt, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)",
   )
-    .bind(`session-${token}`, token, userId, expiresAt, now, now)
+    .bind(`session-${token}`, token, userId, expiresAt.toISOString(), now.toISOString(), now.toISOString())
     .run();
 
   const signature = await makeSignature(token, TEST_SECRET);

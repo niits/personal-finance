@@ -133,7 +133,7 @@ describe("POST /api/categories", () => {
   it("returns 401 without auth", () =>
     expect401("POST", "/api/categories", { name: "Test", level: 1 }));
   it("returns 2xx with auth", () =>
-    expect2xx("POST", "/api/categories", { name: "Chi tiêu khác", level: 1 }));
+    expect2xx("POST", "/api/categories", { name: "Chi tiêu khác", type: "expense" }));
 });
 
 describe("PATCH /api/categories/:id", () => {

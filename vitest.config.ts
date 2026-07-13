@@ -28,6 +28,13 @@ export default defineWorkersConfig({
       // cannot resolve from the dynamically-required bundle. Map it to a stub so
       // Vite bundles a working module in its place (works in real wrangler dev).
       "node:os": path.resolve(__dirname, "tests/integration/node-os-stub.cjs"),
+      // Same issue as node:os, but for node:worker_threads: something in the
+      // request path (likely better-auth's crypto deps) dynamically requires
+      // it and the pool's workerd can't resolve it from the bundle.
+      "node:worker_threads": path.resolve(
+        __dirname,
+        "tests/integration/node-worker-threads-stub.cjs",
+      ),
     },
   },
   test: {
@@ -40,6 +47,10 @@ export default defineWorkersConfig({
     hookTimeout: 30_000,
     poolOptions: {
       workers: {
+        // The AI binding is a remote-only Workers AI service; without this the
+        // pool tries to open a real Cloudflare remote-proxy session at startup
+        // (requiring `wrangler login`) even though no test calls it.
+        remoteBindings: false,
         wrangler: { configPath: "./wrangler.jsonc" },
         miniflare: {
           // Match the production runtime. workerd only registers some node:

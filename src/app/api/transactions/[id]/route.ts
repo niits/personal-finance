@@ -5,6 +5,7 @@ import { Errors } from "@/lib/errors";
 import {
   parseAmount,
   parseDate,
+  parseBooleanFlag,
   getBudgetMonthForDate,
   isLeafCategory,
 } from "@/lib/validators";
@@ -19,6 +20,7 @@ type TxnRow = {
   id: number;
   amount: number;
   linked_amount: number | null;
+  is_credit_card: number;
   type: "expense" | "income";
   note: string | null;
   emoji: string | null;
@@ -55,6 +57,7 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
       "t.id",
       "t.amount",
       "t.linked_amount",
+      "t.is_credit_card",
       "t.type",
       "t.note",
       "t.emoji",
@@ -88,6 +91,7 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
     id: txn.id,
     amount: txn.amount,
     linked_amount: txn.linked_amount ?? null,
+    is_credit_card: txn.is_credit_card === 1,
     type: txn.type,
     emoji: txn.emoji ?? null,
     category: txn.cat_id
@@ -155,6 +159,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   if (newType === "income" && newCustomBudgetIds && newCustomBudgetIds.length > 0)
     return Errors.validation("Giao dịch thu nhập không thể gán vào Custom Budget");
 
+  let newIsCreditCard: 0 | 1 | undefined;
+  if (b.is_credit_card !== undefined) {
+    const parsed = parseBooleanFlag(b.is_credit_card);
+    if (parsed === null) return Errors.validation("is_credit_card phải là boolean hoặc 0/1");
+    newIsCreditCard = parsed;
+  }
+
   // Validate category
   if (b.category_id !== undefined && newCategoryId !== null) {
     const cat = await db
@@ -172,9 +183,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   // Resolve monthly_budget_id
   let newMonthlyBudgetId: number | null = existing.monthly_budget_id;
 
+  // Unlinking from a debt (link_debt_id: null) drops the transaction's only
+  // budget-satisfying reference when it was linked (monthly_budget_id was
+  // cleared at link time) — re-resolve from date so the expense CHECK
+  // constraint (monthly_budget_id OR debt_id) still holds after unlink.
+  const isUnlinkingDebt = b.link_debt_id === null && existing.monthly_budget_id === null;
+
   if (newType === "income") {
     newMonthlyBudgetId = null;
-  } else if (newType === "expense" && (b.date !== undefined || b.type !== undefined)) {
+  } else if (newType === "expense" && (b.date !== undefined || b.type !== undefined || isUnlinkingDebt)) {
     const month = getBudgetMonthForDate(newDate);
     const budget = await db
       .selectFrom("monthly_budget")
@@ -265,14 +282,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   if (b.note !== undefined) updateValues.note = newNote;
   if (b.emoji !== undefined) updateValues.emoji = newEmoji;
   if (b.date !== undefined) updateValues.date = newDate;
-  // Always sync monthly_budget_id when type or date changes
-  if (b.type !== undefined || b.date !== undefined) updateValues.monthly_budget_id = newMonthlyBudgetId;
+  // Always sync monthly_budget_id when type or date changes, or when
+  // unlinking from a debt requires re-resolving it (see isUnlinkingDebt above)
+  if (b.type !== undefined || b.date !== undefined || isUnlinkingDebt)
+    updateValues.monthly_budget_id = newMonthlyBudgetId;
+  if (newIsCreditCard !== undefined) updateValues.is_credit_card = newIsCreditCard;
+  if (b.type !== undefined && newType === "income") updateValues.is_credit_card = 0;
   if (debtIdUpdate !== undefined) {
     updateValues.debt_id = debtIdUpdate;
     // Linking clears category and budget; unlinking also clears debt fields
     if (debtIdUpdate !== null) {
       updateValues.category_id = null;
       updateValues.monthly_budget_id = null;
+      updateValues.is_credit_card = 0;
     }
   }
 

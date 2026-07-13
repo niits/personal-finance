@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Badge } from "@/components/atoms/Badge";
+import { isCreditCardOveruse } from "@/lib/credit-card";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -17,6 +19,8 @@ export type CustomBudget = {
   amount: number;
   is_active: number;
   spent: number;
+  credit_card_spent: number;
+  has_linked_transactions: boolean;
 };
 
 export type BudgetTemplateProps = {
@@ -29,6 +33,7 @@ export type BudgetTemplateProps = {
   onCreateMonthlyBudget: (amount: number) => Promise<{ error?: string }>;
   onCreateAdjustment: (delta: number, note: string | null) => Promise<{ error?: string }>;
   onCreateCustomBudget: (name: string, amount: number) => Promise<{ error?: string }>;
+  onEditCustomBudget: (id: number, name: string, amount: number) => Promise<{ error?: string }>;
   onToggleCustomBudget: (id: number, active: boolean) => Promise<{ error?: string }>;
   onDeleteCustomBudget: (id: number) => Promise<{ error?: string }>;
 };
@@ -59,6 +64,7 @@ export function BudgetTemplate({
   onCreateMonthlyBudget,
   onCreateAdjustment,
   onCreateCustomBudget,
+  onEditCustomBudget,
   onToggleCustomBudget,
   onDeleteCustomBudget,
 }: BudgetTemplateProps) {
@@ -92,9 +98,6 @@ export function BudgetTemplate({
   const [editAmountStr, setEditAmountStr] = useState("");
   const [editErr, setEditErr] = useState("");
   const [editSaving, setEditSaving] = useState(false);
-
-  // Custom budget delete confirm
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -135,23 +138,8 @@ export function BudgetTemplate({
     const amount = parseVND(editAmountStr);
     if (!amount) { setEditErr("Số tiền không hợp lệ"); return; }
     setEditSaving(true); setEditErr("");
-    // Use onToggleCustomBudget pattern won't work here — we need a name+amount update
-    // The page must handle edit via onCreateCustomBudget-like callback (or we call toggle with same active)
-    // Since props don't have onEditCustomBudget, we handle name+amount as a local optimistic update
-    // but the task says edit goes through callback. We call onToggleCustomBudget with the same active
-    // value and rely on page re-fetch — or just model it as onDeleteCustomBudget + onCreateCustomBudget.
-    // Actually the task says callbacks are: onToggleCustomBudget(id, active) and onDeleteCustomBudget(id).
-    // There's no edit callback in the spec. Let's use onToggleCustomBudget to signal — but that only
-    // changes active. For a full edit we'd need a separate prop.
-    // For now, model edit as: call a combined update via onCreateAdjustment (wrong) or
-    // treat it as "no edit support without onEditCustomBudget". Instead, add onEditCustomBudget
-    // as an optional prop or use the existing fetch pattern inline.
-    // The spec says these are the only callbacks. We'll skip the edit UI in the template
-    // (the original page called fetch directly — that's a side-effect we can't do).
-    // Best approach: add an optional onEditCustomBudget prop not in the spec
-    // but that changes the interface. Since the task says to keep form state local
-    // and callbacks return {error?}, we need this callback.
-    // We'll include it as optional with a graceful no-op fallback.
+    const result = await onEditCustomBudget(editingCbId, editName.trim(), amount);
+    if (result.error) { setEditErr(result.error); setEditSaving(false); return; }
     setEditSaving(false);
     setEditingCbId(null);
   }
@@ -161,20 +149,6 @@ export function BudgetTemplate({
     setEditName(cb.name);
     setEditAmountStr(fmt(cb.amount));
     setEditErr("");
-  }
-
-  async function requestDelete(cb: CustomBudget) {
-    if (cb.spent > 0) {
-      setConfirmDeleteId(cb.id);
-    } else {
-      const result = await onDeleteCustomBudget(cb.id);
-      if (result.error) return;
-    }
-  }
-
-  async function confirmDelete(id: number) {
-    const result = await onDeleteCustomBudget(id);
-    if (!result.error) setConfirmDeleteId(null);
   }
 
   if (loading) return (
@@ -409,8 +383,8 @@ export function BudgetTemplate({
                 const pct = Math.min((cb.spent / cb.amount) * 100, 100);
                 const over = cb.spent > cb.amount;
                 const isEditing = editingCbId === cb.id;
-                const isConfirming = confirmDeleteId === cb.id;
-                const canDelete = cb.is_active === 1;
+                const canDelete = !cb.has_linked_transactions;
+                const overuse = isCreditCardOveruse(cb.credit_card_spent, cb.spent);
 
                 return (
                   <div key={cb.id} style={{
@@ -452,25 +426,6 @@ export function BudgetTemplate({
                           </button>
                         </div>
                       </div>
-                    ) : isConfirming ? (
-                      <div>
-                        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>
-                          Xoá &ldquo;{cb.name}&rdquo;?
-                        </p>
-                        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 16, lineHeight: 1.5 }}>
-                          Quỹ này đang có giao dịch liên kết. Xoá sẽ gỡ liên kết các giao dịch khỏi quỹ, giao dịch không bị xoá.
-                        </p>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button type="button" onClick={() => setConfirmDeleteId(null)}
-                            className="flex-1 p-2.5 rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
-                            Huỷ
-                          </button>
-                          <button type="button" onClick={() => confirmDelete(cb.id)}
-                            className="flex-[2] p-2.5 rounded-full border-none bg-danger text-white font-body text-[14px] cursor-pointer">
-                            Xác nhận xoá
-                          </button>
-                        </div>
-                      </div>
                     ) : (
                       <>
                         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
@@ -489,13 +444,10 @@ export function BudgetTemplate({
                                 Sửa
                               </button>
                             )}
-                            <button type="button" onClick={() => onToggleCustomBudget(cb.id, cb.is_active !== 1)}
-                              className={`px-2.5 py-1 rounded-full border border-hairline font-body text-xs cursor-pointer ${cb.is_active ? "bg-canvas-parchment text-ink-muted-48" : "bg-ink text-white"}`}>
-                              {cb.is_active ? "Tắt" : "Bật"}
-                            </button>
                             <button type="button"
-                              onClick={() => canDelete ? requestDelete(cb) : undefined}
+                              onClick={() => canDelete ? onDeleteCustomBudget(cb.id) : undefined}
                               disabled={!canDelete}
+                              title={canDelete ? undefined : "Quỹ đang có giao dịch liên kết"}
                               className={`px-2 py-1 rounded-full bg-transparent font-body text-xs border ${canDelete ? "border-danger text-danger cursor-pointer opacity-100" : "border-hairline text-ink-muted-48 cursor-not-allowed opacity-[0.35]"}`}>
                               ✕
                             </button>
@@ -504,11 +456,27 @@ export function BudgetTemplate({
                         <div style={{ height: 4, background: "var(--hairline)", borderRadius: 2, overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, background: over ? "var(--danger)" : "var(--primary)", borderRadius: 2, transition: "width 0.4s ease" }} />
                         </div>
-                        {over && (
-                          <p style={{ fontSize: 12, color: "var(--danger)", fontFamily: "var(--font-body)", marginTop: 4 }}>
-                            Vượt {fmt(cb.spent - cb.amount)}₫
-                          </p>
+                        {(over || cb.credit_card_spent > 0 || overuse) && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                            {over && (
+                              <p style={{ fontSize: 12, color: "var(--danger)", fontFamily: "var(--font-body)" }}>
+                                Vượt {fmt(cb.spent - cb.amount)}₫
+                              </p>
+                            )}
+                            {cb.credit_card_spent > 0 && (
+                              <p style={{ fontSize: 11, color: "var(--ink-muted-48)", fontFamily: "var(--font-body)" }}>
+                                trong đó {fmt(cb.credit_card_spent)}₫ chưa trừ (thẻ tín dụng)
+                              </p>
+                            )}
+                            {overuse && <Badge label="Dùng thẻ nhiều" variant="danger" />}
+                          </div>
                         )}
+                        <button type="button" onClick={() => onToggleCustomBudget(cb.id, cb.is_active !== 1)}
+                          className={`w-full mt-3 py-2.5 rounded-full font-body text-[14px] font-semibold cursor-pointer border ${
+                            cb.is_active ? "border-danger text-danger bg-transparent" : "border-hairline text-ink bg-canvas-parchment"
+                          }`}>
+                          {cb.is_active ? "Đóng ngân sách" : "Mở lại"}
+                        </button>
                       </>
                     )}
                   </div>

@@ -56,7 +56,7 @@ beforeAll(async () => {
 // ─── linking ──────────────────────────────────────────────────────────────────
 
 describe("PATCH transaction — link_debt_id: link", () => {
-  it("links a transaction to a debt and clears category + monthly_budget_id", { timeout: 15000 }, async () => {
+  it("links a transaction to a debt and clears category + monthly_budget_id", async () => {
     const debtId = await createDebt("lend", "Minh", 1_000_000);
     const txId = await createTransaction(1_000_000, "2026-05-10", 1);
 

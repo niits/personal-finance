@@ -32,6 +32,7 @@ export const EditMode: Story = {
         id: 1,
         amount: 85000,
         linked_amount: null,
+        is_credit_card: false,
         type: "expense",
         emoji: "🍜",
         category: { id: 3, name: "Ăn uống", path: "Sinh hoạt > Ăn uống" },
@@ -42,6 +43,30 @@ export const EditMode: Story = {
         note: "Bún bò hôm nay",
         date: "2026-05-15",
         custom_budgets: [{ id: 1, name: "Quỹ gia đình" }],
+      },
+    },
+  },
+};
+
+export const EditModeCreditCard: Story = {
+  args: {
+    mode: {
+      kind: "edit",
+      transaction: {
+        id: 2,
+        amount: 1200000,
+        linked_amount: null,
+        is_credit_card: true,
+        type: "expense",
+        emoji: "🛍️",
+        category: { id: 4, name: "Mua sắm", path: "Sinh hoạt > Mua sắm" },
+        debt_id: null,
+        debt_party: null,
+        debt_type: null,
+        is_opening_tx: false,
+        note: "Áo khoác mùa đông",
+        date: "2026-05-15",
+        custom_budgets: [],
       },
     },
   },

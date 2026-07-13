@@ -1,5 +1,18 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { resetTestData } from "../helpers";
+
+// ─── Auth cookie helper ───────────────────────────────────────────────────────
+//
+// Deliberately doesn't navigate first (unlike other spec files' authHeaders) —
+// GET /api/dashboard sets a 30s Cache-Control on the current month, so an
+// early goto("/") here would cache a pre-seed empty response and mask the
+// data these tests are about to create. storageState already carries the
+// session cookie into the context, so reading it directly is enough.
+async function authHeaders(page: Page): Promise<Record<string, string>> {
+  const cookies = await page.context().cookies();
+  const session = cookies.find((c) => c.name.startsWith("better-auth"));
+  return session ? { Cookie: `${session.name}=${session.value}` } : {};
+}
 
 // Read-only tests — reset to "full" so they're independent of file execution order
 test.describe("Dashboard — transaction list", () => {
@@ -153,5 +166,55 @@ test.describe("Dashboard — category filter subtitle", () => {
     await page.getByRole("button", { name: /Tất cả/ }).click();
     await expect(page.getByText(/trong tổng/)).not.toBeVisible();
     await expect(page.getByText("đã chi tháng này")).toBeVisible();
+  });
+});
+
+// ─── Credit-card overuse caption + badge ───────────────────────────────────────
+
+test.describe("Dashboard — credit card overuse", () => {
+  test.beforeEach(async () => { await resetTestData("budget"); });
+
+  test("shows caption and overuse badge when credit-card spend exceeds 50% of expenses", async ({ page }) => {
+    const headers = await authHeaders(page);
+    const catRes = await page.request.get("/api/categories", { headers });
+    const { categories } = await catRes.json() as { categories: { id: number; type: string }[] };
+    const categoryId = categories.find((c) => c.type === "expense")!.id;
+    const date = new Date().toISOString().slice(0, 10);
+
+    // 100k on credit card + 50k cash → 66.7% of expense spend is credit card (> 50%)
+    await page.request.post("/api/transactions", {
+      headers,
+      data: { amount: 100_000, type: "expense", category_id: categoryId, date, is_credit_card: true },
+    });
+    await page.request.post("/api/transactions", {
+      headers,
+      data: { amount: 50_000, type: "expense", category_id: categoryId, date, is_credit_card: false },
+    });
+
+    await page.goto("/");
+    await expect(page.getByText(/chưa trừ.*thẻ tín dụng/)).toBeVisible();
+    await expect(page.getByText("Dùng thẻ nhiều")).toBeVisible();
+  });
+
+  test("no overuse badge when credit-card spend is under 50% of expenses", async ({ page }) => {
+    const headers = await authHeaders(page);
+    const catRes = await page.request.get("/api/categories", { headers });
+    const { categories } = await catRes.json() as { categories: { id: number; type: string }[] };
+    const categoryId = categories.find((c) => c.type === "expense")!.id;
+    const date = new Date().toISOString().slice(0, 10);
+
+    // 20k on credit card + 80k cash → 20% of expense spend is credit card (< 50%)
+    await page.request.post("/api/transactions", {
+      headers,
+      data: { amount: 20_000, type: "expense", category_id: categoryId, date, is_credit_card: true },
+    });
+    await page.request.post("/api/transactions", {
+      headers,
+      data: { amount: 80_000, type: "expense", category_id: categoryId, date, is_credit_card: false },
+    });
+
+    await page.goto("/");
+    await expect(page.getByText(/chưa trừ.*thẻ tín dụng/)).toBeVisible();
+    await expect(page.getByText("Dùng thẻ nhiều")).not.toBeVisible();
   });
 });

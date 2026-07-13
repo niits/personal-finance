@@ -20,9 +20,9 @@ const mockBudget = {
 };
 
 const mockCustomBudgets = [
-  { id: 1, name: "Du lịch Đà Nẵng", amount: 3_000_000, is_active: 1, spent: 1_200_000 },
-  { id: 2, name: "Mua laptop", amount: 25_000_000, is_active: 1, spent: 26_000_000 },
-  { id: 3, name: "Quỹ khẩn cấp", amount: 5_000_000, is_active: 0, spent: 0 },
+  { id: 1, name: "Du lịch Đà Nẵng", amount: 3_000_000, is_active: 1, spent: 1_200_000, credit_card_spent: 0, has_linked_transactions: true },
+  { id: 2, name: "Mua laptop", amount: 25_000_000, is_active: 1, spent: 26_000_000, credit_card_spent: 20_000_000, has_linked_transactions: true },
+  { id: 3, name: "Quỹ khẩn cấp", amount: 5_000_000, is_active: 0, spent: 0, credit_card_spent: 0, has_linked_transactions: false },
 ];
 
 export const WithBudget: Story = {
@@ -36,6 +36,7 @@ export const WithBudget: Story = {
     onCreateMonthlyBudget: noop,
     onCreateAdjustment: noop,
     onCreateCustomBudget: noop,
+    onEditCustomBudget: noop,
     onToggleCustomBudget: noop,
     onDeleteCustomBudget: noop,
   },

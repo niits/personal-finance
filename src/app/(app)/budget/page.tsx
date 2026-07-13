@@ -81,6 +81,18 @@ export default function BudgetPage() {
     return {};
   }
 
+  async function handleEditCustomBudget(id: number, name: string, amount: number): Promise<{ error?: string }> {
+    const r = await fetch(`/api/custom-budgets/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, amount }),
+    });
+    const d = await r.json() as { error?: string };
+    if (!r.ok) return { error: d.error ?? "Lỗi" };
+    await load();
+    return {};
+  }
+
   async function handleToggleCustomBudget(id: number, active: boolean): Promise<{ error?: string }> {
     const r = await fetch(`/api/custom-budgets/${id}`, {
       method: "PATCH",
@@ -93,7 +105,11 @@ export default function BudgetPage() {
   }
 
   async function handleDeleteCustomBudget(id: number): Promise<{ error?: string }> {
-    await fetch(`/api/custom-budgets/${id}`, { method: "DELETE" });
+    const r = await fetch(`/api/custom-budgets/${id}`, { method: "DELETE" });
+    if (!r.ok) {
+      const d = await r.json() as { error?: string };
+      return { error: d.error ?? "Lỗi" };
+    }
     setCustomBudgets((prev) => prev.filter((c) => c.id !== id));
     return {};
   }
@@ -109,6 +125,7 @@ export default function BudgetPage() {
       onCreateMonthlyBudget={handleCreateMonthlyBudget}
       onCreateAdjustment={handleCreateAdjustment}
       onCreateCustomBudget={handleCreateCustomBudget}
+      onEditCustomBudget={handleEditCustomBudget}
       onToggleCustomBudget={handleToggleCustomBudget}
       onDeleteCustomBudget={handleDeleteCustomBudget}
     />

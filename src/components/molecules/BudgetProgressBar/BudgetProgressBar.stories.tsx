@@ -33,3 +33,11 @@ export const DarkOverBudget: Story = {
     <div style={{ background: "#000", padding: 20 }}><Story /></div>
   )],
 };
+
+export const WithCreditCardCaption: Story = {
+  args: { creditCardSpend: 3000000 },
+};
+
+export const Overuse: Story = {
+  args: { spent: 12000000, remaining: 3000000, creditCardSpend: 7000000, overuse: true },
+};
