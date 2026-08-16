@@ -21,7 +21,7 @@ Included:
 - Budget periods with planned income, savings target, and spending limit.
 - Period-owned custom envelopes and amount-bearing allocations that split one expense without duplicating money.
 - Dashboard metrics, transaction feed, category/custom-budget attribution, analytics, AI inputs, and export over the new ledger.
-- Mobile-first forms and position detail flows.
+- Mobile-first grouped position lists, complete activity timelines, detail flows, and atomic full-settlement close lifecycle.
 
 Excluded:
 
@@ -40,7 +40,7 @@ Before implementation, create a checked migration matrix covering every referenc
 
 1. Add pure TypeScript types for semantic commands and event effects.
 2. Add `zod` as a direct dependency instead of relying on a transitive package.
-3. Define the complete position-kind/action matrix, overpayment rules, immutable opening fields, refunded-expense edit rules, and request/response/error unions.
+3. Define the complete position-kind/action matrix, overpayment rules, immutable opening fields, append-only reversal/correction rules, and request/response/error unions.
 4. Implement one exhaustive event constructor that produces constrained deltas.
 5. Add unit tests for every mapping in ADR 005, including positive/negative adjustments.
 6. Add pure metric functions for cash, positions, net worth, period savings, and safe-to-spend.
@@ -55,7 +55,7 @@ Acceptance criteria:
 
 ## Phase 2: D1 Schema
 
-1. Add an additive migration for `financial_profile`, `financial_write_request`, `financial_position`, `budget_period`, `ledger_budget_adjustment`, `ledger_custom_budget`, `financial_event`, and `financial_event_custom_budget_allocation`; do not rebuild or drop legacy tables in this phase.
+1. Add an additive migration for profile adjustments, write requests, positions and append-only closure/reversal records, budget periods and locks, budget/custom adjustments and closures, financial events and commit markers, reversals, and amount-bearing custom allocations; do not rebuild or drop legacy tables in this phase.
 2. Add composite ownership indexes and foreign keys.
 3. Add kind-specific `CHECK` constraints, idempotency uniqueness, and opening-event uniqueness.
 4. Update `src/lib/schema.ts` with all new tables.
@@ -68,22 +68,27 @@ Acceptance criteria:
 - Duplicate idempotency and opening keys fail.
 - Invalid amount and malformed date shapes fail.
 - Custom allocation sums above the event amount and cross-user allocations fail.
+- Update/delete attempts against append-only facts fail, while reversal plus replacement preserves history and net effects.
+- Incomplete event/allocation bundles cannot receive a commit marker, committed bundles reject later allocation changes, and commit markers cannot be changed or deleted.
 
 ## Phase 3: Ledger Service
 
 1. Implement the canonical Vietnam-date validator and budget-period resolver.
-2. Implement initialization, event CRUD, refund, position movement, and adjustment services.
-3. Use `D1Database.batch()` for every multi-write operation. Claim idempotency with a conflict-failing first insert and enforce cross-row gates through aborting SQLite triggers; never rely on a preceding batch `SELECT` or zero affected rows.
-4. Enforce ownership, category type, position compatibility, no future actuals, exact event-period membership, refund limits, cumulative deterministic partial-refund allocation, immutable refunded-expense allocations, immutable used-period boundaries, archived-position rejection, and zero-balance archival.
+2. Implement initialization, event append/list, reversal plus replacement, refund, position movement/closure, and append-only adjustment services.
+3. Replay matching idempotency requests before state validation. For new writes, use `D1Database.batch()`, claim with a conflict-failing first insert, append commit markers last, and enforce cross-row gates through aborting SQLite triggers; never rely on a preceding batch `SELECT` or zero affected rows.
+4. Enforce ownership, category type, position compatibility, no future actuals, exact event-period membership, refund limits, cumulative deterministic partial-refund allocation, immutable refunded-expense allocations, immutable used-period boundaries, closed-position rejection, and zero-balance closing.
 5. Make duplicate idempotency keys return the original result.
 
 Acceptance criteria:
 
 - Retried mobile writes create one event.
-- Parallel refund, initialization, idempotency, period-overlap, and archival attempts preserve invariants and stable conflict codes.
-- Editing an event regenerates all effects and period attribution.
-- Editing an expense cannot invalidate existing refunds.
-- Editing custom allocations cannot duplicate money or invalidate refund allocations.
+- Parallel refund, initialization, idempotency, period-overlap, and close attempts preserve invariants and stable conflict codes.
+- Reversing an event appends exact opposite effects and allocations; the optional replacement receives fresh attribution.
+- Opening and reversal events cannot be reversed, and an event can be reversed at most once.
+- Corrections cannot invalidate existing refunds or duplicate custom-budget money.
+- Expenses with refunds require every dependent refund to be reversed before the expense can be reversed.
+- Close settlement and closure are one atomic append; mistaken nonzero Close correction appends settlement reversal, closure reversal, then commit marker, while zero-balance Close correction appends a lifecycle-only reversal.
+- Custom creation, cap adjustments, parent-limit adjustments, allocations, and closure preserve nonnegative effective capacity and the period reconciliation identity; historical correction first reverses any effective custom closure.
 - No service uses interactive SQL transactions.
 
 ## Phase 4: API Cutover
@@ -106,7 +111,7 @@ Acceptance criteria:
 2. Replace `SUM(CASE WHEN transaction.type...)` queries with event delta metrics and amount-bearing custom-budget allocations.
 3. Add as-of boundaries to every balance query.
 4. Reconcile headline totals with category and daily breakdown totals.
-5. Add safe-to-spend, savings target gap, cash balance, reserved card debt, and net worth outputs.
+5. Add safe-to-spend, savings target gap, cash balance, reserved card debt, and net worth outputs using effective profile/budget/custom values derived from append-only adjustments.
 6. Version finance API URLs/cache keys and invalidate persisted statistics and AI-derived reports at cutover.
 
 Acceptance criteria:
@@ -124,17 +129,19 @@ Before writing UI, read `docs/COMPONENT_ARCHITECTURE.md`, `DESIGN.md`, and use t
 1. Add onboarding for ledger date, opening cash, reserve, and optional opening positions.
 2. Create or collect the initial budget period during onboarding so the first expense has a valid period.
 3. Keep the common expense form under ten seconds with `Cash/debit` as default, card as an optional payment selector, and an optional custom-budget split whose amounts cannot exceed the expense.
-4. Replace the Debts screen with Positions covering cards, deposits, receivables, and payables.
-5. Add semantic actions: pay card, fund/withdraw deposit, lend/receive repayment, borrow/repay.
-6. Redesign the home summary around safe-to-spend, period spending, target savings, and obligations.
-7. Move finance fetching/mutations to page-owned hooks and callbacks; atoms and molecules remain pure.
-8. Add every new component in its required level folder with implementation, `index.ts`, and isolated CSF3 stories covering meaningful states.
+4. Replace the Debts screen with a grouped Positions screen: Credit cards, Owed to me, I owe, and Term deposits, each with normal/credit totals and a closed-history section.
+5. Add position details with current principal/debt, derived status, counterparty, due/maturity date, and a complete event timeline with human activity labels.
+6. Add semantic actions: pay card, fund/withdraw deposit, lend/receive repayment, borrow/repay, and Close, which creates the full signed settlement movement and atomically closes the position.
+7. Redesign the home summary around safe-to-spend, period spending, target savings, and obligations.
+8. Move finance fetching/mutations to page-owned hooks and callbacks; atoms and molecules remain pure.
+9. Add every new component in its required level folder with implementation, `index.ts`, and isolated CSF3 stories covering meaningful states.
 
 Acceptance criteria:
 
 - A cash expense needs no extra account selection.
 - A card expense needs one additional payment choice.
 - Position movements cannot be mistaken for income or expense in labels or summaries.
+- Every position type exposes its own history; Close appends the full signed settlement plus closure record, reaches zero, and never rewrites or deletes history.
 - The UI labels custom remaining as a subset of period capacity and never adds it to period remaining.
 - Mobile and desktop layouts load without overflow or inaccessible controls.
 
@@ -191,8 +198,9 @@ Also run targeted end-to-end scenarios:
 7. Attempt cross-user position, category, event, and period references.
 8. Verify safe-to-spend before and after each scenario.
 9. Split one expense across two custom budgets, issue repeated partial refunds in a later period, and reconcile custom plus unassigned remaining to the original period total.
-10. Run parallel duplicate/refund/initialization/overlap/archive requests with `Promise.all`.
-11. Upgrade a populated two-user legacy fixture and verify legacy routes before cutover and ledger routes after cutover.
+10. Close each positive and negative position type, verify the correct cash direction, zero final balance, timeline settlement event, idempotent retry, and preserved closed history.
+11. Run parallel duplicate/refund/initialization/overlap/close requests with `Promise.all`.
+12. Upgrade a populated two-user legacy fixture and verify legacy routes before cutover and ledger routes after cutover.
 
 ## Rollback
 
