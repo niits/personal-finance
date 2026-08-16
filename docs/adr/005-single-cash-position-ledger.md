@@ -111,7 +111,6 @@ Before creating this table, add composite ownership keys to referenced tables:
 ```sql
 CREATE UNIQUE INDEX ux_category_id_user ON category(id, user_id);
 CREATE UNIQUE INDEX ux_budget_period_id_user ON budget_period(id, user_id);
-CREATE UNIQUE INDEX ux_custom_budget_id_user ON custom_budget(id, user_id);
 ```
 
 All mutating APIs use a user-scoped operation record rather than event-only idempotency:
@@ -324,28 +323,99 @@ CREATE TABLE ledger_budget_adjustment (
 );
 ```
 
-Periods use inclusive `start_date` and `end_date` and may not overlap for one user. An overlap trigger aborts conflicting inserts or boundary changes. The first referencing event sets `locked_at` in the same batch; once set, period boundaries remain immutable even if every event is later deleted. Every expense/refund persists the period selected by the canonical date-to-period resolver.
+Periods use inclusive `start_date` and `end_date` and may not overlap for one user. An overlap trigger aborts conflicting inserts or boundary changes. The first referencing event sets `locked_at` in the same batch; once set, period boundaries remain immutable even if every event is later deleted. Every expense persists the period selected by the canonical date-to-period resolver, and an aborting trigger verifies that its date is inside that period. An expense date with no covering period is rejected. Refunds are the sole exception: they retain the original expense's period so that they restore the budget that funded the purchase.
 
 Budget changes update the effective values stored on `budget_period` and insert a `ledger_budget_adjustment` audit row in one batch. A `BEFORE UPDATE` trigger raises and aborts the batch unless resulting values remain nonnegative and `spending_limit + savings_target <= planned_income`; zero-row gating is not used. All metrics use the effective values on `budget_period`, never a separately summed adjustment value. The new table name avoids collision with the legacy `budget_adjustment` table during expand/contract rollout.
 
 `spending_limit` is the consumption ceiling after protecting `savings_target`. The check against `planned_income` makes that relationship explicit rather than showing a savings target that does not affect decisions.
 
-Custom project budgets remain optional expense tags through this junction:
+### Period and custom budget semantics
+
+Budgeting has two explicit levels:
+
+- Every expense/refund belongs to exactly one `budget_period`. Its full `expense_delta` always affects that period.
+- A custom budget is an optional envelope inside one budget period. One expense may split its amount across zero, one, or many custom budgets from that same period.
+
+Custom budgets are not independent copies of the same money. The sum allocated across custom budgets cannot exceed the event amount. Any remainder is period spending that is not assigned to a custom envelope. Cross-cutting analytical membership belongs in tags, not budgets.
+
+Custom envelopes use a new table so the additive release does not collide with the legacy open-ended model:
 
 ```sql
-CREATE TABLE financial_event_custom_budget (
-  financial_event_id  TEXT NOT NULL,
-  custom_budget_id    INTEGER NOT NULL,
-  user_id             TEXT NOT NULL,
+CREATE TABLE ledger_custom_budget (
+  id                TEXT PRIMARY KEY,
+  user_id           TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+  budget_period_id  INTEGER NOT NULL,
+  name              TEXT NOT NULL,
+  amount            INTEGER NOT NULL CHECK (amount > 0),
+  series_key        TEXT,
+  archived_at       INTEGER,
+  created_at        INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at        INTEGER NOT NULL DEFAULT (unixepoch()),
+  UNIQUE (id, user_id),
+  FOREIGN KEY (budget_period_id, user_id)
+    REFERENCES budget_period(id, user_id) ON DELETE RESTRICT
+);
+```
+
+`amount` is capacity reserved from the parent period. The sum of active custom-budget amounts in a period cannot exceed its `spending_limit`; aborting triggers enforce this on custom-budget and period updates. `series_key` optionally links envelopes carried forward under the same project name, but each period owns and funds its own capacity. Custom budgets are not financial accounts and changing their cap does not move cash.
+
+Replace the boolean junction with amount-bearing allocations:
+
+```sql
+CREATE TABLE financial_event_custom_budget_allocation (
+  financial_event_id      TEXT NOT NULL,
+  custom_budget_id        TEXT NOT NULL,
+  user_id                 TEXT NOT NULL,
+  allocated_expense_delta INTEGER NOT NULL
+                            CHECK (allocated_expense_delta != 0),
   PRIMARY KEY (financial_event_id, custom_budget_id),
   FOREIGN KEY (financial_event_id, user_id)
     REFERENCES financial_event(id, user_id) ON DELETE CASCADE,
   FOREIGN KEY (custom_budget_id, user_id)
-    REFERENCES custom_budget(id, user_id) ON DELETE CASCADE
+    REFERENCES ledger_custom_budget(id, user_id) ON DELETE RESTRICT
 );
 ```
 
-Conditional insert SQL permits links only for expense/refund events. Refund category, budget period, payment medium, and custom-budget links are derived from the original expense and are not accepted from the client.
+For an expense, allocation deltas are positive. For a refund, they are negative. Aborting triggers enforce:
+
+- Only expense/refund events have allocations.
+- All allocations belong to the same user.
+- Every allocated custom budget belongs to the event's budget period.
+- Expense allocation sum is at most the event amount.
+- A refund can release only custom-budget amounts allocated by its original expense.
+- Total released custom allocation is at most the refund amount.
+
+Refund category, budget period, and payment medium are derived from the original expense. Refund expense metrics are grouped by `budget_period_id`, not by the refund's cash date. A full refund reverses every original custom allocation. For partial refunds, compute the cumulative target allocation at the new cumulative refunded amount across original custom allocations and the unallocated remainder. Use largest-remainder rounding with ascending custom-budget ID as the stable tie-breaker and sort the unallocated bucket after every custom-budget ID, then write only the difference from amounts already released. This prevents repeated partial refunds from over-releasing any envelope. The client does not provide refund allocations.
+
+After the first refund, the original expense's amount, payment medium, category, period, and custom allocation IDs/amounts are immutable. Custom budgets with any allocation history cannot be deleted. They can be archived only at zero `custom_remaining`; archived rows remain included in historical reconciliation.
+
+Custom budget values are:
+
+```text
+custom_spent
+  = SUM(allocated_expense_delta for the custom budget)
+
+custom_remaining
+  = custom_budget.amount - custom_spent
+
+period_unallocated_expense
+  = period_expense - SUM(custom allocation deltas in the period)
+
+period_unassigned_remaining
+  = spending_limit
+    - SUM(all custom budget amounts in the period, including archived history)
+    - period_unallocated_expense
+```
+
+Negative `custom_remaining` is allowed and shown as overspending. The following identity must always reconcile:
+
+```text
+budget_remaining
+  = period_unassigned_remaining + SUM(custom_remaining)
+  = spending_limit - period_expense
+```
+
+The UI presents period remaining as the total and custom balances plus unassigned remaining as its breakdown. It never adds custom remaining on top of period remaining.
 
 ## Derived Metrics
 
@@ -356,8 +426,10 @@ cash_balance = SUM(cash_delta)
 position_balance = SUM(position_delta) grouped by position
 net_worth = cash_balance + SUM(position balances)
 
-period_expense = SUM(expense_delta WHERE start_date <= date <= MIN(end_date, as_of))
-period_income = SUM(income_delta WHERE start_date <= date <= MIN(end_date, as_of))
+period_expense = SUM(expense_delta
+  WHERE budget_period_id = selected_period AND date <= as_of)
+period_income = SUM(income_delta
+  WHERE start_date <= date <= MIN(end_date, as_of))
 actual_savings = period_income - period_expense
 savings_rate = actual_savings / period_income
 savings_target_gap = savings_target - actual_savings
@@ -441,6 +513,7 @@ The common expense flow remains under ten seconds. Position management is outsid
 - Opening events are unique per cash ledger or position.
 - Adjustments require a nonblank reason and never affect operating metrics.
 - Refund totals cannot exceed the original expense.
+- Custom-budget allocations split an expense and never exceed its amount.
 - Budget periods do not overlap and use inclusive bounds.
 - Archived positions have zero as-of balance.
 - Idempotency prevents duplicate mobile retries.

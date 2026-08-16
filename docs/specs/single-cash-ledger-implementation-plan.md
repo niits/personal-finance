@@ -19,6 +19,7 @@ Included:
 - Credit-card purchases, refunds, and principal payments.
 - Principal-only term deposits and personal lending/borrowing.
 - Budget periods with planned income, savings target, and spending limit.
+- Period-owned custom envelopes and amount-bearing allocations that split one expense without duplicating money.
 - Dashboard metrics, transaction feed, category/custom-budget attribution, analytics, AI inputs, and export over the new ledger.
 - Mobile-first forms and position detail flows.
 
@@ -54,7 +55,7 @@ Acceptance criteria:
 
 ## Phase 2: D1 Schema
 
-1. Add an additive migration for `financial_profile`, `financial_write_request`, `financial_position`, `budget_period`, `ledger_budget_adjustment`, `financial_event`, and `financial_event_custom_budget`; do not rebuild or drop legacy tables in this phase.
+1. Add an additive migration for `financial_profile`, `financial_write_request`, `financial_position`, `budget_period`, `ledger_budget_adjustment`, `ledger_custom_budget`, `financial_event`, and `financial_event_custom_budget_allocation`; do not rebuild or drop legacy tables in this phase.
 2. Add composite ownership indexes and foreign keys.
 3. Add kind-specific `CHECK` constraints, idempotency uniqueness, and opening-event uniqueness.
 4. Update `src/lib/schema.ts` with all new tables.
@@ -66,13 +67,14 @@ Acceptance criteria:
 - Balanced but semantically invalid rows fail.
 - Duplicate idempotency and opening keys fail.
 - Invalid amount and malformed date shapes fail.
+- Custom allocation sums above the event amount and cross-user allocations fail.
 
 ## Phase 3: Ledger Service
 
 1. Implement the canonical Vietnam-date validator and budget-period resolver.
 2. Implement initialization, event CRUD, refund, position movement, and adjustment services.
 3. Use `D1Database.batch()` for every multi-write operation. Claim idempotency with a conflict-failing first insert and enforce cross-row gates through aborting SQLite triggers; never rely on a preceding batch `SELECT` or zero affected rows.
-4. Enforce ownership, category type, position compatibility, no future actuals, refund limits, immutable used-period boundaries, archived-position rejection, and zero-balance archival.
+4. Enforce ownership, category type, position compatibility, no future actuals, exact event-period membership, refund limits, cumulative deterministic partial-refund allocation, immutable refunded-expense allocations, immutable used-period boundaries, archived-position rejection, and zero-balance archival.
 5. Make duplicate idempotency keys return the original result.
 
 Acceptance criteria:
@@ -81,6 +83,7 @@ Acceptance criteria:
 - Parallel refund, initialization, idempotency, period-overlap, and archival attempts preserve invariants and stable conflict codes.
 - Editing an event regenerates all effects and period attribution.
 - Editing an expense cannot invalidate existing refunds.
+- Editing custom allocations cannot duplicate money or invalidate refund allocations.
 - No service uses interactive SQL transactions.
 
 ## Phase 4: API Cutover
@@ -100,7 +103,7 @@ Acceptance criteria:
 ## Phase 5: Read Models and Analytics
 
 1. Create one ledger query service used by dashboard, feed, pace, statistics, AI, and export.
-2. Replace `SUM(CASE WHEN transaction.type...)` queries with event delta metrics.
+2. Replace `SUM(CASE WHEN transaction.type...)` queries with event delta metrics and amount-bearing custom-budget allocations.
 3. Add as-of boundaries to every balance query.
 4. Reconcile headline totals with category and daily breakdown totals.
 5. Add safe-to-spend, savings target gap, cash balance, reserved card debt, and net worth outputs.
@@ -112,6 +115,7 @@ Acceptance criteria:
 - Card payments and term-deposit movements do not appear as spending.
 - A card purchase reduces spending budget immediately.
 - Future or scheduled items do not affect current balances.
+- Period remaining equals unassigned remaining plus all custom-envelope remaining values, including cross-period refunds attributed to their original period.
 
 ## Phase 6: UI Cutover
 
@@ -119,7 +123,7 @@ Before writing UI, read `docs/COMPONENT_ARCHITECTURE.md`, `DESIGN.md`, and use t
 
 1. Add onboarding for ledger date, opening cash, reserve, and optional opening positions.
 2. Create or collect the initial budget period during onboarding so the first expense has a valid period.
-3. Keep the common expense form under ten seconds with `Cash/debit` as default and card as an optional payment selector.
+3. Keep the common expense form under ten seconds with `Cash/debit` as default, card as an optional payment selector, and an optional custom-budget split whose amounts cannot exceed the expense.
 4. Replace the Debts screen with Positions covering cards, deposits, receivables, and payables.
 5. Add semantic actions: pay card, fund/withdraw deposit, lend/receive repayment, borrow/repay.
 6. Redesign the home summary around safe-to-spend, period spending, target savings, and obligations.
@@ -131,6 +135,7 @@ Acceptance criteria:
 - A cash expense needs no extra account selection.
 - A card expense needs one additional payment choice.
 - Position movements cannot be mistaken for income or expense in labels or summaries.
+- The UI labels custom remaining as a subset of period capacity and never adds it to period remaining.
 - Mobile and desktop layouts load without overflow or inaccessible controls.
 
 ## Phase 7: Expand Release
@@ -185,8 +190,9 @@ Also run targeted end-to-end scenarios:
 6. Retry the same write with one idempotency key.
 7. Attempt cross-user position, category, event, and period references.
 8. Verify safe-to-spend before and after each scenario.
-9. Run parallel duplicate/refund/initialization/overlap/archive requests with `Promise.all`.
-10. Upgrade a populated two-user legacy fixture and verify legacy routes before cutover and ledger routes after cutover.
+9. Split one expense across two custom budgets, issue repeated partial refunds in a later period, and reconcile custom plus unassigned remaining to the original period total.
+10. Run parallel duplicate/refund/initialization/overlap/archive requests with `Promise.all`.
+11. Upgrade a populated two-user legacy fixture and verify legacy routes before cutover and ledger routes after cutover.
 
 ## Rollback
 
