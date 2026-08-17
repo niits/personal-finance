@@ -76,7 +76,7 @@ Acceptance criteria:
 1. Implement the canonical Vietnam-date validator and budget-period resolver.
 2. Implement initialization, event append/list, reversal plus replacement, refund, position movement/closure, and append-only adjustment services.
 3. Replay matching idempotency requests before state validation. For new writes, use `D1Database.batch()`, claim with a conflict-failing first insert, append commit markers last, and enforce cross-row gates through aborting SQLite triggers; never rely on a preceding batch `SELECT` or zero affected rows.
-4. Enforce ownership, category type, position compatibility, no future actuals, exact event-period membership, refund limits, cumulative deterministic partial-refund allocation, immutable refunded-expense allocations, immutable used-period boundaries, closed-position rejection, and zero-balance closing.
+4. Enforce ownership, category type, position compatibility, no future actuals, exact event-period membership, refund limits, monotonic incremental partial-refund allocation over remaining capacities, immutable refunded-expense allocations, immutable used-period boundaries, closed-position rejection, and zero-balance closing.
 5. Make duplicate idempotency keys return the original result.
 
 Acceptance criteria:
