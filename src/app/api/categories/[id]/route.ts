@@ -87,11 +87,19 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
     .where("user_id", "=", userId)
     .executeTakeFirst();
   const txnCnt = txnCount?.cnt ?? 0;
-  if (txnCnt > 0) {
+  const ledgerCount = await db
+    .selectFrom("financial_event as event")
+    .innerJoin("financial_event_commit as commit", "commit.event_id", "event.id")
+    .select((eb) => eb.fn.countAll<number>().as("cnt"))
+    .where("event.category_id", "=", categoryId)
+    .where("event.user_id", "=", userId)
+    .executeTakeFirst();
+  const ledgerCnt = ledgerCount?.cnt ?? 0;
+  if (txnCnt + ledgerCnt > 0) {
     return Errors.conflict(
-      `Danh mục đang được dùng bởi ${txnCnt} giao dịch`,
+      `Danh mục đang được dùng bởi ${txnCnt + ledgerCnt} giao dịch tài chính`,
       "CATEGORY_IN_USE",
-      { transaction_count: txnCnt },
+      { legacyTransactionCount: txnCnt, ledgerEventCount: ledgerCnt, totalUsageCount: txnCnt + ledgerCnt },
     );
   }
 

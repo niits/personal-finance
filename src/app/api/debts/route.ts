@@ -3,6 +3,7 @@ import { getKysely, getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { getDebtWithRepayments, debtOpeningTxType } from "@/lib/debt";
+import { guardLegacyFinanceWrite } from "@/lib/ledger/cutover";
 
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
@@ -33,6 +34,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await requireSession(req);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const userId = session.user.id;
 

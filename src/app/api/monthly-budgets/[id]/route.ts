@@ -2,12 +2,15 @@ import type { NextRequest } from "next/server";
 import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
+import { guardLegacyFinanceWrite } from "@/lib/ledger/cutover";
 
 type Params = Promise<{ id: string }>;
 
 export async function PATCH(request: NextRequest, { params }: { params: Params }) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const { id } = await params;
   const budgetId = Number(id);

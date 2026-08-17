@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDB, getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
+import { guardLegacyFinanceWrite } from "@/lib/ledger/cutover";
 
 const ApplySchema = z.object({
   new_categories: z.array(z.object({
@@ -37,6 +38,8 @@ const ApplySchema = z.object({
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const body = await request.json().catch(() => null);
   const parsed = ApplySchema.safeParse(body);
@@ -46,6 +49,19 @@ export async function POST(request: NextRequest) {
   const userId = session.user.id;
   const [db, kysely] = await Promise.all([getDB(), getKysely()]);
   const now = Math.floor(Date.now() / 1000);
+
+  const parentIds = [...new Set(new_categories.flatMap((category) =>
+    category.parent_category_id === null ? [] : [category.parent_category_id]
+  ))];
+  if (parentIds.length > 0) {
+    const ownedParents = await kysely
+      .selectFrom("category")
+      .select("id")
+      .where("id", "in", parentIds)
+      .where("user_id", "=", userId)
+      .execute();
+    if (ownedParents.length !== parentIds.length) return Errors.notFound("Parent category not found");
+  }
 
   // 1. Insert new categories, build temp_id → real_id map
   const tempIdMap = new Map<string, number>();

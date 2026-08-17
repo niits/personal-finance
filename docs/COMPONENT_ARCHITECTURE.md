@@ -60,7 +60,7 @@ Primitive building blocks. Zero dependencies on other `src/components/`. One res
 | `Spinner` | Loading indicator, size variants |
 | `Divider` _(planned)_ | Horizontal rule, optional label |
 | `EmojiIcon` | Single emoji with consistent sizing and fallback |
-| `DebtProgressBar` | Repaid / remaining bar for a debt (lend=blue, borrow=amber, settled=green) |
+| `DebtProgressBar` _(legacy)_ | Repaid / remaining bar retained until the legacy debt contract is removed |
 
 > The tables in §2 describe the target hierarchy (design intent). The shipped inventory is the `src/components/` tree in §3; rows marked _(planned)_ are not built yet.
 
@@ -83,6 +83,9 @@ Meaningful combinations of atoms. No side effects — pure props in, JSX out.
 | `RecategorizationRow` | Badge | Checkable row for an AI-proposed transaction reclassification |
 | `DebtPartyCard` | DebtProgressBar, CurrencyDisplay | Debt summary card: party, remaining / opening, progress, overdue flag |
 | `DebtRepaymentItem` | CurrencyDisplay | One repayment row in the debt detail timeline (income/expense direction) |
+| `PositionCard` | CurrencyDisplay, Badge | Position summary with economic direction, status, due date, and signed balance meaning |
+| `PositionActivityItem` | CurrencyDisplay | One normalized ledger activity, including category/allocation and close-settlement presentation |
+| `LedgerEventItem` | CurrencyDisplay | Normalized event-feed row that distinguishes operating activity from transfers and corrections |
 
 ### 2.4 Organisms
 
@@ -102,6 +105,13 @@ Complete, self-contained UI sections. May hold local UI state (open/closed, acti
 | `VegaChart` | Vega-Lite chart wrapper (handles CSP-safe interpreter, locale, theme) |
 | `OrganizeReviewSheet` | Bottom sheet: lists AI-proposed category/emoji/reclassification changes with checkboxes before applying |
 | `LinkTransactionSheet` | Bottom sheet listing eligible transactions to link to a debt as a repayment |
+| `PositionCreateSheet` | Create any of the four position kinds at zero balance; principal is added from the detail actions |
+| `PositionActionSheet` | Semantic principal movement form and explicit signed-cash Close confirmation |
+| `PositionCloseCorrectionSheet` | Explicit append-only correction for one recorded Close; never deletes or generically reopens a position |
+| `LedgerOnboarding` | Fresh-start profile, opening balances/positions, consent, and mandatory initial plan |
+| `LedgerEntrySheet` | Fast semantic income/expense entry with leaf-only hierarchical categories, card payment medium, and explicit envelope allocations |
+| `LedgerEventActionSheet` | Accessible server-capped partial refund form and append-only event reversal confirmation |
+| `LedgerBudgetManager` | Period metadata, append-only adjustments, and envelope lifecycle forms |
 
 ### 2.5 Templates
 
@@ -109,11 +119,15 @@ Page-level layout shells. Receive all data as props. No `useEffect`, no `fetch`,
 
 | Component | Description |
 |-----------|-------------|
-| `DashboardTemplate` | Home page layout: month stepper, DashboardSummary, TransactionGroup list, TransactionForm trigger, transaction action sheet |
-| `BudgetTemplate` | Budget page: monthly + custom budgets, inline create/adjust/edit forms, adjustment history |
+| `DashboardTemplate` _(legacy)_ | Retained legacy transaction dashboard; no longer used by the ledger root page |
+| `BudgetTemplate` _(legacy)_ | Retained legacy monthly-budget template; no longer used by `/budget` |
+| `LedgerDashboardTemplate` | Safe-to-spend hierarchy, active-period reconciliation, balances, and cursor-paginated normalized event feed |
+| `LedgerBudgetTemplate` | Ledger period selection and `LedgerBudgetManager` composition |
 | `CategoriesTemplate` | Category management: hierarchical tree, AI suggest/recategorize review sheets |
 | `StatisticsTemplate` | Statistics page: month selector, AI insight cards + `VegaChart`s, regenerate flow |
-| `DebtOverviewTemplate` | Debts page (`/debts`): lend/borrow summary tiles, `DebtPartyCard` lists, settled section |
+| `DebtOverviewTemplate` _(legacy)_ | Retained legacy debt template; no longer used by an App Router page |
+| `PositionsTemplate` | Grouped positions page at `/debts`, with active economic groups and separate closed history |
+| `PositionDetailTemplate` | Position balance, available server-derived actions, metadata, and complete event timeline |
 
 ### 2.6 Pages (App Router)
 
@@ -122,17 +136,17 @@ Next.js `page.tsx` files. Only responsibility: fetch data for the current month/
 Routes are flat under the `(app)` route group (Epic 2 flattened them from the old `/dashboard/*` prefix; Epic 4 moved categories under `/account` and added `/debts`).
 
 ```
-src/app/(app)/page.tsx                      → DashboardTemplate        (/)
+src/app/(app)/page.tsx                      → LedgerOnboarding or LedgerDashboardTemplate (/)
 src/app/(app)/statistics/page.tsx           → StatisticsTemplate       (/statistics)
-src/app/(app)/debts/page.tsx                → DebtOverviewTemplate     (/debts)
-src/app/(app)/debts/[id]/page.tsx           → debt detail (DebtRepaymentItem, LinkTransactionSheet)
-src/app/(app)/budget/page.tsx               → BudgetTemplate           (/budget)
+src/app/(app)/debts/page.tsx                → PositionsTemplate        (/debts)
+src/app/(app)/debts/[id]/page.tsx           → PositionDetailTemplate  (/debts/:id)
+src/app/(app)/budget/page.tsx               → LedgerBudgetTemplate     (/budget)
 src/app/(app)/account/page.tsx              → account settings         (/account)
 src/app/(app)/account/categories/page.tsx   → CategoriesTemplate       (/account/categories)
 src/app/(app)/categories/page.tsx           → redirect → /account/categories
 ```
 
-Bottom-nav tabs: Tổng quan (`/`) · Thống kê (`/statistics`) · Nợ (`/debts`) · Ngân sách (`/budget`) · Tài khoản (`/account`).
+Bottom-nav tabs: Tổng quan (`/`) · Thống kê (`/statistics`) · Vị thế (`/debts`) · Ngân sách (`/budget`) · Tài khoản (`/account`).
 
 ---
 
@@ -157,6 +171,9 @@ src/
       BudgetProgressBar/
       DebtPartyCard/
       DebtRepaymentItem/
+      PositionActivityItem/
+      PositionCard/
+      LedgerEventItem/
       MonthStepper/
       NewCategoryRow/
       OrganizeSectionHeader/
@@ -170,6 +187,13 @@ src/
       LinkTransactionSheet/
       Navbar/
       OrganizeReviewSheet/
+      PositionActionSheet/
+      PositionCloseCorrectionSheet/
+      PositionCreateSheet/
+      LedgerBudgetManager/
+      LedgerEntrySheet/
+      LedgerEventActionSheet/
+      LedgerOnboarding/
       TransactionForm/
       TransactionGroup/
       VegaChart/
@@ -178,6 +202,10 @@ src/
       CategoriesTemplate/
       DashboardTemplate/
       DebtOverviewTemplate/
+      PositionDetailTemplate/
+      PositionsTemplate/
+      LedgerBudgetTemplate/
+      LedgerDashboardTemplate/
       StatisticsTemplate/
   lib/
     auth.ts           # Server-side auth (better-auth)
@@ -192,6 +220,8 @@ src/
     session.ts        # Session utilities
     statistics.ts     # Statistics & insight types
     validators.ts     # Input validation
+  hooks/
+    useModalFocus.ts  # Shared focus trap, restoration, Escape, inert background, and scroll lock for sheets
   workers/
     scheduler.ts      # Cloudflare scheduled worker
   app/

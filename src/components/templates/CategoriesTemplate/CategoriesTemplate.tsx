@@ -37,6 +37,7 @@ export type RecategorizeSuggestion = {
 export type CategoriesTemplateProps = {
   categories: Category[];
   loading: boolean;
+  aiEnabled: boolean;
   suggestions: Suggestion[] | null;
   suggestState: "loading" | "done" | "error" | "idle";
   recatSuggestions: RecategorizeSuggestion[] | null;
@@ -95,6 +96,7 @@ const ghostBtnStyle: React.CSSProperties = {
 export function CategoriesTemplate({
   categories,
   loading,
+  aiEnabled,
   suggestions,
   suggestState,
   recatSuggestions,
@@ -513,12 +515,12 @@ export function CategoriesTemplate({
           </h1>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button"
+          {aiEnabled ? <button type="button"
             onClick={openSuggest}
             className="bg-transparent text-white/75 border border-white/25 rounded-full px-4 py-2 font-body text-[14px] font-normal cursor-pointer"
           >
             ✦ Gợi ý
-          </button>
+          </button> : null}
           <button type="button"
             onClick={() => setShowForm(!showForm)}
             className="bg-primary text-white border-none rounded-full px-[18px] py-2 font-body text-[14px] font-normal cursor-pointer"
@@ -659,7 +661,7 @@ export function CategoriesTemplate({
       )}
 
       {/* AI suggest bottom sheet */}
-      {showSuggest && (
+      {aiEnabled && showSuggest && (
         <>
           <button
             type="button"

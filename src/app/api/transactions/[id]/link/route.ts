@@ -3,6 +3,7 @@ import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { repaymentTxType } from "@/lib/debt";
+import { guardLegacyFinanceWrite } from "@/lib/ledger/cutover";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -12,6 +13,8 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const session = await requireSession(req);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const { id } = await params;
   const txId = parseInt(id, 10);
@@ -72,6 +75,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const session = await requireSession(req);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const { id } = await params;
   const txId = parseInt(id, 10);

@@ -31,6 +31,11 @@ export const Errors = {
     if (cause !== undefined) console.error("[internal]", cause);
     const message =
       cause instanceof Error ? cause.message : cause !== undefined ? String(cause) : "Lỗi hệ thống";
+    const trigger = /ledger_[a-z_]+/.exec(message)?.[0];
+    if (trigger) return err(409, "Database write conflicted", trigger.toUpperCase());
+    if (/D1_ERROR|SQLITE_(?:CONSTRAINT|ERROR)|no such table/i.test(message)) {
+      return err(500, "Database operation failed", "INTERNAL_ERROR");
+    }
     return err(500, message, "INTERNAL_ERROR", cause !== undefined ? serializeError(cause) : undefined);
   },
 };

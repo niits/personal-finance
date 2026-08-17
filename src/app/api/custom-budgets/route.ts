@@ -6,6 +6,7 @@ import { parseAmount } from "@/lib/validators";
 import type { Kysely } from "kysely";
 import type { Database } from "@/lib/schema";
 import { sql } from "kysely";
+import { guardLegacyFinanceWrite } from "@/lib/ledger/cutover";
 
 type BudgetWithActive = { id: number; name: string; amount: number; is_active: number; created_at: number };
 
@@ -13,7 +14,7 @@ async function withSpent(
   db: Kysely<Database>,
   budgets: BudgetWithActive[],
 ) {
-ok  if (budgets.length === 0)
+  if (budgets.length === 0)
     return budgets.map((b) => ({ ...b, spent: 0, credit_card_spent: 0, has_linked_transactions: false }));
 
   const ids = budgets.map((b) => b.id);
@@ -76,6 +77,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const body = await request.json().catch(() => null);
   if (!body) return Errors.validation("Request body không hợp lệ");

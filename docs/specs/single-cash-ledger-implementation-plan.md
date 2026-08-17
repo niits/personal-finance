@@ -148,9 +148,12 @@ Acceptance criteria:
 ## Phase 7: Expand Release
 
 1. Ship complete legacy export before any reset can occur.
-2. Add explicit fresh-start consent and persist successful export/consent state.
-3. Deploy additive schema while legacy reads and writes continue unchanged.
-4. Verify the populated legacy upgrade path and disable reset if export is incomplete.
+2. Add `GET /api/ledger/profile` with `ledger`, `legacy-empty`, and `legacy-data` modes based only on legacy financial tables.
+3. Require explicit fresh-start consent only for legacy financial data and persist its timestamp plus preserved-archive state. The server records consent, not unverifiable export-download completion; the UI must offer/require export before enabling consent.
+4. Keep legacy records and reads/export available as an archive; never delete or reset them during initialization.
+5. Normalize summary, event-feed, budget-period, and custom-envelope DTOs before UI work, with no storage-field leakage.
+6. Reject visible legacy finance writes with `409 LEDGER_CUTOVER_ACTIVE` after profile activation.
+7. Deploy additive schema while legacy reads and writes continue unchanged for users who have not activated the ledger.
 
 ## Phase 8: Per-User Cutover
 

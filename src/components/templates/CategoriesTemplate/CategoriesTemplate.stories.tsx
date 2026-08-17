@@ -31,6 +31,7 @@ export const Default: Story = {
   args: {
     categories: mockCategories,
     loading: false,
+    aiEnabled: true,
     suggestions: null,
     suggestState: "idle",
     recatSuggestions: null,
@@ -56,5 +57,12 @@ export const Loading: Story = {
   args: {
     ...Default.args,
     loading: true,
+  },
+};
+
+export const LedgerMode: Story = {
+  args: {
+    ...Default.args,
+    aiEnabled: false,
   },
 };

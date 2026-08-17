@@ -1,0 +1,10 @@
+import type { Meta, StoryObj } from "@storybook/nextjs";
+import { LedgerOnboarding } from "./LedgerOnboarding";
+const empty = { mode: "legacy-empty" as const, legacyFinancialData: { hasData: false, transactionCount: 0, monthlyBudgetCount: 0, customBudgetCount: 0, debtCount: 0 }, consentRequired: false, profile: null };
+const meta: Meta<typeof LedgerOnboarding> = { component: LedgerOnboarding, tags: ["autodocs"], parameters: { layout: "fullscreen" }, args: { profile: empty, submitting: false, error: null, onSubmit: () => undefined } };
+export default meta;
+type Story = StoryObj<typeof LedgerOnboarding>;
+export const Fresh: Story = {};
+export const LegacyConsent: Story = { args: { profile: { ...empty, mode: "legacy-data", consentRequired: true, legacyFinancialData: { hasData: true, transactionCount: 42, monthlyBudgetCount: 3, customBudgetCount: 2, debtCount: 1 } } } };
+export const Loading: Story = { args: { submitting: true } };
+export const Error: Story = { args: { error: "Không thể khởi tạo. Hãy thử lại với cùng thông tin." } };

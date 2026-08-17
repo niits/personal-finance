@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     const parent = await db
       .selectFrom("category")
-      .select(["level", "type"])
+      .select(["id", "level", "type"])
       .where("id", "=", parent_id)
       .where("user_id", "=", userId)
       .executeTakeFirst();
@@ -103,6 +103,20 @@ export async function POST(request: NextRequest) {
     if (!parent) return Errors.forbidden();
     if (parent.level >= 3)
       return Errors.conflict("Danh mục cấp 3 không thể có danh mục con", "CONFLICT");
+
+    const committedUse = await db
+      .selectFrom("financial_event as event")
+      .innerJoin("financial_event_commit as commit", "commit.event_id", "event.id")
+      .select("event.id")
+      .where("event.user_id", "=", userId)
+      .where("event.category_id", "=", parent.id)
+      .executeTakeFirst();
+    if (committedUse) {
+      return Errors.conflict(
+        "Danh mục đã có lịch sử tài chính nên không thể thêm danh mục con",
+        "LEDGER_CATEGORY_IN_USE",
+      );
+    }
 
     level = parent.level + 1;
     resolvedType = parent.type;

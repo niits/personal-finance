@@ -1,0 +1,1 @@
+export { PositionsTemplate } from "./PositionsTemplate";

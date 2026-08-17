@@ -1,0 +1,1 @@
+export { PositionDetailTemplate } from "./PositionDetailTemplate";

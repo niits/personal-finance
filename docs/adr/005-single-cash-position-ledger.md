@@ -652,8 +652,9 @@ Historical `as_of` reports use historical event balances but current policy sett
 Public routes are semantic and use typed request/response schemas:
 
 ```text
+GET    /api/ledger/profile
 POST   /api/ledger/initialize
-GET    /api/ledger/summary?asOf=YYYY-MM-DD&period=LABEL
+GET    /api/ledger/summary?asOf=YYYY-MM-DD&periodId=ID
 POST   /api/ledger/profile/adjustments
 GET    /api/budget-periods
 POST   /api/budget-periods
@@ -661,9 +662,9 @@ PATCH  /api/budget-periods/:id
 POST   /api/budget-periods/:id/adjustments
 GET    /api/budget-periods/:id/custom-budgets
 POST   /api/budget-periods/:id/custom-budgets
-PATCH  /api/custom-budgets/:id
-POST   /api/custom-budgets/:id/adjustments
-POST   /api/custom-budgets/:id/close
+PATCH  /api/ledger/custom-budgets/:id
+POST   /api/ledger/custom-budgets/:id/adjustments
+POST   /api/ledger/custom-budgets/:id/close
 GET    /api/financial-events
 POST   /api/financial-events/income
 POST   /api/financial-events/expense
@@ -675,8 +676,11 @@ POST   /api/positions
 PATCH  /api/positions/:id
 POST   /api/positions/:id/fund
 POST   /api/positions/:id/withdraw
+POST   /api/positions/:id/lend
+POST   /api/positions/:id/collect
 POST   /api/positions/:id/pay
 POST   /api/positions/:id/borrow
+POST   /api/positions/:id/repay
 POST   /api/positions/:id/close
 POST   /api/positions/:id/close/reverse
 POST   /api/reconciliation/cash-adjustments
@@ -685,7 +689,17 @@ POST   /api/reconciliation/position-adjustments
 
 Every write accepts an `Idempotency-Key` header and is covered by `financial_write_request`, including initialization, metadata corrections, adjustments, reversals, and closure. Ownership failures return `404` to avoid disclosing another user's resources. Validation conflicts such as key reuse with another payload, over-refunds, overlapping periods, and an invalid closure settlement return `409` with a stable error code.
 
-`PATCH /api/positions/:id` accepts descriptive metadata only and never `kind` or balance. `PATCH /api/budget-periods/:id` accepts `objective` and unlocked date metadata only; financial values use adjustments. `PATCH /api/custom-budgets/:id` accepts `name` and `series_key` only; capacity uses adjustments. No route updates or deletes financial events, allocations, adjustments, locks, or closures.
+`GET /api/ledger/profile` is the cutover boundary. It returns `ledger`, `legacy-empty`, or `legacy-data`; legacy presence counts only `transaction`, `monthly_budget`, `custom_budget`, and `debt`. Categories and budget configuration do not make an otherwise fresh account a legacy-data account. Initialization of a `legacy-data` account requires `acceptLegacyDataFreshStart: true`. The server records the consent timestamp and `preserved` archive state in `financial_profile`; it does not claim to verify that the user downloaded the export. Legacy rows are retained as a read-only archive after activation.
+
+Database triggers are the durable cutover boundary. Once `financial_profile` exists, inserts, updates, and deletes on legacy financial tables, their allocation/adjustment children, configuration, and derived report records abort with `ledger_cutover_active` even if an application guard is bypassed. A profile-insert trigger atomically rejects no-consent initialization if legacy rows exist, closing the race between presence preflight and profile insertion; consented initialization may coexist with those preserved rows. Account erasure remains possible because delete triggers do not fire after the owning user has been removed.
+
+Public ledger read models use camelCase DTOs and never expose owner IDs, write keys, storage column names, or uncommitted events. Summary selects a period by numeric `periodId`, exposes reserved card debt as a positive presentation amount alongside signed accounting balances, and reconciles period/custom capacity. The event feed uses `from`, `to`, `limit`, and commit-sequence `cursor`, joins category path, position, allocation, reversal, effects, and action metadata, and labels all principal movements as transfers.
+
+Refund dates may not precede their original expense date; both the service and event-commit trigger enforce this so historical as-of totals cannot be reduced before the expense occurred. Expense feed rows expose remaining refundable amount from committed, unreversed refunds. Feed actions account for active refunds, reversals, and effective position closure and do not advertise mutations that are guaranteed to fail. Trigger failures retain stable domain codes but public error messages never include SQL, table names, bindings, or raw D1 diagnostics.
+
+During the expand phase, custom-budget mutations use the `/api/ledger/custom-budgets/:id` namespace so they cannot collide with the legacy custom-budget API. The contract moves to the unversioned `/api/custom-budgets/:id` path only at the explicit cutover.
+
+`PATCH /api/positions/:id` accepts descriptive metadata only and never `kind` or balance. `PATCH /api/budget-periods/:id` accepts `objective` and unlocked date metadata only; financial values use adjustments. `PATCH /api/ledger/custom-budgets/:id` accepts `name` and `series_key` only; capacity uses adjustments. No route updates or deletes financial events, allocations, adjustments, locks, or closures.
 
 All multi-statement writes use one `D1Database.batch()` call. The first statement claims idempotency; cross-row validation triggers abort the batch on violation. A preceding `SELECT` or a zero-row conditional statement in the same batch is never considered a write gate. Implementations must not use unsupported interactive `BEGIN`/`COMMIT` transactions or separate awaited writes.
 
@@ -726,11 +740,11 @@ Append-only applies to financial history during the user's account lifetime. Exp
 This is a clean financial reset, not a historical conversion. It uses expand/contract because migrations run before application deployment:
 
 1. Expand release: add new tables under new names while the legacy app continues to work. Add complete legacy export, reset consent, and consumer inventory.
-2. Cutover release: after export and consent, freeze legacy writes for that user, initialize the ledger and initial budget atomically, then route every finance reader/writer to versioned ledger APIs and cache keys.
+2. Cutover release: after the UI offers export and obtains explicit consent, freeze legacy writes for that user, initialize the ledger and initial budget atomically, then route every finance reader/writer to ledger APIs and cache keys. The server persists consent but cannot verify download completion.
 3. Acceptance window: use forward fixes after the first ledger write. Application rollback is allowed only before ledger enablement; rolling back afterward would expose stale legacy balances.
 4. Contract release: after user acceptance, remove legacy routes, code, and tables in a separate migration.
 
-No compatibility union or dual write is used. Before per-user initialization, all reads remain legacy. After initialization, all reads are ledger-only. Historical card payments cannot be reconstructed reliably and the user explicitly accepts a fresh financial start.
+No compatibility union or dual write is used. Before per-user initialization, all reads remain legacy. After initialization, legacy writes return `409 LEDGER_CUTOVER_ACTIVE`; legacy reads and export remain available only as the preserved archive. Historical card payments cannot be reconstructed reliably and the user explicitly accepts a fresh financial start.
 
 ## Alternatives Considered
 

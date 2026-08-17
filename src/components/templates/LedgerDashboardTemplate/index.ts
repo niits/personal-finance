@@ -1,0 +1,1 @@
+export { LedgerDashboardTemplate } from "./LedgerDashboardTemplate";

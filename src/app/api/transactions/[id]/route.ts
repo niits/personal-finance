@@ -13,6 +13,7 @@ import type { Kysely } from "kysely";
 import type { Database } from "@/lib/schema";
 import { markStatsDirty } from "@/lib/statistics";
 import { sql } from "kysely";
+import { guardLegacyFinanceWrite } from "@/lib/ledger/cutover";
 
 type Params = Promise<{ id: string }>;
 
@@ -110,6 +111,8 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
 export async function PATCH(request: NextRequest, { params }: { params: Params }) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const { id } = await params;
   const txnId = Number(id);
@@ -327,6 +330,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 export async function DELETE(request: NextRequest, { params }: { params: Params }) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const { id } = await params;
   const txnId = Number(id);

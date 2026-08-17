@@ -5,12 +5,15 @@ import useSWR, { mutate } from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { CategoriesTemplate } from "@/components/templates/CategoriesTemplate";
 import type { Category, Suggestion, RecategorizeSuggestion } from "@/components/templates/CategoriesTemplate";
+import type { LedgerProfileResponse } from "@/lib/ledger/contracts";
 
 const CATS_KEY = "/api/categories";
 
 export default function CategoriesPage() {
   const { data, isLoading } = useSWR<{ categories: Category[] }>(CATS_KEY, fetcher);
+  const { data: profile } = useSWR<LedgerProfileResponse>("/api/ledger/profile", fetcher);
   const cats = data?.categories ?? [];
+  const aiEnabled = profile !== undefined && profile.mode !== "ledger";
 
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [suggestState, setSuggestState] = useState<"loading" | "done" | "error" | "idle">("idle");
@@ -88,6 +91,7 @@ export default function CategoriesPage() {
   }
 
   async function handleLoadSuggestions() {
+    if (!aiEnabled) return;
     setSuggestState("loading");
     setSuggestions(null);
     setRecatState("idle");
@@ -111,6 +115,7 @@ export default function CategoriesPage() {
   }
 
   async function handleLoadRecatSuggestions() {
+    if (!aiEnabled) return;
     setRecatState("loading");
     setRecatSuggestions(null);
 
@@ -134,6 +139,7 @@ export default function CategoriesPage() {
     <CategoriesTemplate
       categories={cats}
       loading={isLoading}
+      aiEnabled={aiEnabled}
       suggestions={suggestions}
       suggestState={suggestState}
       recatSuggestions={recatSuggestions}

@@ -5,6 +5,7 @@ import { Errors } from "@/lib/errors";
 import { parseAmount, parseMonth, currentBudgetMonth, getBudgetPeriodInclusive } from "@/lib/validators";
 import type { Kysely } from "kysely";
 import type { Database } from "@/lib/schema";
+import { guardLegacyFinanceWrite } from "@/lib/ledger/cutover";
 
 async function getBudgetWithAdjustments(db: Kysely<Database>, budgetId: number) {
   const budget = await db
@@ -49,6 +50,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const body = await request.json().catch(() => null);
   if (!body) return Errors.validation("Request body không hợp lệ");

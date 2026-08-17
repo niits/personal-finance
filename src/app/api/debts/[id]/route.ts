@@ -3,6 +3,7 @@ import { getKysely, getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { getDebtWithRepayments } from "@/lib/debt";
+import { guardLegacyFinanceWrite } from "@/lib/ledger/cutover";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const [session, { id }, db] = await Promise.all([requireSession(req), params, getKysely()]);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const existing = await db
     .selectFrom("debt")
@@ -53,6 +56,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const [session, { id }, db] = await Promise.all([requireSession(req), params, getKysely()]);
   if (!session) return Errors.unauthorized();
+  const cutover = await guardLegacyFinanceWrite(session.user.id);
+  if (cutover) return cutover;
 
   const existing = await db
     .selectFrom("debt")

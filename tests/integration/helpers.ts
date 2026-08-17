@@ -18,6 +18,13 @@ const migrationModules = import.meta.glob<string>("../../migrations/*.sql", {
  * Naive split(";") breaks when comments contain semicolons (e.g. migration 0006).
  */
 function splitSql(sql: string): string[] {
+  if (sql.includes("--> statement-breakpoint")) {
+    return sql
+      .split("--> statement-breakpoint")
+      .map((statement) => statement.trim())
+      .filter(Boolean);
+  }
+
   const lines = sql.split("\n");
   const cleaned = lines
     .map((line) => {
@@ -32,12 +39,15 @@ function splitSql(sql: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-export async function applyMigrations() {
+export async function applyMigrations(options?: { through?: string; from?: string }) {
   const entries = Object.entries(migrationModules).sort(([a], [b]) =>
     a.localeCompare(b),
   );
 
-  for (const [, sql] of entries) {
+  for (const [path, sql] of entries) {
+    const name = path.split("/").pop()!;
+    if (options?.from && name < options.from) continue;
+    if (options?.through && name > options.through) continue;
     const statements = splitSql(sql);
     for (const stmt of statements) {
       await env.DB.prepare(stmt).run();
