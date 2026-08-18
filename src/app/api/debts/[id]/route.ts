@@ -44,10 +44,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (body.status === "open" || body.status === "settled")
     update.status = body.status;
 
-  if (Object.keys(update).length === 0)
+  // `type` is immutable (DEBT-05): a body containing only `type` is a no-op,
+  // not an error — distinct from a body with no recognized fields at all.
+  if (Object.keys(update).length === 0 && !("type" in body))
     return Errors.validation("Nothing to update");
 
-  await db.updateTable("debt").set(update).where("id", "=", id).execute();
+  if (Object.keys(update).length > 0)
+    await db.updateTable("debt").set(update).where("id", "=", id).execute();
 
   const debt = await getDebtWithRepayments(db, id, session.user.id);
   return Response.json({ debt });

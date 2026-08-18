@@ -146,10 +146,13 @@ describe("GET /api/debts (INT-LIST / INT-GET)", () => {
   });
 
   it("INT-LIST-2: open lend in lending, open borrow in borrowing", async () => {
+    await createDebt({ type: "lend", party: "Minh List", amount: 500000 });
+    await createDebt({ type: "borrow", party: "Chị Lan List", amount: 1000000 });
+
     const res = await SELF.fetch("http://localhost/api/debts", { headers: authHeaders(cookie) });
     const body = (await res.json()) as { lending: Debt[]; borrowing: Debt[]; settled: Debt[] };
-    expect(body.lending.some((d) => d.party === "Minh")).toBe(true);
-    expect(body.borrowing.some((d) => d.party === "Chị Lan")).toBe(true);
+    expect(body.lending.some((d) => d.party === "Minh List")).toBe(true);
+    expect(body.borrowing.some((d) => d.party === "Chị Lan List")).toBe(true);
   });
 
   it("INT-GET-1: returns a single debt with its transactions", async () => {
@@ -214,6 +217,7 @@ describe("POST /api/transactions with debt_id (INT-REPAY)", () => {
   });
 
   it("INT-REPAY-3/4: overpayment allowed, remaining goes negative, status stays open", async () => {
+    await repay(400000);
     await repay(800000); // total 1_200_000 > 1_000_000
     const get = await SELF.fetch(`http://localhost/api/debts/${debtId}`, { headers: authHeaders(cookie) });
     const { debt } = (await get.json()) as { debt: Debt };
