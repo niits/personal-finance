@@ -51,7 +51,7 @@ Personal-finance expense tracker — Next.js 16 (App Router) + TypeScript + Tail
 
 - **DB**: Cloudflare D1 (SQLite) via Kysely
 - **Auth**: better-auth (GitHub OAuth)
-- **AI**: OpenAI `gpt-4o` + `gpt-4.1-nano` via the Cloudflare AI Gateway, using the Vercel AI SDK (`@ai-sdk/openai-compatible`)
+- **AI**: OpenAI `gpt-4o` + `gpt-4.1-nano` via the Vercel AI Gateway (`createGateway`, `AI_GATEWAY_API_KEY`), using the Vercel AI SDK
 - **Charts**: Vega-Lite via react-vega
 - **Components**: Storybook (CSF3)
 
@@ -89,3 +89,5 @@ Run automatically before deploy in CI (`deploy.yml`): **migrations first, deploy
 ## Documentation
 
 All docs in English; app UI strings stay Vietnamese. See `docs/README.md` for the document registry — including `DESIGN.md`, `docs/COMPONENT_ARCHITECTURE.md`, `docs/BRD.md`, `docs/TECHNICAL_DESIGN.md`, and `docs/TESTING.md`.
+
+Before researching or re-proposing an architecture/tooling choice ("should we adopt X", "should we migrate to Y"), check `docs/adr/` first. If a matching ADR exists and none of its "When to Revisit" triggers apply, don't re-investigate — summarize the existing decision instead.

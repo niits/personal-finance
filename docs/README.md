@@ -24,6 +24,7 @@ One file per decision. Accumulates as architectural choices are made. Never dele
 | [001-api-caching-strategy.md](./adr/001-api-caching-strategy.md) | Accepted | HTTP `Cache-Control` + SWR in-memory cache for categories and per-month data |
 | [002-platform-stay-cloudflare.md](./adr/002-platform-stay-cloudflare.md) | Accepted | Stay on Cloudflare Workers + D1; Firebase/Vercel migration not justified |
 | [003-no-monthly-view-pagination.md](./adr/003-no-monthly-view-pagination.md) | Accepted | Monthly transaction list loads in full; cursor-based pagination if ever needed |
+| [004-no-flint-visualization-language.md](./adr/004-no-flint-visualization-language.md) | Accepted | Evaluated Microsoft Flint for statistics charts; not adopted — solves a problem this app doesn't have |
 
 ### Feature Specifications (`specs/`)
 
