@@ -17,6 +17,8 @@ export type EditTransaction = {
   emoji: string | null;
   category: { id: number; name: string; path: string } | null;
   debt_id: string | null;
+  finance_account_id: string | null;
+  credit_card_id: string | null;
   debt_party: string | null;
   debt_type: "lend" | "borrow" | null;
   is_opening_tx: boolean;
@@ -44,11 +46,15 @@ type Category = {
   level: number;
   type: "income" | "expense";
   parent_id: number | null;
+  system_kind: string | null;
+  budget_behavior: "consumption" | "non_budget";
   children: Category[];
 };
 
 type CustomBudget = { id: number; name: string; amount: number; is_active: number };
 type OpenDebt = { id: string; type: "lend" | "borrow"; party: string; remaining: number };
+type FinanceAccount = { id: string; type: "debt" | "savings"; name: string; debt_direction: "lend" | "borrow" | null };
+type CardGroup = { id: string; cards: { id: string; name: string }[] };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -73,6 +79,22 @@ function fmtDateLabel(s: string) {
 // ─── Category drill-down ──────────────────────────────────────────────────────
 
 const COLLAPSED_LIMIT = 5;
+
+const categoryRowStyle: React.CSSProperties = {
+  display: "flex", alignItems: "center", justifyContent: "space-between",
+  padding: "11px 16px", cursor: "pointer", width: "100%", textAlign: "left",
+  background: "none", borderTop: "none", borderLeft: "none", borderRight: "none",
+  borderBottom: "1px solid var(--hairline)",
+};
+
+function findCategoryById(categories: Category[], id: number): Category | null {
+  for (const category of categories) {
+    if (category.id === id) return category;
+    const child = findCategoryById(category.children, id);
+    if (child) return child;
+  }
+  return null;
+}
 
 function CategoryDrillDown({
   cats, selected, onSelect, usageCounts,
@@ -105,20 +127,13 @@ function CategoryDrillDown({
     }
   }
 
-  const rowStyle: React.CSSProperties = {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "11px 16px", cursor: "pointer", width: "100%", textAlign: "left",
-    background: "none", borderTop: "none", borderLeft: "none", borderRight: "none",
-    borderBottom: "1px solid var(--hairline)",
-  };
-
   const hasMore = isRoot && rootHasMore;
   const displayList = isRoot && !expanded ? collapsedList : sortedList;
 
   return (
     <div style={{ borderRadius: 11, border: "1px solid var(--hairline)", overflow: "hidden", background: "var(--canvas)" }}>
       {path.length > 0 && (
-        <button type="button" onClick={() => setPath((p) => p.slice(0, -1))} style={{ ...rowStyle, color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14 }}>
+        <button type="button" onClick={() => setPath((p) => p.slice(0, -1))} style={{ ...categoryRowStyle, color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14 }}>
           ← Quay lại
         </button>
       )}
@@ -126,7 +141,7 @@ function CategoryDrillDown({
         const isSelected = cat.id === selected || (cat.children.length > 0 && findSelectedChild(cat, selected) !== null);
         const childLabel = findSelectedChild(cat, selected);
         return (
-          <button type="button" key={cat.id} onClick={() => handleSelect(cat)} style={{ ...rowStyle, borderBottom: "1px solid var(--hairline)" }}>
+          <button type="button" key={cat.id} onClick={() => handleSelect(cat)} style={{ ...categoryRowStyle, borderBottom: "1px solid var(--hairline)" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: isSelected ? "var(--primary)" : "var(--ink)", fontWeight: isSelected ? 600 : 400 }}>
                 {cat.name}
@@ -149,7 +164,7 @@ function CategoryDrillDown({
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          style={{ ...rowStyle, color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14, justifyContent: "center", borderBottom: "none" }}
+          style={{ ...categoryRowStyle, color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 14, justifyContent: "center", borderBottom: "none" }}
         >
           {expanded ? "Thu gọn ↑" : `Xem thêm ${sortedList.length - collapsedList.length} danh mục ↓`}
         </button>
@@ -186,9 +201,7 @@ type DebtLinkState =
   | { kind: "existing"; debtId: string; party: string; linked_amount_str: string };
 
 function DueDatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const display = value
-    ? new Date(value + "T12:00:00").toLocaleDateString("vi-VN", { day: "numeric", month: "numeric", year: "numeric" })
-    : "Chưa chọn";
+  const display = value ? value.split("-").reverse().map(Number).join("/") : "Chưa chọn";
   return (
     <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
       <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: value ? "var(--ink)" : "var(--ink-muted-48)" }}>
@@ -324,6 +337,8 @@ function DebtLinkSection({
   );
 }
 
+void DebtLinkSection;
+
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 10,
   border: "1px solid var(--hairline)", background: "var(--canvas-parchment)",
@@ -363,20 +378,24 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const isRepayment = mode.kind === "repayment";
   const editTx = isEdit ? mode.transaction : null;
 
-  const [type, setType] = useState<"expense" | "income">(
+  const [type, setType] = useState<"expense" | "income">(() =>
     isRepayment ? (mode.debt.type === "lend" ? "income" : "expense")
     : editTx?.type ?? "expense"
   );
-  const [amountStr, setAmountStr] = useState(
+  const [amountStr, setAmountStr] = useState(() =>
     isRepayment ? fmt(mode.debt.remaining) : editTx ? fmt(editTx.amount) : ""
   );
   const [categoryId, setCategoryId] = useState<number | null>(editTx?.category?.id ?? null);
-  const [date, setDate] = useState(editTx?.date ?? todayStr());
+  const [date, setDate] = useState(() => editTx?.date ?? todayStr());
   const [note, setNote] = useState(editTx?.note ?? "");
   const [emoji, setEmoji] = useState<string | null>(editTx?.emoji ?? null);
-  const [selectedCbIds, setSelectedCbIds] = useState<number[]>(editTx?.custom_budgets.map((c) => c.id) ?? []);
+  const [selectedCbIds, setSelectedCbIds] = useState<number[]>(() => editTx?.custom_budgets.map((c) => c.id) ?? []);
+  const [financeAccountId, setFinanceAccountId] = useState<string | null>(editTx?.finance_account_id ?? null);
+  const [creditCardId, setCreditCardId] = useState<string | null>(editTx?.credit_card_id ?? null);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
   const [debtLink, setDebtLink] = useState<DebtLinkState>({ kind: "none" });
-  const [editLinkedAmountStr, setEditLinkedAmountStr] = useState(
+  const [editLinkedAmountStr, setEditLinkedAmountStr] = useState(() =>
     isEdit && editTx?.linked_amount ? fmt(editTx.linked_amount) : ""
   );
   const [unlinkMode, setUnlinkMode] = useState(false);
@@ -384,6 +403,8 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const [error, setError] = useState("");
 
   const amountRef = useRef<HTMLInputElement>(null);
+  const isCreatingAccountRef = useRef(false);
+  const isSubmittingRef = useRef(false);
 
   // Enter/exit is driven by CSS keyframes (see globals.css). `mounted` keeps the
   // sheet in the DOM while the exit animation plays; it's adjusted during render
@@ -403,19 +424,21 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const { data: catData } = useSWR<{ categories: Category[]; usage_counts: Record<number, number> }>(
     open && !isRepayment ? "/api/categories" : null, fetcher,
   );
-  const { data: debtsData } = useSWR<{ lending: OpenDebt[]; borrowing: OpenDebt[] }>(
-    open && !isRepayment ? "/api/debts" : null, fetcher,
-  );
   const { data: cbData } = useSWR<{ custom_budgets: CustomBudget[] }>(
     open && !isRepayment ? "/api/custom-budgets?active_only=true" : null, fetcher,
   );
+  const { data: accountData } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment ? "/api/finance-accounts" : null, fetcher);
+  const { data: cardData } = useSWR<{ groups: CardGroup[] }>(open && !isRepayment ? "/api/credit-card-groups" : null, fetcher);
 
   const allCats = catData?.categories ?? [];
   const cats = allCats.filter((c) => c.type === type);
   const usageCounts = catData?.usage_counts ?? {};
-  const openLends = debtsData?.lending ?? [];
-  const openBorrows = debtsData?.borrowing ?? [];
   const customBudgets = cbData?.custom_budgets ?? [];
+  const financeAccounts = accountData?.accounts ?? [];
+  const cards = (cardData?.groups ?? []).flatMap((group) => group.cards);
+  const selectedCategory = categoryId ? findCategoryById(allCats, categoryId) : null;
+  const isSystemCategory = selectedCategory?.budget_behavior === "non_budget";
+  const selectedCbIdSet = new Set(selectedCbIds);
 
   // Whether to hide category/budget (debt tx has no category)
   const isDebtMode = isRepayment
@@ -430,6 +453,9 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     setNote("");
     setEmoji(null);
     setSelectedCbIds([]);
+    setFinanceAccountId(null);
+    setCreditCardId(null);
+    setNewAccountName("");
     setDebtLink({ kind: "none" });
     setEditLinkedAmountStr("");
     setUnlinkMode(false);
@@ -438,10 +464,40 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
   function handleClose() { onClose(); reset(); }
 
+  async function createAccount() {
+    if (isCreatingAccountRef.current || !selectedCategory || !newAccountName.trim()) return;
+    isCreatingAccountRef.current = true;
+    setCreatingAccount(true);
+    try {
+      const isSavings = selectedCategory.system_kind === "savings_deposit" || selectedCategory.system_kind === "savings_withdrawal";
+      const response = await fetch("/api/finance-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: isSavings ? "savings" : "debt",
+          name: newAccountName.trim(),
+          debt_direction: isSavings ? undefined : selectedCategory.system_kind === "borrow" ? "borrow" : "lend",
+        }),
+      });
+      if (!response.ok) {
+        setError((await response.json() as { error?: string }).error ?? "Không thể tạo tài khoản");
+        return;
+      }
+      const { account } = await response.json() as { account: FinanceAccount };
+      setFinanceAccountId(account.id);
+      setNewAccountName("");
+    } finally {
+      isCreatingAccountRef.current = false;
+      setCreatingAccount(false);
+    }
+  }
+
   async function submit() {
     const amount = parseInt(amountStr.replace(/[^\d]/g, ""), 10);
     if (!amount || amount <= 0) { setError("Nhập số tiền hợp lệ"); return; }
+    if (isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setSaving(true); setError("");
     try {
       // ── Repayment mode ────────────────────────────────────────────────────
@@ -478,6 +534,8 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           if (!categoryId) { setError("Chọn danh mục"); return; }
           body.category_id = categoryId;
           if (type === "expense") body.custom_budget_ids = selectedCbIds;
+          if (isSystemCategory) body.finance_account_id = financeAccountId;
+          else if (type === "expense") body.credit_card_id = creditCardId;
         }
         // debt edit: amount/note/date/linked_amount
 
@@ -524,7 +582,11 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       const body: Record<string, unknown> = {
         amount, type, date, note: note || null, emoji: emoji || null, category_id: categoryId,
       };
-      if (type === "expense") body.custom_budget_ids = selectedCbIds;
+      if (isSystemCategory) body.finance_account_id = financeAccountId;
+      else if (type === "expense") {
+        body.custom_budget_ids = selectedCbIds;
+        if (creditCardId) body.credit_card_id = creditCardId;
+      }
       const r = await fetch("/api/transactions", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -532,6 +594,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Lỗi"); return; }
       onSaved(); handleClose();
     } finally {
+      isSubmittingRef.current = false;
       setSaving(false);
     }
   }
@@ -575,7 +638,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
         {/* Nav bar */}
         <div style={{ display: "flex", alignItems: "center", padding: "4px 16px 12px", flexShrink: 0 }}>
-          <button type="button" onClick={handleClose} className="bg-transparent border-none font-body text-[28px] text-ink-muted-48 cursor-pointer pr-2 leading-none">
+          <button type="button" aria-label="Đóng biểu mẫu" onClick={handleClose} className="bg-transparent border-none font-body text-[28px] text-ink-muted-48 cursor-pointer pr-2 leading-none">
             ✕
           </button>
           <span style={{ flex: 1, textAlign: "center", fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.4 }}>
@@ -711,7 +774,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>Gán vào quỹ</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {customBudgets.map((cb) => {
-                  const on = selectedCbIds.includes(cb.id);
+                  const on = selectedCbIdSet.has(cb.id);
                   return (
                     <button type="button" key={cb.id}
                       onClick={() => setSelectedCbIds((p) => on ? p.filter((x) => x !== cb.id) : [...p, cb.id])}
@@ -732,6 +795,30 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             </div>
           )}
 
+          {!isDebtMode && isSystemCategory && (
+            <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
+              <label htmlFor="finance-account" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Tài khoản nợ hoặc tiết kiệm</label>
+              <select id="finance-account" value={financeAccountId ?? ""} onChange={(e) => setFinanceAccountId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
+                <option value="">Chọn tài khoản</option>
+                {financeAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+              </select>
+              <div className="mt-2 flex gap-2">
+                <input aria-label="Tên tài khoản mới" value={newAccountName} onChange={(event) => setNewAccountName(event.target.value)} placeholder="Tạo tài khoản mới" style={inputStyle} />
+                <button type="button" onClick={createAccount} disabled={creatingAccount || !newAccountName.trim()} className="rounded-pill border-none bg-primary px-3 font-body text-sm text-on-primary disabled:opacity-50">{creatingAccount ? "…" : "Tạo"}</button>
+              </div>
+            </div>
+          )}
+
+          {!isDebtMode && !isSystemCategory && type === "expense" && cards.length > 0 && (
+            <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
+              <label htmlFor="credit-card" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Thanh toán</label>
+              <select id="credit-card" value={creditCardId ?? ""} onChange={(e) => setCreditCardId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
+                <option value="">Tiền mặt</option>
+                {cards.map((card) => <option key={card.id} value={card.id}>{card.name}</option>)}
+              </select>
+            </div>
+          )}
+
           {/* Note + emoji */}
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
             <EmojiPicker value={emoji} onChange={setEmoji} />
@@ -746,17 +833,6 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               }}
             />
           </div>
-
-          {/* Debt link section — only in create/edit-normal modes */}
-          {!isRepayment && !(isEdit && editTx?.debt_id) && (
-            <DebtLinkSection
-              txType={type}
-              state={debtLink}
-              onChange={setDebtLink}
-              openLends={openLends}
-              openBorrows={openBorrows}
-            />
-          )}
 
           {error && (
             <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginTop: 16, marginBottom: 4 }}>{error}</p>

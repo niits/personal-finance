@@ -28,6 +28,9 @@ beforeAll(async () => {
   await applyMigrations();
   userId = await seedUser({ id: "auth-prot-user", email: "authprot@example.com" });
   cookie = await createTestSession(userId);
+  const sessionResponse = await SELF.fetch("http://localhost/api/auth/get-session", { headers: { Cookie: cookie } });
+  expect(sessionResponse.status, `fixture session is unreadable: ${await sessionResponse.clone().text()}`).toBe(200);
+  expect((await sessionResponse.json() as { user?: { id?: string } }).user?.id).toBe(userId);
   categoryId = await seedCategory(userId, "Ăn uống", null, 1);
   const budget = await seedMonthlyBudget(userId, "2026-05", 10_000_000);
   budgetId = budget.id;
@@ -44,6 +47,7 @@ beforeAll(async () => {
       date: "2026-05-10",
     }),
   });
+  expect(res.status, `authenticated transaction setup failed: ${await res.clone().text()}`).toBe(201);
   const body = await res.json<{ transaction: { id: number } }>();
   transactionId = body.transaction.id;
 });
@@ -133,7 +137,7 @@ describe("POST /api/categories", () => {
   it("returns 401 without auth", () =>
     expect401("POST", "/api/categories", { name: "Test", level: 1 }));
   it("returns 2xx with auth", () =>
-    expect2xx("POST", "/api/categories", { name: "Chi tiêu khác", level: 1 }));
+    expect2xx("POST", "/api/categories", { name: "Chi tiêu khác", type: "expense" }));
 });
 
 describe("PATCH /api/categories/:id", () => {
@@ -299,8 +303,8 @@ describe("Expired session", () => {
   it("returns 401 for an expired session token", async () => {
     const { env } = await import("cloudflare:test");
     const expiredToken = "expired-token-auth-prot";
-    const now = Math.floor(Date.now() / 1000);
-    const pastExpiry = now - 60;
+    const now = Date.now();
+    const pastExpiry = now - 60_000;
     await env.DB.prepare(
       "INSERT OR IGNORE INTO session (id, token, userId, expiresAt, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)",
     )

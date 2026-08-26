@@ -71,6 +71,8 @@ export interface TransactionTable {
   date: string;
   monthly_budget_id: number | null;
   debt_id: string | null;
+  finance_account_id: string | null;
+  credit_card_id: string | null;
   linked_amount: number | null;
   created_at: Generated<number>;
   updated_at: Generated<number>;
@@ -98,6 +100,8 @@ export interface CategoryTable {
   level: number;
   sort_order: number;
   type: "income" | "expense";
+  system_kind: "lend" | "borrow" | "debt_repayment" | "savings_deposit" | "savings_withdrawal" | null;
+  budget_behavior: "consumption" | "non_budget";
   created_at: Generated<number>;
 }
 
@@ -114,6 +118,43 @@ export interface BudgetConfigTable {
 }
 
 export type BudgetConfig = Selectable<BudgetConfigTable>;
+
+export interface FinanceAccountTable {
+  id: string;
+  user_id: string;
+  type: "debt" | "savings";
+  name: string;
+  debt_direction: "lend" | "borrow" | null;
+  note: string | null;
+  created_at: Generated<number>;
+}
+
+export interface CreditCardGroupTable {
+  id: string;
+  user_id: string;
+  name: string;
+  statement_close_day: number;
+  created_at: Generated<number>;
+}
+
+export interface CreditCardTable {
+  id: string;
+  user_id: string;
+  group_id: string;
+  name: string;
+  created_at: Generated<number>;
+}
+
+export interface CreditCardStatementTable {
+  id: string;
+  user_id: string;
+  group_id: string;
+  period_start: string;
+  period_end: string;
+  status: "unpaid" | "paid";
+  paid_at: string | null;
+  created_at: Generated<number>;
+}
 
 // ─── statistics_report ───────────────────────────────────────────────────────
 export interface StatisticsReportTable {
@@ -140,4 +181,8 @@ export interface Database {
   budget_config: BudgetConfigTable;
   statistics_report: StatisticsReportTable;
   debt: DebtTable;
+  finance_account: FinanceAccountTable;
+  credit_card_group: CreditCardGroupTable;
+  credit_card: CreditCardTable;
+  credit_card_statement: CreditCardStatementTable;
 }

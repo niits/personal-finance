@@ -37,6 +37,13 @@ describe("POST /api/monthly-budgets", () => {
   });
 
   it("returns 409 for duplicate month", async () => {
+    const createRes = await SELF.fetch("http://localhost/api/monthly-budgets", {
+      method: "POST",
+      headers: authHeaders(cookie),
+      body: JSON.stringify({ month: "2026-07", amount: 12_000_000 }),
+    });
+    expect(createRes.status).toBe(201);
+
     const res = await SELF.fetch("http://localhost/api/monthly-budgets", {
       method: "POST",
       headers: authHeaders(cookie),

@@ -24,6 +24,17 @@ One file per decision. Accumulates as architectural choices are made. Never dele
 | [001-api-caching-strategy.md](./adr/001-api-caching-strategy.md) | Accepted | HTTP `Cache-Control` + SWR in-memory cache for categories and per-month data |
 | [002-platform-stay-cloudflare.md](./adr/002-platform-stay-cloudflare.md) | Accepted | Stay on Cloudflare Workers + D1; Firebase/Vercel migration not justified |
 | [003-no-monthly-view-pagination.md](./adr/003-no-monthly-view-pagination.md) | Accepted | Monthly transaction list loads in full; cursor-based pagination if ever needed |
+| [004-credit-card-statements-separate-from-budgets.md](./adr/004-credit-card-statements-separate-from-budgets.md) | Accepted | Card statements are independent from working-day budget periods |
+
+### Behavior Intents (`intent/`)
+
+Confirmed product behavior that takes precedence over older draft requirements.
+
+| Document | Status | Description |
+|----------|--------|-------------|
+| [budget-behavior.md](./intent/budget-behavior.md) | Active | Calendar-month budgets, consumption-only spending, and custom budgets |
+| [transactions-behavior.md](./intent/transactions-behavior.md) | Active | CRUD transactions, debts, savings, and credit-card interaction |
+| [credit-card-behavior.md](./intent/credit-card-behavior.md) | Active | Card groups, statements, payment status, and dashboard semantics |
 
 ### Feature Specifications (`specs/`)
 
@@ -72,6 +83,7 @@ Chronological notes from debugging sessions, design decisions, and implementatio
 | RPT-xx | Reporting & dashboard |
 | STAT-xx | Statistics & AI insights |
 | DEBT-xx | Debt tracking |
+| CARD-xx | Credit-card statements |
 | BR-xx | Business rules |
 | NFR-xx | Non-functional requirements |
 

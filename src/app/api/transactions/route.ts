@@ -9,10 +9,12 @@ import {
   getBudgetMonthForDate,
   getBudgetPeriod,
   currentBudgetMonth,
+  currentDate,
   isLeafCategory,
 } from "@/lib/validators";
 import { sql } from "kysely";
 import { markStatsDirty } from "@/lib/statistics";
+import { statementPeriodForDate } from "@/lib/credit-cards";
 
 type TxnRow = {
   id: number;
@@ -24,6 +26,8 @@ type TxnRow = {
   date: string;
   monthly_budget_id: number | null;
   debt_id: string | null;
+  finance_account_id: string | null;
+  credit_card_id: string | null;
   debt_party: string | null;
   debt_type: "lend" | "borrow" | null;
   created_at: number;
@@ -76,6 +80,8 @@ function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: s
       : null,
     root_category_name: getRootCategoryName(row),
     debt_id: row.debt_id ?? null,
+    finance_account_id: row.finance_account_id ?? null,
+    credit_card_id: row.credit_card_id ?? null,
     debt_party: row.debt_party ?? null,
     debt_type: row.debt_type ?? null,
     note: row.note,
@@ -127,6 +133,8 @@ export async function GET(request: NextRequest) {
       "t.date",
       "t.monthly_budget_id",
       "t.debt_id",
+      "t.finance_account_id",
+      "t.credit_card_id",
       "d.party as debt_party",
       "d.type as debt_type",
       "t.created_at",
@@ -235,6 +243,7 @@ export async function POST(request: NextRequest) {
 
   const date = parseDate(b.date);
   if (!date) return Errors.validation("Ngày không hợp lệ. Dùng định dạng YYYY-MM-DD");
+  if (date > currentDate()) return Errors.validation("Không thể chọn ngày trong tương lai");
 
   const db = await getKysely();
   const userId = session.user.id;
@@ -268,7 +277,7 @@ export async function POST(request: NextRequest) {
     const txnId = result!.id;
     const txn = await db
       .selectFrom("transaction as t")
-      .select(["t.id", "t.amount", "t.linked_amount", "t.type", "t.note", "t.emoji", "t.date", "t.debt_id", "t.created_at", "t.updated_at"])
+    .select(["t.id", "t.amount", "t.linked_amount", "t.type", "t.note", "t.emoji", "t.date", "t.debt_id", "t.finance_account_id", "t.credit_card_id", "t.created_at", "t.updated_at"])
       .where("t.id", "=", txnId)
       .executeTakeFirst();
     return Response.json({ transaction: { ...txn, category: null, custom_budgets: [] } }, { status: 201 });
@@ -289,18 +298,44 @@ export async function POST(request: NextRequest) {
   // Validate category belongs to user and is leaf
   const cat = await db
     .selectFrom("category")
-    .select("id")
+    .select(["id", "type", "budget_behavior", "system_kind"])
     .where("id", "=", categoryId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
   if (!cat) return Errors.notFound("Danh mục không tồn tại");
+  if (cat.type !== b.type) return Errors.validation("Danh mục không khớp với loại giao dịch");
 
   const leaf = await isLeafCategory(db, categoryId, userId);
   if (!leaf) return Errors.validation("Chỉ được chọn danh mục không có danh mục con");
 
-  // Get monthly budget for expense
+  const isConsumption = cat.budget_behavior === "consumption";
+  const financeAccountId = typeof b.finance_account_id === "string" ? b.finance_account_id : null;
+  if (!isConsumption) {
+    if (customBudgetIds.length > 0) return Errors.validation("Giao dịch nợ hoặc tiết kiệm không thể gán vào quỹ");
+    if (!financeAccountId) return Errors.validation("Giao dịch nợ hoặc tiết kiệm cần chọn tài khoản");
+    const account = await db.selectFrom("finance_account").select(["id", "type"])
+      .where("id", "=", financeAccountId).where("user_id", "=", userId).executeTakeFirst();
+    if (!account) return Errors.notFound("Tài khoản không tồn tại");
+    const requiresSavings = cat.system_kind === "savings_deposit" || cat.system_kind === "savings_withdrawal";
+    if ((requiresSavings && account.type !== "savings") || (!requiresSavings && account.type !== "debt"))
+      return Errors.validation("Tài khoản không phù hợp với danh mục");
+  }
+
+  const creditCardId = typeof b.credit_card_id === "string" ? b.credit_card_id : null;
+  let cardStatement: { group_id: string; statement_close_day: number } | null = null;
+  if (creditCardId) {
+    if (!isConsumption || b.type !== "expense") return Errors.validation("Thẻ chỉ dùng cho chi tiêu");
+    const card = await db.selectFrom("credit_card as card")
+      .innerJoin("credit_card_group as card_group", "card_group.id", "card.group_id")
+      .select(["card.id", "card.group_id", "card_group.statement_close_day"])
+      .where("card.id", "=", creditCardId).where("card.user_id", "=", userId).executeTakeFirst();
+    if (!card) return Errors.notFound("Thẻ không tồn tại");
+    cardStatement = card;
+  }
+
+  // Only consumption expenses require the established working-day budget.
   let monthlyBudgetId: number | null = null;
-  if (b.type === "expense") {
+  if (b.type === "expense" && isConsumption) {
     const month = getBudgetMonthForDate(date);
     const budget = await db
       .selectFrom("monthly_budget")
@@ -329,11 +364,19 @@ export async function POST(request: NextRequest) {
 
   const result = await db
     .insertInto("transaction")
-    .values({ user_id: userId, amount, type: b.type as "expense" | "income", category_id: categoryId, note, emoji, date, monthly_budget_id: monthlyBudgetId })
+    .values({ user_id: userId, amount, type: b.type as "expense" | "income", category_id: categoryId, note, emoji, date, monthly_budget_id: monthlyBudgetId, finance_account_id: financeAccountId, credit_card_id: creditCardId })
     .returning("id")
     .executeTakeFirst();
 
   const txnId = result!.id;
+
+  if (cardStatement) {
+    const period = statementPeriodForDate(date, cardStatement.statement_close_day);
+    await db.insertInto("credit_card_statement").values({
+      id: crypto.randomUUID(), user_id: userId, group_id: cardStatement.group_id,
+      period_start: period.start, period_end: period.end, status: "unpaid", paid_at: null,
+    }).onConflict((oc) => oc.columns(["group_id", "period_start"]).doNothing()).execute();
+  }
 
   if (customBudgetIds.length > 0) {
     await db
@@ -357,6 +400,8 @@ export async function POST(request: NextRequest) {
       "t.date",
       "t.monthly_budget_id",
       "t.debt_id",
+      "t.finance_account_id",
+      "t.credit_card_id",
       "t.created_at",
       "c.id as cat_id",
       "c.name as cat_name",

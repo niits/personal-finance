@@ -7,11 +7,11 @@
 | Field | Value |
 |-------|-------|
 | Type | Business Requirements Document |
-| Document Version | 1.2 |
+| Document Version | 2.0 |
 | Status | Draft |
 | Author | niits |
 | Created | 2026-04-29 |
-| Last Updated | 2026-05-14 |
+| Last Updated | 2026-08-25 |
 
 ---
 
@@ -121,6 +121,11 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 
 ## 6. Functional Requirements
 
+> The confirmed behavior intents in `docs/intent/` are authoritative for this
+> section. The legacy data dictionary in §9 and `TECHNICAL_DESIGN.md` require a
+> separate technical-design rewrite before implementation; they do not override
+> the requirements below.
+
 ### 6.1 Authentication (AUTH)
 
 | ID | Requirement | Priority |
@@ -136,17 +141,17 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| TXN-01 | Users must be able to create an expense transaction with: amount, category, note (optional), date | Must Have |
-| TXN-02 | Users must be able to create an income transaction with: amount, category, note (optional), date | Must Have |
-| TXN-03 | Each expense transaction must be automatically linked to the Monthly Budget for its month | Must Have |
-| TXN-04 | Users may assign an expense transaction to one or more Custom Budgets | Must Have |
-| TXN-05 | Income transactions are not linked to any budget | Must Have |
+| TXN-01 | Users must be able to create, edit, and delete income and expense transactions directly; the system does not create reversal events | Must Have |
+| TXN-02 | A consumption transaction must include amount, matching leaf category, date, optional note, and (for expenses) cash or a selected credit card | Must Have |
+| TXN-03 | A consumption expense must be linked to the Monthly Budget for its transaction month; debt and savings transactions are excluded | Must Have |
+| TXN-04 | Users may assign a consumption expense to one or more active Custom Budgets | Must Have |
+| TXN-05 | Income, debt, and savings transactions are not linked to Monthly or Custom Budgets | Must Have |
 | TXN-06 | Users must be able to view transactions grouped by date, defaulting to the current month | Must Have |
-| TXN-07 | Users must be able to edit any field of a transaction | Must Have |
-| TXN-08 | Users must be able to delete a transaction | Must Have |
+| TXN-07 | Editing a transaction must recompute every affected budget, custom budget, debt or savings balance, and card statement | Must Have |
+| TXN-08 | Deleting a transaction must remove it from every affected budget, custom budget, debt or savings balance, and card statement | Must Have |
 | TXN-09 | Users must be able to filter the transaction list by: month, category, type (expense/income), custom budget | Should Have |
 | TXN-10 | Amount must be a positive integer in VND | Must Have |
-| TXN-11 | Transaction date defaults to today; users may select a different date | Must Have |
+| TXN-11 | Transaction date defaults to today; users may select a past date but not a future date | Must Have |
 
 ---
 
@@ -155,10 +160,10 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | MBGT-01 | Each user may have at most 1 Monthly Budget per budget period (unique constraint: user_id + month label) | Must Have |
-| MBGT-02 | Users must be able to manually create a Monthly Budget for any month that does not yet have one | Must Have |
-| MBGT-02a | A budget period spans from the last working day of the previous calendar month to the last working day of the budget month (inclusive). "Working day" = Monday–Friday, excluding Vietnamese public holidays. | Must Have |
+| MBGT-02 | Users must create a Monthly Budget before logging consumption transactions in its budget period | Must Have |
+| MBGT-02a | A budget period spans from the previous calendar month's last working day (inclusive) to the current month's last working day (exclusive) | Must Have |
 | MBGT-03 | When creating a Monthly Budget, the default amount is taken from Budget Config | Should Have |
-| MBGT-04 | Users must be able to adjust the Monthly Budget amount (up or down) along with a reason note | Must Have |
+| MBGT-04 | Users must be able to adjust the Monthly Budget limit (up or down) with a required reason note | Must Have |
 | MBGT-05 | Each adjustment must create a Budget Adjustment record to maintain history | Must Have |
 | MBGT-06 | The system must display the adjustment history of a Monthly Budget (date, delta, note) | Must Have |
 | MBGT-07 | If creating an expense transaction for month T and no budget for month T exists, the system must return an error and prompt the user to create a budget first | Must Have |
@@ -173,7 +178,7 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 | CBGT-01 | Users must be able to create a Custom Budget with: name and target amount | Must Have |
 | CBGT-02 | Custom Budgets have an active or inactive status that users can toggle at any time | Must Have |
 | CBGT-03 | Only active Custom Budgets are shown in the transaction entry form | Must Have |
-| CBGT-04 | A single expense transaction can be assigned to multiple Custom Budgets simultaneously | Must Have |
+| CBGT-04 | A single consumption expense can be assigned in full to multiple Custom Budgets simultaneously | Must Have |
 | CBGT-05 | Users must be able to view the list of transactions linked to each Custom Budget | Must Have |
 | CBGT-06 | The system must display progress for each Custom Budget: total spent / target | Must Have |
 | CBGT-07 | Users must be able to edit the name and target amount of a Custom Budget | Should Have |
@@ -205,6 +210,7 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 | CAT-07 | When deleting a category that is used by transactions, the system must reject the deletion and display the number of affected transactions | Must Have |
 | CAT-08 | Only leaf nodes (categories with no children) may be assigned to transactions | Must Have |
 | CAT-09 | Level-3 categories cannot have child categories | Must Have |
+| CAT-10 | The system must provide fixed categories for lending, debt repayment, savings deposits, and savings withdrawals; users cannot edit, delete, or change their budget behavior | Must Have |
 
 **Default seed categories:**
 
@@ -264,8 +270,8 @@ Thu nhập
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| RPT-01 | The Home screen must display: total spent this month, remaining budget, and this month's savings | Must Have |
-| RPT-02 | Monthly savings = total income − total expenses for the month | Must Have |
+| RPT-01 | The Home screen must display total consumption spending and remaining budget for the selected working-day budget period | Must Have |
+| RPT-02 | The Home screen must display unpaid credit-card spending as a subset of total monthly spending | Must Have |
 | RPT-03 | The Home screen transaction feed must display transactions grouped by date for the selected month, with a daily net total per group | Must Have |
 | RPT-04 | Users must be able to navigate to view data from previous months | Must Have |
 
@@ -286,21 +292,28 @@ Thu nhập
 
 ---
 
-### 6.10 Debt Tracking (DEBT) — Epic 4
+### 6.10 Debt and Savings (DEBT)
 
 Lending and borrowing relationships with repayment history. Full SRS: `docs/specs/debt-tracking.md`.
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| DEBT-01 | Users must be able to record a debt as either lending (`lend`) or borrowing (`borrow`), with a party name, amount, date, optional note and optional due date | Must Have |
-| DEBT-02 | Creating a debt also creates its opening transaction atomically: a `lend` opening is an expense, a `borrow` opening is income | Must Have |
-| DEBT-03 | Users must be able to log repayments; a repayment is an ordinary transaction linked to the debt (income for a `lend`, expense for a `borrow`) | Must Have |
-| DEBT-04 | The system must compute, per debt, the opening amount, total repaid, remaining balance, and an overdue flag (due date passed while still open) | Must Have |
-| DEBT-05 | A debt is `settled` when fully repaid; settled debts are collapsed into a separate section on the Debts screen | Should Have |
-| DEBT-06 | The Debts screen (`/debts`) must summarise total lent vs total borrowed and list each party with its progress | Must Have |
-| DEBT-07 | Users must be able to link an existing eligible transaction to a debt as a repayment, and to unlink it | Should Have |
-| DEBT-08 | Users must be able to convert an existing transaction to/from a debt entry in the edit flow | Should Have |
-| DEBT-09 | Debt transactions carry no category and no budget; they must still be included in income/expense aggregation | Must Have |
+| DEBT-01 | Users create a debt or savings account only inline in the transaction form, then link the transaction to it | Must Have |
+| DEBT-02 | Lending, borrowing, repayment, deposits, and withdrawals remain ordinary income or expense transactions with a special non-budget category | Must Have |
+| DEBT-03 | The Nợ & Tiết kiệm screen must show every debt and savings account's computed balance and linked transaction history | Must Have |
+| DEBT-04 | Debt and savings transactions must not affect monthly or custom budgets | Must Have |
+
+---
+
+### 6.11 Credit Cards (CARD)
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| CARD-01 | Users must manage credit-card groups with a monthly statement-close day and multiple cards per group | Must Have |
+| CARD-02 | A consumption expense paid by card must select one card and remain an ordinary categorized expense | Must Have |
+| CARD-03 | The system must group a card group's purchases into monthly statements | Must Have |
+| CARD-04 | Users must be able to mark an entire statement paid in full with a payment date | Must Have |
+| CARD-05 | Paying a statement must not create another expense or change monthly/custom-budget totals | Must Have |
 
 ---
 
@@ -309,22 +322,25 @@ Lending and borrowing relationships with repayment history. Full SRS: `docs/spec
 | ID | Rule |
 |----|------|
 | BR-01 | Each user has exactly 1 Monthly Budget per month (unique constraint: user_id + month) |
-| BR-02 | A Monthly Budget for month T must exist before creating an expense transaction with a date in month T |
-| BR-03 | Income transactions must not be linked to any Monthly Budget or Custom Budget |
+| BR-02 | A Monthly Budget for month T must exist before creating a consumption expense dated in month T |
+| BR-03 | Income, debt, and savings transactions must not be linked to any Monthly Budget or Custom Budget |
 | BR-04 | Custom Budgets have no time constraint — they persist until the user deletes or deactivates them |
-| BR-05 | Budget Adjustment stores the delta (positive = increase, negative = decrease); `MonthlyBudget.amount` always reflects the current total |
+| BR-05 | Budget Adjustment stores the delta (positive = increase, negative = decrease), mandatory reason, and time; the effective limit is the base amount plus its adjustments |
 | BR-06 | A category in use by at least one transaction cannot be deleted |
 | BR-07 | A category that still has child categories cannot be deleted |
 | BR-08 | Only leaf nodes (categories with no children) may be assigned to transactions |
 | BR-09 | Categories have a maximum of 3 levels; level-3 categories cannot have children |
 | BR-10 | Transaction amount must be a positive integer (> 0); negative values and decimals are not allowed |
 | BR-11 | Budget Config changes do not retroactively affect existing Monthly Budgets |
-| BR-12 | An expense transaction may belong to 0, 1, or many Custom Budgets simultaneously |
+| BR-12 | A consumption expense may belong in full to 0, 1, or many Custom Budgets simultaneously |
 | BR-13 | Each user has exactly 1 Budget Config record (auto-created on first login) |
 | BR-14 | Seed categories are auto-created for new users on first login; users with no categories may also trigger seeding on demand via `POST /api/categories/seed` |
-| BR-15 | A debt transaction (opening or repayment) has no category and no Custom Budget, and is exempt from the "expense must have a Monthly Budget" rule (it must instead be a debt entry) |
-| BR-16 | A debt's principal is derived from its opening transaction's amount — it is not stored on the debt; `remaining = opening_amount − Σ repayments` |
-| BR-17 | Deleting a debt detaches its linked transactions (they remain as plain transactions); deleting a linked transaction detaches it from the debt |
+| BR-15 | A debt or savings transaction uses exactly one fixed system non-budget category, links exactly one debt or savings account, and cannot link to a Custom Budget |
+| BR-16 | A debt or savings account's balance is computed from its linked income and expense transactions; it is never manually edited |
+| BR-17 | Debts and savings accounts are created only inline while recording a transaction; the Nợ & Tiết kiệm screen is read-only for transaction entry |
+| BR-18 | Credit-card purchases count once in monthly spending on their transaction date; the unpaid amount is a subset of that spending |
+| BR-19 | A credit-card statement belongs to a card group and is either unpaid or paid in full; partial payment is unsupported |
+| BR-20 | Marking a statement paid records payment metadata only and must not create or modify an expense transaction, budget, pace, or Custom Budget |
 
 ---
 

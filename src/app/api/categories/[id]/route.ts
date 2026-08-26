@@ -18,11 +18,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   const existing = await db
     .selectFrom("category")
-    .select("id")
+    .select(["id", "system_kind"])
     .where("id", "=", categoryId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
   if (!existing) return Errors.notFound("Danh mục không tồn tại");
+  if (existing.system_kind) return Errors.validation("Danh mục hệ thống không thể chỉnh sửa");
 
   const body = await request.json().catch(() => null);
   if (!body) return Errors.validation("Request body không hợp lệ");
@@ -74,11 +75,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
 
   const existing = await db
     .selectFrom("category")
-    .select("id")
+    .select(["id", "system_kind"])
     .where("id", "=", categoryId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
   if (!existing) return Errors.notFound("Danh mục không tồn tại");
+  if (existing.system_kind) return Errors.validation("Danh mục hệ thống không thể xóa");
 
   const txnCount = await db
     .selectFrom("transaction")
