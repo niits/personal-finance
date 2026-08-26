@@ -6,12 +6,14 @@ import {
   parseAmount,
   parseDate,
   getBudgetMonthForDate,
+  currentDate,
   isLeafCategory,
 } from "@/lib/validators";
 import type { Kysely } from "kysely";
 import type { Database } from "@/lib/schema";
 import { markStatsDirty } from "@/lib/statistics";
 import { sql } from "kysely";
+import { statementPeriodForDate } from "@/lib/credit-cards";
 
 type Params = Promise<{ id: string }>;
 
@@ -116,7 +118,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   const existing = await db
     .selectFrom("transaction")
-    .select(["id", "type", "date", "category_id", "monthly_budget_id", "debt_id"])
+    .select(["id", "type", "date", "category_id", "monthly_budget_id", "debt_id", "finance_account_id", "credit_card_id"])
     .where("id", "=", txnId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
@@ -134,6 +136,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   const newDate = b.date !== undefined ? parseDate(b.date) : existing.date;
   if (!newDate) return Errors.validation("Ngày không hợp lệ. Dùng định dạng YYYY-MM-DD");
+  if (newDate > currentDate()) return Errors.validation("Không thể chọn ngày trong tương lai");
 
   const newCategoryId =
     b.category_id !== undefined ? (b.category_id as number) : existing.category_id;
@@ -152,29 +155,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
         : []
       : undefined;
 
-  if (newType === "income" && newCustomBudgetIds && newCustomBudgetIds.length > 0)
-    return Errors.validation("Giao dịch thu nhập không thể gán vào Custom Budget");
-
-  // Validate category
-  if (b.category_id !== undefined && newCategoryId !== null) {
-    const cat = await db
-      .selectFrom("category")
-      .select("id")
-      .where("id", "=", newCategoryId)
-      .where("user_id", "=", userId)
-      .executeTakeFirst();
-    if (!cat) return Errors.notFound("Danh mục không tồn tại");
-
-    const leaf = await isLeafCategory(db, newCategoryId, userId);
-    if (!leaf) return Errors.validation("Chỉ được chọn danh mục không có danh mục con");
+  let category: { id: number; type: "expense" | "income"; budget_behavior: "consumption" | "non_budget"; system_kind: string | null } | null = null;
+  if (newCategoryId !== null) {
+    category = await db.selectFrom("category")
+      .select(["id", "type", "budget_behavior", "system_kind"])
+      .where("id", "=", newCategoryId).where("user_id", "=", userId).executeTakeFirst() ?? null;
+    if (!category) return Errors.notFound("Danh mục không tồn tại");
+    if (category.type !== newType) return Errors.validation("Danh mục không khớp với loại giao dịch");
+    if (!(await isLeafCategory(db, newCategoryId, userId))) return Errors.validation("Chỉ được chọn danh mục không có danh mục con");
   }
 
-  // Resolve monthly_budget_id
-  let newMonthlyBudgetId: number | null = existing.monthly_budget_id;
+  const isConsumption = category?.budget_behavior === "consumption";
+  if (newCustomBudgetIds && newCustomBudgetIds.length > 0 && (!isConsumption || newType !== "expense"))
+    return Errors.validation("Chỉ chi tiêu có thể gán vào Custom Budget");
 
-  if (newType === "income") {
-    newMonthlyBudgetId = null;
-  } else if (newType === "expense" && (b.date !== undefined || b.type !== undefined)) {
+  let newMonthlyBudgetId: number | null = null;
+  if (isConsumption && newType === "expense") {
     const month = getBudgetMonthForDate(newDate);
     const budget = await db
       .selectFrom("monthly_budget")
@@ -193,6 +189,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
       );
     }
     newMonthlyBudgetId = budget.id;
+  }
+
+  const financeAccountId = "finance_account_id" in b ? (typeof b.finance_account_id === "string" ? b.finance_account_id : null) : existing.finance_account_id;
+  if (category?.budget_behavior === "non_budget") {
+    if (!financeAccountId) return Errors.validation("Giao dịch nợ hoặc tiết kiệm cần chọn tài khoản");
+    const account = await db.selectFrom("finance_account").select(["id", "type"])
+      .where("id", "=", financeAccountId).where("user_id", "=", userId).executeTakeFirst();
+    if (!account) return Errors.notFound("Tài khoản không tồn tại");
+    const needsSavings = category.system_kind === "savings_deposit" || category.system_kind === "savings_withdrawal";
+    if ((needsSavings && account.type !== "savings") || (!needsSavings && account.type !== "debt")) return Errors.validation("Tài khoản không phù hợp với danh mục");
+  }
+
+  const creditCardId = "credit_card_id" in b ? (typeof b.credit_card_id === "string" ? b.credit_card_id : null) : existing.credit_card_id;
+  let cardStatement: { group_id: string; statement_close_day: number } | null = null;
+  if (creditCardId) {
+    if (!isConsumption || newType !== "expense") return Errors.validation("Thẻ chỉ dùng cho chi tiêu");
+    const card = await db.selectFrom("credit_card as card")
+      .innerJoin("credit_card_group as card_group", "card_group.id", "card.group_id")
+      .select(["card.id", "card.group_id", "card_group.statement_close_day"])
+      .where("card.id", "=", creditCardId).where("card.user_id", "=", userId).executeTakeFirst();
+    if (!card) return Errors.notFound("Thẻ không tồn tại");
+    cardStatement = card;
   }
 
   // Validate custom budget ownership
@@ -266,7 +284,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   if (b.emoji !== undefined) updateValues.emoji = newEmoji;
   if (b.date !== undefined) updateValues.date = newDate;
   // Always sync monthly_budget_id when type or date changes
-  if (b.type !== undefined || b.date !== undefined) updateValues.monthly_budget_id = newMonthlyBudgetId;
+  if (category) updateValues.monthly_budget_id = newMonthlyBudgetId;
+  if ("finance_account_id" in b || category?.budget_behavior === "consumption") updateValues.finance_account_id = category?.budget_behavior === "non_budget" ? financeAccountId : null;
+  if ("credit_card_id" in b || !isConsumption) updateValues.credit_card_id = isConsumption ? creditCardId : null;
   if (debtIdUpdate !== undefined) {
     updateValues.debt_id = debtIdUpdate;
     // Linking clears category and budget; unlinking also clears debt fields
@@ -282,6 +302,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     .where("id", "=", txnId)
     .where("user_id", "=", userId)
     .execute();
+
+  if (cardStatement) {
+    const period = statementPeriodForDate(newDate, cardStatement.statement_close_day);
+    await db.insertInto("credit_card_statement").values({
+      id: crypto.randomUUID(), user_id: userId, group_id: cardStatement.group_id,
+      period_start: period.start, period_end: period.end, status: "unpaid", paid_at: null,
+    }).onConflict((oc) => oc.columns(["group_id", "period_start"]).doNothing()).execute();
+  }
 
   if (newCustomBudgetIds !== undefined) {
     await db

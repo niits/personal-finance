@@ -49,19 +49,19 @@ export async function GET(request: NextRequest) {
   const daysRemaining = periodDays - daysElapsed;
 
   let summaryQuery = db
-    .selectFrom("transaction")
+    .selectFrom("transaction as t")
     .select([
-      sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("total_expense"),
-      sql<number>`COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0)`.as("total_income"),
-      // Budget spending counts every expense, including debt cash transfers, to keep one simple model.
-      sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("budget_expense"),
+      sql<number>`COALESCE(SUM(CASE WHEN t.type = 'expense' AND category.budget_behavior = 'consumption' THEN t.amount ELSE 0 END), 0)`.as("total_expense"),
+      sql<number>`COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END), 0)`.as("total_income"),
+      sql<number>`COALESCE(SUM(CASE WHEN t.type = 'expense' AND category.budget_behavior = 'consumption' THEN t.amount ELSE 0 END), 0)`.as("budget_expense"),
     ])
-    .where("user_id", "=", userId)
-    .where("date", ">=", periodStart);
+    .innerJoin("category", "category.id", "t.category_id")
+    .where("t.user_id", "=", userId)
+    .where("t.date", ">=", periodStart);
 
   summaryQuery = useStoredDates
-    ? summaryQuery.where("date", "<=", periodEnd)
-    : summaryQuery.where("date", "<", periodEndExclusive);
+      ? summaryQuery.where("t.date", "<=", periodEnd)
+      : summaryQuery.where("t.date", "<", periodEndExclusive);
 
   const summary = await summaryQuery.executeTakeFirst();
 
@@ -70,21 +70,39 @@ export async function GET(request: NextRequest) {
   const budgetExpense = summary?.budget_expense ?? 0;
 
   let dailyExpenseQuery = db
-    .selectFrom("transaction")
+    .selectFrom("transaction as t")
     .select([
-      "date",
-      sql<number>`COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)`.as("amount"),
+      "t.date as date",
+      sql<number>`COALESCE(SUM(CASE WHEN t.type = 'expense' AND category.budget_behavior = 'consumption' THEN t.amount ELSE 0 END), 0)`.as("amount"),
     ])
-    .where("user_id", "=", userId)
-    .where("date", ">=", periodStart)
-    .groupBy("date")
-    .orderBy("date", "asc");
+    .innerJoin("category", "category.id", "t.category_id")
+    .where("t.user_id", "=", userId)
+    .where("t.date", ">=", periodStart)
+    .groupBy("t.date")
+    .orderBy("t.date", "asc");
 
   dailyExpenseQuery = useStoredDates
-    ? dailyExpenseQuery.where("date", "<=", periodEnd)
-    : dailyExpenseQuery.where("date", "<", periodEndExclusive);
+    ? dailyExpenseQuery.where("t.date", "<=", periodEnd)
+    : dailyExpenseQuery.where("t.date", "<", periodEndExclusive);
 
   const dailyExpenses = await dailyExpenseQuery.execute();
+
+  const unpaidCardSpend = await db
+    .selectFrom("transaction as t")
+    .innerJoin("category as c", "c.id", "t.category_id")
+    .innerJoin("credit_card as cc", "cc.id", "t.credit_card_id")
+    .select(sql<number>`COALESCE(SUM(t.amount), 0)`.as("amount"))
+    .where("t.user_id", "=", userId)
+    .where("t.date", ">=", periodStart)
+    .where("t.date", useStoredDates ? "<=" : "<", useStoredDates ? periodEnd : periodEndExclusive)
+    .where("t.type", "=", "expense")
+    .where("c.budget_behavior", "=", "consumption")
+    .where(sql<boolean>`NOT EXISTS (
+      SELECT 1 FROM credit_card_statement AS s
+      WHERE s.user_id = ${userId} AND s.group_id = cc.group_id AND s.status = 'paid'
+        AND t.date >= s.period_start AND t.date < s.period_end
+    )`)
+    .executeTakeFirst();
 
   let paceStatus: "under" | "over" | "no_budget" = "no_budget";
   let monthlyBudget: { id: number; amount: number; remaining: number } | null = null;
@@ -115,6 +133,7 @@ export async function GET(request: NextRequest) {
     period_start: periodStart,
     period_end: periodEnd,
     total_expense: totalExpense,
+    unpaid_card_spend: unpaidCardSpend?.amount ?? 0,
     total_income: totalIncome,
     savings: totalIncome - totalExpense,
     monthly_budget: monthlyBudget,

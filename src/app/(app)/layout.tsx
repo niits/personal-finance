@@ -8,6 +8,7 @@ const tabs = [
   { href: "/", label: "Tổng quan", icon: "◎" },
   { href: "/statistics", label: "Thống kê", icon: "◑" },
   { href: "/debts", label: "Nợ", icon: "◈" },
+  { href: "/cards", label: "Thẻ", icon: "▣" },
   { href: "/budget", label: "Ngân sách", icon: "⊟" },
   { href: "/account", label: "Tài khoản", icon: "◯" },
 ];

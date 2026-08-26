@@ -12,6 +12,7 @@ export type DashboardData = {
   period_start: string;
   period_end: string;
   total_expense: number;
+  unpaid_card_spend: number;
   total_income: number;
   savings: number;
   monthly_budget: { id: number; amount: number; remaining: number } | null;
@@ -31,6 +32,8 @@ export type Transaction = {
   category: { id: number; name: string; emoji: string | null; path: string } | null;
   root_category_name: string;
   debt_id: string | null;
+  finance_account_id: string | null;
+  credit_card_id: string | null;
   debt_party: string | null;
   debt_type: "lend" | "borrow" | null;
   note: string | null;
@@ -101,6 +104,14 @@ function groupByDate(txns: Transaction[]) {
     groups[t.date].push(t);
   }
   return groups;
+}
+
+function chevronStyle(disabled?: boolean): React.CSSProperties {
+  return {
+    background: "none", border: "none", cursor: disabled ? "default" : "pointer",
+    color: disabled ? "transparent" : "var(--body-muted)",
+    fontSize: 18, padding: "0 6px", lineHeight: 1, flexShrink: 0,
+  };
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -182,7 +193,7 @@ export function DashboardTemplate({
     .reduce((s, t) => s + t.amount, 0);
   const targetAmount = loading ? 0 : (selectedRoot ? filteredExpense : totalExpense);
 
-  const [displayedAmount, setDisplayedAmount] = useState(targetAmount);
+  const [displayedAmount, setDisplayedAmount] = useState(() => targetAmount);
   const animRef = useRef<number | null>(null);
   const prevAmountRef = useRef(targetAmount);
 
@@ -204,12 +215,6 @@ export function DashboardTemplate({
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [targetAmount]);
 
-  const chevronStyle = (disabled?: boolean): React.CSSProperties => ({
-    background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-    color: disabled ? "transparent" : "var(--body-muted)",
-    fontSize: 18, padding: "0 6px", lineHeight: 1, flexShrink: 0,
-  });
-
   const isOver = data?.monthly_budget ? data.monthly_budget.remaining < 0 : false;
   const barColor = isOver ? "var(--danger)" : "var(--primary)";
 
@@ -221,11 +226,11 @@ export function DashboardTemplate({
 
         {/* Month navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2 }}>
-          <button type="button" style={chevronStyle()} onClick={onPrevMonth}>‹</button>
+          <button type="button" aria-label="Tháng trước" style={chevronStyle()} onClick={onPrevMonth}>‹</button>
           <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--body-muted)", letterSpacing: -0.12 }}>
             {selectedMonth ? toMonthLabel(selectedMonth) : ""}
           </span>
-          <button type="button" style={chevronStyle(isCurrentMonth)} onClick={() => !isCurrentMonth && onNextMonth()}>›</button>
+          <button type="button" aria-label="Tháng sau" style={chevronStyle(isCurrentMonth)} onClick={() => !isCurrentMonth && onNextMonth()}>›</button>
         </div>
 
         {data && (
@@ -257,6 +262,11 @@ export function DashboardTemplate({
             ? <span>trong tổng <span style={{ color: "var(--on-dark)", fontWeight: 600 }}>{fmt(totalExpense)}₫</span> đã chi tháng này</span>
             : "đã chi tháng này"}
         </p>
+        {data && data.unpaid_card_spend > 0 && (
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--body-muted)", marginTop: 4 }}>
+            Trong đó {fmt(data.unpaid_card_spend)}₫ dùng thẻ chưa thanh toán
+          </p>
+        )}
 
         {/* Budget bar with pace background */}
         {data?.monthly_budget && (
@@ -416,7 +426,7 @@ export function DashboardTemplate({
       {/* ── FAB ── */}
       {data?.monthly_budget && (
         <div style={{ position: "fixed", bottom: 84, right: 20, zIndex: 40 }}>
-          <button type="button" onClick={() => onOpenForm()}
+          <button type="button" aria-label="Thêm giao dịch" onClick={() => onOpenForm()}
             className="size-14 rounded-full bg-primary text-white text-[28px] leading-none border-none cursor-pointer flex items-center justify-center shadow-[0_4px_16px_rgba(0,102,204,0.4)]">
             +
           </button>
@@ -482,6 +492,8 @@ export function DashboardTemplate({
             emoji: editTxn.emoji,
             category: editTxn.category,
             debt_id: editTxn.debt_id,
+            finance_account_id: editTxn.finance_account_id,
+            credit_card_id: editTxn.credit_card_id,
             debt_party: editTxn.debt_party,
             debt_type: editTxn.debt_type,
             is_opening_tx: false,

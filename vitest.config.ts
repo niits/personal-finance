@@ -28,6 +28,7 @@ export default defineWorkersConfig({
       // cannot resolve from the dynamically-required bundle. Map it to a stub so
       // Vite bundles a working module in its place (works in real wrangler dev).
       "node:os": path.resolve(__dirname, "tests/integration/node-os-stub.cjs"),
+      "node:worker_threads": path.resolve(__dirname, "tests/integration/node-worker-threads-stub.cjs"),
     },
   },
   test: {

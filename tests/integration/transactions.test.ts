@@ -71,7 +71,7 @@ describe("POST /api/transactions", () => {
   });
 
   it("creates income without monthly_budget_id", async () => {
-    const incomeCategory = await seedCategory(userId, "Lương", null, 1);
+    const incomeCategory = await seedCategory(userId, "Lương", null, 1, "income");
     const res = await SELF.fetch("http://localhost/api/transactions", {
       method: "POST",
       headers: authHeaders(cookie),

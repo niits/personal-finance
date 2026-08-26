@@ -1,7 +1,5 @@
 import { env } from "cloudflare:test";
 
-const TEST_SECRET = "test-secret-vitest-do-not-use-in-production";
-
 // Use Vite's import.meta.glob to bundle SQL files at compile time.
 // This avoids node:fs calls which are not available in the Workers test runtime.
 const migrationModules = import.meta.glob<string>("../../migrations/*.sql", {
@@ -42,23 +40,17 @@ export async function applyMigrations() {
   }
 }
 
-async function makeSignature(value: string, secret: string): Promise<string> {
-  const keyBuf = new TextEncoder().encode(secret);
-  const key = await crypto.subtle.importKey(
-    "raw",
-    keyBuf,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
-  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+async function signSessionToken(token: string): Promise<string> {
+  const secret = (env as unknown as { BETTER_AUTH_SECRET: string }).BETTER_AUTH_SECRET;
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const bytes = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(token)));
+  return btoa(String.fromCharCode(...bytes));
 }
 
 export async function seedUser(opts?: { id?: string; email?: string }) {
   const id = opts?.id ?? "user-test-1";
   const email = opts?.email ?? "test@example.com";
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.now();
 
   await env.DB.prepare(
     "INSERT OR IGNORE INTO user (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?, ?, ?, 0, ?, ?)",
@@ -71,8 +63,8 @@ export async function seedUser(opts?: { id?: string; email?: string }) {
 
 export async function createTestSession(userId: string): Promise<string> {
   const token = `test-token-${userId}-${Date.now()}`;
-  const now = Math.floor(Date.now() / 1000);
-  const expiresAt = now + 60 * 60 * 24 * 7; // 7 days
+  const now = Date.now();
+  const expiresAt = now + 60 * 60 * 24 * 7 * 1000;
 
   await env.DB.prepare(
     "INSERT OR IGNORE INTO session (id, token, userId, expiresAt, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)",
@@ -80,8 +72,7 @@ export async function createTestSession(userId: string): Promise<string> {
     .bind(`session-${token}`, token, userId, expiresAt, now, now)
     .run();
 
-  const signature = await makeSignature(token, TEST_SECRET);
-  return `better-auth.session_token=${token}.${signature}`;
+  return `better-auth.session_token=${token}.${await signSessionToken(token)}`;
 }
 
 export async function seedCategory(
@@ -89,11 +80,12 @@ export async function seedCategory(
   name: string,
   parentId: number | null = null,
   level = 1,
+  type: "income" | "expense" = "expense",
 ) {
   const result = await env.DB.prepare(
-    "INSERT INTO category (user_id, name, parent_id, level, sort_order) VALUES (?, ?, ?, ?, 0) RETURNING id",
+    "INSERT INTO category (user_id, name, parent_id, level, sort_order, type) VALUES (?, ?, ?, ?, 0, ?) RETURNING id",
   )
-    .bind(userId, name, parentId, level)
+    .bind(userId, name, parentId, level, type)
     .first<{ id: number }>();
   return result!.id;
 }
