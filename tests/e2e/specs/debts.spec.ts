@@ -29,7 +29,7 @@ test.describe("Nợ & Tiết kiệm", () => {
     await expect(page.getByText(/Minh trả một phần/)).toBeVisible();
 
     await expect(page.getByRole("heading", { name: "Tiết kiệm", exact: true })).toBeVisible();
-    await expect(page.getByText("Quỹ dự phòng")).toBeVisible();
+    await expect(page.getByText("Quỹ dự phòng", { exact: true })).toBeVisible();
     await expect(page.getByText(/2[.,]000[.,]000/)).toBeVisible();
   });
 
