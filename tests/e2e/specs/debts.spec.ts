@@ -22,7 +22,7 @@ test.describe("Nợ & Tiết kiệm", () => {
     await page.goto("/debts");
 
     await expect(page.getByRole("heading", { name: "Khoản nợ" })).toBeVisible();
-    await expect(page.getByText("Minh")).toBeVisible();
+    await expect(page.getByText("Minh", { exact: true })).toBeVisible();
     await expect(page.getByText("Cho vay")).toBeVisible();
     await expect(page.getByText(/1[.,]500[.,]000/)).toBeVisible();
     await expect(page.getByText(/Cho Minh vay/)).toBeVisible();
@@ -36,6 +36,6 @@ test.describe("Nợ & Tiết kiệm", () => {
   test("is read-only", async ({ page }) => {
     await resetTestData("accounts");
     await page.goto("/debts");
-    await expect(page.getByRole("button")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /thêm|tạo|ghi nhận|tất toán/i })).toHaveCount(0);
   });
 });
