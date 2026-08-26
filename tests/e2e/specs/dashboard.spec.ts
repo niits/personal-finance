@@ -28,7 +28,7 @@ test.describe("Dashboard — transaction list", () => {
     const monthLabel = page.getByText(/Tháng \d+\/\d+/).first();
     const currentLabel = await monthLabel.textContent();
     expect(currentLabel).toBeTruthy();
-    await page.getByRole("button", { name: "‹" }).click();
+    await page.getByRole("button", { name: "Tháng trước" }).click();
     const newLabel = await monthLabel.textContent();
     expect(newLabel).not.toBe(currentLabel);
   });
