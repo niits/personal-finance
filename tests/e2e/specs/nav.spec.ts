@@ -1,21 +1,20 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Navigation — tab bar", () => {
-  test("shows 5 tabs: Tổng quan, Thống kê, Nợ, Ngân sách, Tài khoản", async ({ page }) => {
+  test("shows 4 tabs: Tổng quan, Thống kê, Tài chính, Tài khoản", async ({ page }) => {
     await page.goto("/");
     const nav = page.locator("nav").last(); // bottom tab bar
     await expect(nav.getByText("Tổng quan")).toBeVisible();
     await expect(nav.getByText("Thống kê")).toBeVisible();
-    await expect(nav.getByText("Nợ")).toBeVisible();
-    await expect(nav.getByText("Ngân sách")).toBeVisible();
+    await expect(nav.getByText("Tài chính")).toBeVisible();
     await expect(nav.getByText("Tài khoản")).toBeVisible();
     await expect(nav.getByText("Danh mục")).not.toBeVisible();
   });
 
-  test("Nợ tab navigates to /debts", async ({ page }) => {
+  test("Tài chính tab navigates to /cards", async ({ page }) => {
     await page.goto("/");
-    await page.locator("nav").last().getByText("Nợ").click();
-    await expect(page).toHaveURL(/\/debts$/);
+    await page.locator("nav").last().getByText("Tài chính").click();
+    await expect(page).toHaveURL(/\/cards$/);
   });
 });
 

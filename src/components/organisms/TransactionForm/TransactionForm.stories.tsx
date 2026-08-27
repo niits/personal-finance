@@ -37,7 +37,7 @@ export const EditMode: Story = {
         category: { id: 3, name: "Ăn uống", path: "Sinh hoạt > Ăn uống" },
         debt_id: null,
         finance_account_id: null,
-        credit_card_id: null,
+        credit_card_group_id: null,
         debt_party: null,
         debt_type: null,
         is_opening_tx: false,

@@ -118,7 +118,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   const existing = await db
     .selectFrom("transaction")
-    .select(["id", "type", "date", "category_id", "monthly_budget_id", "debt_id", "finance_account_id", "credit_card_id"])
+    .select(["id", "type", "date", "category_id", "monthly_budget_id", "debt_id", "finance_account_id", "credit_card_group_id"])
     .where("id", "=", txnId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
@@ -201,16 +201,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     if ((needsSavings && account.type !== "savings") || (!needsSavings && account.type !== "debt")) return Errors.validation("Tài khoản không phù hợp với danh mục");
   }
 
-  const creditCardId = "credit_card_id" in b ? (typeof b.credit_card_id === "string" ? b.credit_card_id : null) : existing.credit_card_id;
-  let cardStatement: { group_id: string; statement_close_day: number } | null = null;
-  if (creditCardId) {
+  const creditCardGroupId = "credit_card_group_id" in b ? (typeof b.credit_card_group_id === "string" ? b.credit_card_group_id : null) : existing.credit_card_group_id;
+  let cardStatement: { id: string; statement_close_day: number } | null = null;
+  if (creditCardGroupId) {
     if (!isConsumption || newType !== "expense") return Errors.validation("Thẻ chỉ dùng cho chi tiêu");
-    const card = await db.selectFrom("credit_card as card")
-      .innerJoin("credit_card_group as card_group", "card_group.id", "card.group_id")
-      .select(["card.id", "card.group_id", "card_group.statement_close_day"])
-      .where("card.id", "=", creditCardId).where("card.user_id", "=", userId).executeTakeFirst();
-    if (!card) return Errors.notFound("Thẻ không tồn tại");
-    cardStatement = card;
+    const group = await db.selectFrom("credit_card_group")
+      .select(["id", "statement_close_day"])
+      .where("id", "=", creditCardGroupId).where("user_id", "=", userId).executeTakeFirst();
+    if (!group) return Errors.notFound("Nhóm thẻ không tồn tại");
+    cardStatement = group;
   }
 
   // Validate custom budget ownership
@@ -286,7 +285,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   // Always sync monthly_budget_id when type or date changes
   if (category) updateValues.monthly_budget_id = newMonthlyBudgetId;
   if ("finance_account_id" in b || category?.budget_behavior === "consumption") updateValues.finance_account_id = category?.budget_behavior === "non_budget" ? financeAccountId : null;
-  if ("credit_card_id" in b || !isConsumption) updateValues.credit_card_id = isConsumption ? creditCardId : null;
+  if ("credit_card_group_id" in b || !isConsumption) updateValues.credit_card_group_id = isConsumption ? creditCardGroupId : null;
   if (debtIdUpdate !== undefined) {
     updateValues.debt_id = debtIdUpdate;
     // Linking clears category and budget; unlinking also clears debt fields
@@ -306,7 +305,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   if (cardStatement) {
     const period = statementPeriodForDate(newDate, cardStatement.statement_close_day);
     await db.insertInto("credit_card_statement").values({
-      id: crypto.randomUUID(), user_id: userId, group_id: cardStatement.group_id,
+      id: crypto.randomUUID(), user_id: userId, group_id: cardStatement.id,
       period_start: period.start, period_end: period.end, status: "unpaid", paid_at: null,
     }).onConflict((oc) => oc.columns(["group_id", "period_start"]).doNothing()).execute();
   }

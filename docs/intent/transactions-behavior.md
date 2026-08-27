@@ -17,7 +17,7 @@
 
 - A consumption expense requires its working-day budget period to already exist.
 - It may link to multiple active custom budgets in full.
-- Its payment method is cash or a selected credit card.
+- Its payment method is cash or a selected credit-card group.
 - It counts once toward monthly spending, budget remaining, and pace on its
   transaction date.
 
@@ -36,10 +36,9 @@
 
 ## 4. Credit cards
 
-- A credit card belongs to a group; a group can contain several cards and has a
-  monthly statement-close day.
-- Card purchases remain ordinary consumption expenses.
-- Statements group purchases from every card in the group for a close period.
+- A credit-card group has a monthly statement-close day.
+- Group purchases remain ordinary consumption expenses.
+- Statements group purchases linked to the group for a close period.
 - A statement is unpaid or paid in full. Paying it records payment metadata only;
   it does not create another expense or change the original month's budget.
 - Dashboard copy shows the total monthly spend and its unpaid-credit-card subset.

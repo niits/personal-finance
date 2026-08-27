@@ -15,11 +15,10 @@ is paid.
 ## 2. Transaction logging
 
 - The existing transaction flow remains unchanged.
-- A consumption expense has a payment-method choice: **cash** or a specific
-  **credit card**.
-- A card belongs to one credit-card group. A group can contain multiple cards
-  and has one monthly statement-close day.
-- A card purchase is an ordinary categorized expense and can be linked to active
+- A consumption expense has a payment-method choice: **cash** or a selected
+  **credit-card group**.
+- A credit-card group has one monthly statement-close day.
+- A credit-card-group purchase is an ordinary categorized expense and can be linked to active
   custom budgets exactly as a cash purchase can.
 
 ## 3. Monthly budget and dashboard
@@ -38,15 +37,15 @@ is paid.
 ## 4. Statements and payment
 
 - A statement belongs to a credit-card group, not to an individual card.
-- Its period is determined by the group's close day; purchases from every card in
-  the group during that period belong to the same statement.
+- Its period is determined by the group's close day; purchases linked to the
+  group during that period belong to the same statement.
 - A statement can only be **unpaid** or **paid in full**. Partial payment,
   installments, interest, and fees are out of scope.
 - Marking a statement paid records the payment date and marks all of its included
-  card purchases as no longer unpaid.
+  group purchases as no longer unpaid.
 - There is no separate expense transaction for a statement payment. It is payment
   metadata, preventing the purchase from being counted a second time.
-- The dashboard's unpaid-card amount is the sum of card purchases in every unpaid
+- The dashboard's unpaid-card amount is the sum of group purchases in every unpaid
   statement, including the current open statement period.
 
 ## 5. Credit-card screen
@@ -55,6 +54,7 @@ is paid.
 - Opening a group shows its statements, status, amount, and included purchases.
 - The user can mark an entire unpaid statement as paid and supply its payment
   date.
+- Groups support create, edit, and delete from the same screen.
 
 ## 6. Out of scope
 

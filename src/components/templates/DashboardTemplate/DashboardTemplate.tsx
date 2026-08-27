@@ -33,7 +33,7 @@ export type Transaction = {
   root_category_name: string;
   debt_id: string | null;
   finance_account_id: string | null;
-  credit_card_id: string | null;
+  credit_card_group_id: string | null;
   debt_party: string | null;
   debt_type: "lend" | "borrow" | null;
   note: string | null;
@@ -493,7 +493,7 @@ export function DashboardTemplate({
             category: editTxn.category,
             debt_id: editTxn.debt_id,
             finance_account_id: editTxn.finance_account_id,
-            credit_card_id: editTxn.credit_card_id,
+            credit_card_group_id: editTxn.credit_card_group_id,
             debt_party: editTxn.debt_party,
             debt_type: editTxn.debt_type,
             is_opening_tx: false,

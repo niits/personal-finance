@@ -9,21 +9,21 @@ test.describe("Finance accounts API", () => {
   });
 });
 
-test.describe("Nợ & Tiết kiệm", () => {
+test.describe("Tài chính", () => {
   test.beforeAll(async () => { await resetTestData("minimal"); });
 
   test("shows empty account sections", async ({ page }) => {
-    await page.goto("/debts");
-    await expect(page.getByRole("heading", { name: "Nợ & Tiết kiệm" })).toBeVisible();
+    await page.goto("/cards");
+    await expect(page.getByRole("heading", { name: "Tài chính" })).toBeVisible();
     await expect(page.getByText("Chưa có tài khoản.")).toHaveCount(2);
   });
   test("shows account balances and linked transaction history", async ({ page }) => {
     await resetTestData("accounts");
-    await page.goto("/debts");
+    await page.goto("/cards");
 
-    await expect(page.getByRole("heading", { name: "Khoản nợ" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Nợ" })).toBeVisible();
     await expect(page.getByText("Minh", { exact: true })).toBeVisible();
-    await expect(page.getByText("Cho vay")).toBeVisible();
+    await expect(page.getByText("Cho vay", { exact: true })).toBeVisible();
     await expect(page.getByText(/1[.,]500[.,]000/)).toBeVisible();
     await expect(page.getByText(/Cho Minh vay/)).toBeVisible();
     await expect(page.getByText(/Minh trả một phần/)).toBeVisible();
@@ -33,9 +33,9 @@ test.describe("Nợ & Tiết kiệm", () => {
     await expect(page.getByText("2.000.000₫", { exact: true })).toBeVisible();
   });
 
-  test("is read-only", async ({ page }) => {
+  test("offers account management", async ({ page }) => {
     await resetTestData("accounts");
-    await page.goto("/debts");
-    await expect(page.getByRole("button", { name: /thêm|tạo|ghi nhận|tất toán/i })).toHaveCount(0);
+    await page.goto("/cards");
+    await expect(page.getByRole("button", { name: "Thêm" }).first()).toBeVisible();
   });
 });

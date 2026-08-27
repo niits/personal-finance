@@ -13,19 +13,20 @@ Credit-card statement periods can cross working-day budget boundaries. Making
 the statement payment an expense would double-count a purchase; assigning the
 purchase to its later payment month would make monthly spending inaccurate.
 
-The product also needs to support multiple cards sharing one statement cycle.
+The product needs statement cycles without requiring users to manage individual
+cards.
 
 ## Decision
 
-Keep a card purchase as the existing categorized expense transaction, with an
-optional selected card. Model credit-card structure separately:
+Keep a group purchase as the existing categorized expense transaction, with an
+optional selected group. Model credit-card structure separately:
 
-- `credit_card_group`: name and monthly statement-close day.
-- `credit_card`: belongs to one group and is selectable on an expense.
+- `credit_card_group`: name and monthly statement-close day; it is selectable on
+  an expense.
 - `credit_card_statement`: one immutable date range per group and close date,
   with `unpaid` or `paid` status and an optional payment date.
 
-A statement contains the group cards' purchases whose transaction dates fall in
+A statement contains the group's purchases whose transaction dates fall in
 its saved period. Statement records are created lazily when the card screen needs
 them, then their date range is not recalculated if group configuration changes.
 
