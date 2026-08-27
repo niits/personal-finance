@@ -18,6 +18,12 @@
 
 Component Driven Development (CDD) is the practice of building UIs from the bottom up using modular, isolated components assembled progressively into pages.
 
+**Design top-down; implement bottom-up.** Product design starts with the user's
+question, task, information hierarchy, interaction context, and truthful states as
+defined in `DESIGN.md`. Only after that hierarchy is agreed should implementation
+decompose it into templates → organisms → molecules → atoms. The shipped component
+tree is an inventory and reuse opportunity, not a constraint on a redesigned screen.
+
 **Core principles:**
 - **Isolation**: each component is developed and tested independently with fixed, mocked inputs
 - **Bottom-up assembly**: atoms → molecules → organisms → templates → pages
@@ -335,7 +341,7 @@ Storybook targets the `src/components/` tree. It uses:
 - `@storybook/addon-a11y` (accessibility panel)
 - Viewport presets: iPhone SE (375px), iPhone 14 Pro (393px), iPad (768px), Desktop (1280px)
 
-The Storybook theme mirrors the Apple design system (dark nav, SF Pro).
+The Storybook theme mirrors the Calm Ledger system (quiet neutral surfaces, Action Blue, SF Pro).
 
 ### Running Storybook
 
