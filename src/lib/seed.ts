@@ -79,6 +79,14 @@ const SEED_CATEGORIES: {
   },
 ];
 
+const SYSTEM_CATEGORIES: { name: string; type: "income" | "expense"; system_kind: "lend" | "borrow" | "debt_repayment" | "savings_deposit" | "savings_withdrawal" }[] = [
+  { name: "Cho vay", type: "expense", system_kind: "lend" },
+  { name: "Đi vay", type: "income", system_kind: "borrow" },
+  { name: "Trả nợ", type: "expense", system_kind: "debt_repayment" },
+  { name: "Gửi tiết kiệm", type: "expense", system_kind: "savings_deposit" },
+  { name: "Rút tiết kiệm", type: "income", system_kind: "savings_withdrawal" },
+];
+
 export async function seedNewUser(db: Kysely<Database>, userId: string): Promise<void> {
   await db
     .insertInto("budget_config")
@@ -100,6 +108,8 @@ export async function seedNewUser(db: Kysely<Database>, userId: string): Promise
         level: 1,
         sort_order: parent.sortOrder,
         type: parent.type,
+        system_kind: null,
+        budget_behavior: "consumption",
       })
       .onConflict((oc) => oc.doNothing())
       .execute();
@@ -124,9 +134,24 @@ export async function seedNewUser(db: Kysely<Database>, userId: string): Promise
           level: 2,
           sort_order: child.sortOrder,
           type: parent.type,
+          system_kind: null,
+          budget_behavior: "consumption",
         })
         .onConflict((oc) => oc.doNothing())
         .execute();
     }
+  }
+
+  for (const category of SYSTEM_CATEGORIES) {
+    await db.insertInto("category").values({
+      user_id: userId,
+      name: category.name,
+      parent_id: null,
+      level: 1,
+      sort_order: 100,
+      type: category.type,
+      system_kind: category.system_kind,
+      budget_behavior: "non_budget",
+    }).onConflict((oc) => oc.doNothing()).execute();
   }
 }

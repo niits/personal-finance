@@ -11,6 +11,8 @@ type CategoryRow = {
   level: number;
   sort_order: number;
   type: "income" | "expense";
+  system_kind: string | null;
+  budget_behavior: "consumption" | "non_budget";
   created_at: number;
 };
 
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
   const [results, usageRows] = await Promise.all([
     db
       .selectFrom("category")
-      .select(["id", "name", "emoji", "parent_id", "level", "sort_order", "type", "created_at"])
+      .select(["id", "name", "emoji", "parent_id", "level", "sort_order", "type", "system_kind", "budget_behavior", "created_at"])
       .where("user_id", "=", session.user.id)
       .orderBy("level")
       .orderBy("sort_order")
@@ -124,6 +126,8 @@ export async function POST(request: NextRequest) {
       level,
       sort_order: 0,
       type: resolvedType,
+      system_kind: null,
+      budget_behavior: "consumption",
     })
     .returning(["id", "name", "emoji", "parent_id", "level", "sort_order", "type", "created_at"])
     .executeTakeFirst()) as CategoryRow;

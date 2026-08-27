@@ -59,7 +59,7 @@
         {
           "binding": "DB",
           "database_name": "personal-finance-auth-staging",
-          "database_id": "7db929e0-d46c-4580-b9ff-0535aa942f3b",
+          "database_id": "106d3a38-2901-4577-8958-e66b4ac02bf9",
           "migrations_dir": "migrations"
         }
       ],

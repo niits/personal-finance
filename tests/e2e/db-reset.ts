@@ -11,8 +11,7 @@ import path from "path";
 import { currentBudgetMonth } from "@/lib/validators";
 
 function getDb(): InstanceType<typeof Database> {
-  // Wrangler stores local D1 at .wrangler/state/v3/d1/miniflare-D1DatabaseObject/<hash>.sqlite
-  const dir = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
+  const dir = ".wrangler/e2e-state/v3/d1/miniflare-D1DatabaseObject";
   const files = fs.readdirSync(dir)
     .filter(f => f.endsWith(".sqlite") && f !== "metadata.sqlite")
     .map(f => path.join(dir, f));
@@ -36,6 +35,7 @@ export function wipeUserData(userId: string): void {
   db.transaction(() => {
     db.prepare(`DELETE FROM "transaction" WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM debt WHERE user_id = ?`).run(userId);
+    db.prepare(`DELETE FROM finance_account WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM budget_adjustment WHERE monthly_budget_id IN (SELECT id FROM monthly_budget WHERE user_id = ?)`).run(userId);
     db.prepare(`DELETE FROM monthly_budget WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM custom_budget WHERE user_id = ?`).run(userId);
@@ -45,7 +45,7 @@ export function wipeUserData(userId: string): void {
   db.close();
 }
 
-export type SeedLevel = "minimal" | "categories" | "budget" | "full" | "debts" | "debts-partial";
+export type SeedLevel = "minimal" | "categories" | "budget" | "full" | "accounts";
 
 export function seedUserData(userId: string, seed: SeedLevel): void {
   if (seed === "minimal") return;
@@ -99,81 +99,23 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
     `INSERT INTO "transaction" (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES (?, 15000000, 'income', ?, 'Lương tháng 5', ?, NULL)`,
   ).run(userId, catIds["Lương"], today);
 
-  if (seed !== "debts" && seed !== "debts-partial") { db.close(); return; }
-
-  // Seed debts using the 3-step atomic pattern (mirrors POST /api/debts):
-  //   1. INSERT debt (opening_transaction_id = NULL)
-  //   2. INSERT opening transaction → capture lastInsertRowid
-  //   3. UPDATE debt SET opening_transaction_id = rowid
-  //
-  // Debt layout:
-  //   Minh    lend  open   2,000,000 gốc · 500,000 repaid → 1,500,000 remaining
-  //   Chị Lan borrow open  1,000,000 gốc · 0 repaid        → 1,000,000 remaining
-  //   Anh Tuấn lend settled 500,000 gốc · 500,000 repaid  → 0 remaining
-
-  const lendId    = "e2e-debt-lend-1";
-  const borrowId  = "e2e-debt-borrow-1";
-  const settledId = "e2e-debt-settled-1";
+  if (seed !== "accounts") { db.close(); return; }
 
   db.transaction(() => {
-    // ── Minh (lend, open) ──────────────────────────────────────────────────
-    db.prepare(
-      `INSERT INTO debt (id, user_id, type, party, note) VALUES (?, ?, 'lend', 'Minh', 'Cho mượn tiền học')`,
-    ).run(lendId, userId);
-    const lendOpeningId = db.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 2000000, 'expense', ?, ?)`,
-    ).run(userId, today, lendId).lastInsertRowid;
-    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(lendOpeningId, lendId);
-    // One partial repayment
-    db.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, note) VALUES (?, 500000, 'income', ?, ?, 'Trả một phần')`,
-    ).run(userId, today, lendId);
-
-    // ── Chị Lan (borrow, open) ─────────────────────────────────────────────
-    db.prepare(
-      `INSERT INTO debt (id, user_id, type, party) VALUES (?, ?, 'borrow', 'Chị Lan')`,
-    ).run(borrowId, userId);
-    const borrowOpeningId = db.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 1000000, 'income', ?, ?)`,
-    ).run(userId, today, borrowId).lastInsertRowid;
-    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(borrowOpeningId, borrowId);
-
-    // ── Anh Tuấn (lend, settled) ───────────────────────────────────────────
-    db.prepare(
-      `INSERT INTO debt (id, user_id, type, party, status) VALUES (?, ?, 'lend', 'Anh Tuấn', 'settled')`,
-    ).run(settledId, userId);
-    const settledOpeningId = db.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id) VALUES (?, 500000, 'expense', ?, ?)`,
-    ).run(userId, today, settledId).lastInsertRowid;
-    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(settledOpeningId, settledId);
-    db.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, note) VALUES (?, 500000, 'income', ?, ?, 'Tất toán')`,
-    ).run(userId, today, settledId);
-  })();
-
-  if (seed !== "debts-partial") { db.close(); return; }
-
-  // ── Extra debt with partial linked_amount (for linked_amount E2E tests) ────
-  //
-  // Scenario: dinner bill 900k, only 300k is a loan to "Bạn Tùng".
-  // Friend gave back 200k cash, of which 150k applies to the debt.
-  //
-  //   opening_amount = 300k (linked_amount)
-  //   total_repaid   = 150k (linked_amount on repayment)
-  //   remaining      = 150k
-
-  const partialId = "e2e-debt-partial-1";
-  db.transaction(() => {
-    db.prepare(
-      `INSERT INTO debt (id, user_id, type, party, note) VALUES (?, ?, 'lend', 'Bạn Tùng', 'Tiền ăn tối')`,
-    ).run(partialId, userId);
-    const partialOpeningId = db.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, linked_amount) VALUES (?, 900000, 'expense', ?, ?, 300000)`,
-    ).run(userId, today, partialId).lastInsertRowid;
-    db.prepare(`UPDATE debt SET opening_transaction_id = ? WHERE id = ?`).run(partialOpeningId, partialId);
-    db.prepare(
-      `INSERT INTO "transaction" (user_id, amount, type, date, debt_id, linked_amount, note) VALUES (?, 200000, 'income', ?, ?, 150000, 'Trả một phần')`,
-    ).run(userId, today, partialId);
+    const lendCategoryId = Number(db.prepare(
+      `INSERT INTO category (user_id, name, level, type, sort_order, system_kind, budget_behavior) VALUES (?, 'Cho vay', 1, 'expense', 0, 'lend', 'non_budget')`,
+    ).run(userId).lastInsertRowid);
+    const savingsCategoryId = Number(db.prepare(
+      `INSERT INTO category (user_id, name, level, type, sort_order, system_kind, budget_behavior) VALUES (?, 'Gửi tiết kiệm', 1, 'expense', 0, 'savings_deposit', 'non_budget')`,
+    ).run(userId).lastInsertRowid);
+    db.prepare(`INSERT INTO finance_account (id, user_id, type, name, debt_direction) VALUES (?, ?, 'debt', 'Minh', 'lend')`).run("e2e-account-debt-1", userId);
+    db.prepare(`INSERT INTO finance_account (id, user_id, type, name) VALUES (?, ?, 'savings', 'Quỹ dự phòng')`).run("e2e-account-savings-1", userId);
+    db.prepare(`INSERT INTO "transaction" (user_id, amount, type, category_id, finance_account_id, note, date) VALUES (?, 2000000, 'expense', ?, 'e2e-account-debt-1', 'Cho Minh vay', ?)`)
+      .run(userId, lendCategoryId, today);
+    db.prepare(`INSERT INTO "transaction" (user_id, amount, type, category_id, finance_account_id, note, date) VALUES (?, 500000, 'income', ?, 'e2e-account-debt-1', 'Minh trả một phần', ?)`)
+      .run(userId, catIds["Lương"], today);
+    db.prepare(`INSERT INTO "transaction" (user_id, amount, type, category_id, finance_account_id, note, date) VALUES (?, 2000000, 'expense', ?, 'e2e-account-savings-1', 'Gửi quỹ dự phòng', ?)`)
+      .run(userId, savingsCategoryId, today);
   })();
 
   db.close();

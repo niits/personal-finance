@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -187,6 +188,15 @@ export function BudgetTemplate({
     <div>
       {/* Header */}
       <div style={{ background: "var(--surface-black)", padding: "28px 22px 24px" }}>
+        <nav aria-label="Điều hướng cài đặt" className="mb-xs">
+          <Link
+            href="/account"
+            className="-ml-2 inline-flex min-h-11 items-center gap-1 px-2 font-body text-[14px] text-primary-on-dark no-underline"
+          >
+            <span aria-hidden="true" className="text-[22px] leading-none">‹</span>
+            <span>Cài đặt</span>
+          </Link>
+        </nav>
         <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)", marginBottom: 2 }}>
           {monthLabel}
         </p>

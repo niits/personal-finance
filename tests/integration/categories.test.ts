@@ -33,7 +33,7 @@ describe("POST /api/categories", () => {
     const res = await SELF.fetch("http://localhost/api/categories", {
       method: "POST",
       headers: authHeaders(cookie),
-      body: JSON.stringify({ name: "Ăn uống" }),
+      body: JSON.stringify({ name: "Ăn uống", type: "expense" }),
     });
 
     expect(res.status).toBe(201);

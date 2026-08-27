@@ -16,6 +16,15 @@ test.describe("Budget — existing budget view", () => {
     await page.goto("/budget");
     await expect(page.getByRole("button", { name: /Điều chỉnh ngân sách/ })).toBeVisible();
   });
+
+  test("returns to the settings main screen", async ({ page }) => {
+    await page.goto("/account/budget");
+
+    await page.getByRole("link", { name: "Cài đặt" }).click();
+
+    await expect(page).toHaveURL(/\/account$/);
+    await expect(page.getByRole("heading", { name: "Tài khoản" })).toBeVisible();
+  });
 });
 
 // Mutating: each test needs a "categories" seed (no budget yet so create form shows)

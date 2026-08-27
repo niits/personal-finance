@@ -322,6 +322,14 @@ export default function AccountPage() {
               label="Danh mục"
               value="Quản lý danh mục thu chi"
               action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
+            />
+          </Link>
+          <Link href="/account/budget" style={{ textDecoration: "none" }}>
+            <ListRow
+              icon={<span style={{ fontSize: 18 }}>⊟</span>}
+              label="Ngân sách"
+              value="Quản lý ngân sách tháng"
+              action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
               isLast
             />
           </Link>

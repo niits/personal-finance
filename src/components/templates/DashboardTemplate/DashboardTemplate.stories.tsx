@@ -13,6 +13,7 @@ const mockData = {
   period_start: "2025-05-01",
   period_end: "2025-05-31",
   total_expense: 4_200_000,
+  unpaid_card_spend: 800_000,
   total_income: 15_000_000,
   savings: 10_800_000,
   monthly_budget: { id: 1, amount: 8_000_000, remaining: 3_800_000 },
@@ -29,14 +30,14 @@ const mockTransactions = [
     category: { id: 2, name: "Ăn uống", emoji: "🍜", path: "Chi tiêu / Ăn uống" },
     root_category_name: "Chi tiêu",
     note: "Bún bò sáng", date: "2025-05-15",
-    custom_budgets: [], debt_id: null, debt_party: null, debt_type: null, created_at: 1747296000, updated_at: 1747296000,
+    custom_budgets: [], debt_id: null, finance_account_id: null, credit_card_group_id: null, debt_party: null, debt_type: null, created_at: 1747296000, updated_at: 1747296000,
   },
   {
     id: 2, amount: 320_000, linked_amount: null, type: "expense" as const, emoji: null,
     category: { id: 3, name: "Di chuyển", emoji: "🚗", path: "Chi tiêu / Di chuyển" },
     root_category_name: "Chi tiêu",
     note: "Xăng xe", date: "2025-05-15",
-    custom_budgets: [{ id: 1, name: "Du lịch tháng 6" }], debt_id: null, debt_party: null, debt_type: null,
+    custom_budgets: [{ id: 1, name: "Du lịch tháng 6" }], debt_id: null, finance_account_id: null, credit_card_group_id: null, debt_party: null, debt_type: null,
     created_at: 1747282000, updated_at: 1747282000,
   },
   {
@@ -44,7 +45,7 @@ const mockTransactions = [
     category: { id: 4, name: "Cafe", emoji: "☕", path: "Chi tiêu / Cafe" },
     root_category_name: "Chi tiêu",
     note: null, date: "2025-05-14",
-    custom_budgets: [], debt_id: null, debt_party: null, debt_type: null, created_at: 1747209600, updated_at: 1747209600,
+    custom_budgets: [], debt_id: null, finance_account_id: null, credit_card_group_id: null, debt_party: null, debt_type: null, created_at: 1747209600, updated_at: 1747209600,
   },
 ];
 
