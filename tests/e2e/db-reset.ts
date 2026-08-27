@@ -11,8 +11,7 @@ import path from "path";
 import { currentBudgetMonth } from "@/lib/validators";
 
 function getDb(): InstanceType<typeof Database> {
-  // Wrangler stores local D1 at .wrangler/state/v3/d1/miniflare-D1DatabaseObject/<hash>.sqlite
-  const dir = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
+  const dir = ".wrangler/e2e-state/v3/d1/miniflare-D1DatabaseObject";
   const files = fs.readdirSync(dir)
     .filter(f => f.endsWith(".sqlite") && f !== "metadata.sqlite")
     .map(f => path.join(dir, f));

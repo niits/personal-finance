@@ -12,6 +12,15 @@ test.describe("Categories — list", () => {
     await expect(page.getByText("Ăn uống").first()).toBeVisible();
     await expect(page.getByText("Lương").first()).toBeVisible();
   });
+
+  test("returns to the settings main screen", async ({ page }) => {
+    await page.goto("/account/categories");
+
+    await page.getByRole("link", { name: "Cài đặt" }).click();
+
+    await expect(page).toHaveURL(/\/account$/);
+    await expect(page.getByRole("heading", { name: "Tài khoản" })).toBeVisible();
+  });
 });
 
 // Separate state for empty-state check

@@ -35,13 +35,13 @@ export default defineConfig({
   // In CI: the build step runs before this — just start wrangler directly.
   webServer: process.env.CI
     ? {
-        command: "npx wrangler dev .open-next/worker.js --port 8787 --local",
+        command: "npx wrangler d1 migrations apply personal-finance-auth --local --persist-to .wrangler/e2e-state && npx wrangler dev .open-next/worker.js --port 8787 --local --persist-to .wrangler/e2e-state",
         url: "http://localhost:8787",
         reuseExistingServer: false,
         timeout: 60_000,
       }
     : {
-        command: "npm run dev:cf",
+        command: "npm run build:cf && npx wrangler d1 migrations apply personal-finance-auth --local --persist-to .wrangler/e2e-state && npx wrangler dev .open-next/worker.js --port 8787 --local --persist-to .wrangler/e2e-state",
         url: "http://localhost:8787",
         reuseExistingServer: true,
         timeout: 180_000,
