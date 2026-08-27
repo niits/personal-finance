@@ -23,7 +23,7 @@ test.describe("Tài chính", () => {
 
     await expect(page.getByRole("heading", { name: "Nợ" })).toBeVisible();
     await expect(page.getByText("Minh", { exact: true })).toBeVisible();
-    await expect(page.getByText("Cho vay")).toBeVisible();
+    await expect(page.getByText("Cho vay", { exact: true })).toBeVisible();
     await expect(page.getByText(/1[.,]500[.,]000/)).toBeVisible();
     await expect(page.getByText(/Cho Minh vay/)).toBeVisible();
     await expect(page.getByText(/Minh trả một phần/)).toBeVisible();
