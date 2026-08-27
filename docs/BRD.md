@@ -142,7 +142,7 @@ Proposed solution: a mobile-first web app deployed to Cloudflare Pages with a mi
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | TXN-01 | Users must be able to create, edit, and delete income and expense transactions directly; the system does not create reversal events | Must Have |
-| TXN-02 | A consumption transaction must include amount, matching leaf category, date, optional note, and (for expenses) cash or a selected credit card | Must Have |
+| TXN-02 | A consumption transaction must include amount, matching leaf category, date, optional note, and (for expenses) cash or a selected credit-card group | Must Have |
 | TXN-03 | A consumption expense must be linked to the Monthly Budget for its transaction month; debt and savings transactions are excluded | Must Have |
 | TXN-04 | Users may assign a consumption expense to one or more active Custom Budgets | Must Have |
 | TXN-05 | Income, debt, and savings transactions are not linked to Monthly or Custom Budgets | Must Have |
@@ -309,8 +309,8 @@ Lending and borrowing relationships with repayment history. Full SRS: `docs/spec
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| CARD-01 | Users must manage credit-card groups with a monthly statement-close day and multiple cards per group | Must Have |
-| CARD-02 | A consumption expense paid by card must select one card and remain an ordinary categorized expense | Must Have |
+| CARD-01 | Users must create, edit, and delete credit-card groups with a monthly statement-close day | Must Have |
+| CARD-02 | A consumption expense paid by card must select one group and remain an ordinary categorized expense | Must Have |
 | CARD-03 | The system must group a card group's purchases into monthly statements | Must Have |
 | CARD-04 | Users must be able to mark an entire statement paid in full with a payment date | Must Have |
 | CARD-05 | Paying a statement must not create another expense or change monthly/custom-budget totals | Must Have |

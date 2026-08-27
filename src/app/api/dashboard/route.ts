@@ -90,7 +90,6 @@ export async function GET(request: NextRequest) {
   const unpaidCardSpend = await db
     .selectFrom("transaction as t")
     .innerJoin("category as c", "c.id", "t.category_id")
-    .innerJoin("credit_card as cc", "cc.id", "t.credit_card_id")
     .select(sql<number>`COALESCE(SUM(t.amount), 0)`.as("amount"))
     .where("t.user_id", "=", userId)
     .where("t.date", ">=", periodStart)
@@ -99,7 +98,7 @@ export async function GET(request: NextRequest) {
     .where("c.budget_behavior", "=", "consumption")
     .where(sql<boolean>`NOT EXISTS (
       SELECT 1 FROM credit_card_statement AS s
-      WHERE s.user_id = ${userId} AND s.group_id = cc.group_id AND s.status = 'paid'
+      WHERE s.user_id = ${userId} AND s.group_id = t.credit_card_group_id AND s.status = 'paid'
         AND t.date >= s.period_start AND t.date < s.period_end
     )`)
     .executeTakeFirst();

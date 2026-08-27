@@ -27,7 +27,7 @@ type TxnRow = {
   monthly_budget_id: number | null;
   debt_id: string | null;
   finance_account_id: string | null;
-  credit_card_id: string | null;
+  credit_card_group_id: string | null;
   debt_party: string | null;
   debt_type: "lend" | "borrow" | null;
   created_at: number;
@@ -81,7 +81,7 @@ function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: s
     root_category_name: getRootCategoryName(row),
     debt_id: row.debt_id ?? null,
     finance_account_id: row.finance_account_id ?? null,
-    credit_card_id: row.credit_card_id ?? null,
+    credit_card_group_id: row.credit_card_group_id ?? null,
     debt_party: row.debt_party ?? null,
     debt_type: row.debt_type ?? null,
     note: row.note,
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
       "t.monthly_budget_id",
       "t.debt_id",
       "t.finance_account_id",
-      "t.credit_card_id",
+      "t.credit_card_group_id",
       "d.party as debt_party",
       "d.type as debt_type",
       "t.created_at",
@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
     const txnId = result!.id;
     const txn = await db
       .selectFrom("transaction as t")
-    .select(["t.id", "t.amount", "t.linked_amount", "t.type", "t.note", "t.emoji", "t.date", "t.debt_id", "t.finance_account_id", "t.credit_card_id", "t.created_at", "t.updated_at"])
+    .select(["t.id", "t.amount", "t.linked_amount", "t.type", "t.note", "t.emoji", "t.date", "t.debt_id", "t.finance_account_id", "t.credit_card_group_id", "t.created_at", "t.updated_at"])
       .where("t.id", "=", txnId)
       .executeTakeFirst();
     return Response.json({ transaction: { ...txn, category: null, custom_budgets: [] } }, { status: 201 });
@@ -321,16 +321,15 @@ export async function POST(request: NextRequest) {
       return Errors.validation("Tài khoản không phù hợp với danh mục");
   }
 
-  const creditCardId = typeof b.credit_card_id === "string" ? b.credit_card_id : null;
-  let cardStatement: { group_id: string; statement_close_day: number } | null = null;
-  if (creditCardId) {
+  const creditCardGroupId = typeof b.credit_card_group_id === "string" ? b.credit_card_group_id : null;
+  let cardStatement: { id: string; statement_close_day: number } | null = null;
+  if (creditCardGroupId) {
     if (!isConsumption || b.type !== "expense") return Errors.validation("Thẻ chỉ dùng cho chi tiêu");
-    const card = await db.selectFrom("credit_card as card")
-      .innerJoin("credit_card_group as card_group", "card_group.id", "card.group_id")
-      .select(["card.id", "card.group_id", "card_group.statement_close_day"])
-      .where("card.id", "=", creditCardId).where("card.user_id", "=", userId).executeTakeFirst();
-    if (!card) return Errors.notFound("Thẻ không tồn tại");
-    cardStatement = card;
+    const group = await db.selectFrom("credit_card_group")
+      .select(["id", "statement_close_day"])
+      .where("id", "=", creditCardGroupId).where("user_id", "=", userId).executeTakeFirst();
+    if (!group) return Errors.notFound("Nhóm thẻ không tồn tại");
+    cardStatement = group;
   }
 
   // Only consumption expenses require the established working-day budget.
@@ -364,7 +363,7 @@ export async function POST(request: NextRequest) {
 
   const result = await db
     .insertInto("transaction")
-    .values({ user_id: userId, amount, type: b.type as "expense" | "income", category_id: categoryId, note, emoji, date, monthly_budget_id: monthlyBudgetId, finance_account_id: financeAccountId, credit_card_id: creditCardId })
+    .values({ user_id: userId, amount, type: b.type as "expense" | "income", category_id: categoryId, note, emoji, date, monthly_budget_id: monthlyBudgetId, finance_account_id: financeAccountId, credit_card_group_id: creditCardGroupId })
     .returning("id")
     .executeTakeFirst();
 
@@ -373,7 +372,7 @@ export async function POST(request: NextRequest) {
   if (cardStatement) {
     const period = statementPeriodForDate(date, cardStatement.statement_close_day);
     await db.insertInto("credit_card_statement").values({
-      id: crypto.randomUUID(), user_id: userId, group_id: cardStatement.group_id,
+      id: crypto.randomUUID(), user_id: userId, group_id: cardStatement.id,
       period_start: period.start, period_end: period.end, status: "unpaid", paid_at: null,
     }).onConflict((oc) => oc.columns(["group_id", "period_start"]).doNothing()).execute();
   }
@@ -401,7 +400,7 @@ export async function POST(request: NextRequest) {
       "t.monthly_budget_id",
       "t.debt_id",
       "t.finance_account_id",
-      "t.credit_card_id",
+      "t.credit_card_group_id",
       "t.created_at",
       "c.id as cat_id",
       "c.name as cat_name",

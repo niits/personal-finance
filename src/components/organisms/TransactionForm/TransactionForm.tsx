@@ -18,7 +18,7 @@ export type EditTransaction = {
   category: { id: number; name: string; path: string } | null;
   debt_id: string | null;
   finance_account_id: string | null;
-  credit_card_id: string | null;
+  credit_card_group_id: string | null;
   debt_party: string | null;
   debt_type: "lend" | "borrow" | null;
   is_opening_tx: boolean;
@@ -54,7 +54,7 @@ type Category = {
 type CustomBudget = { id: number; name: string; amount: number; is_active: number };
 type OpenDebt = { id: string; type: "lend" | "borrow"; party: string; remaining: number };
 type FinanceAccount = { id: string; type: "debt" | "savings"; name: string; debt_direction: "lend" | "borrow" | null };
-type CardGroup = { id: string; cards: { id: string; name: string }[] };
+type CardGroup = { id: string; name: string };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -391,7 +391,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const [emoji, setEmoji] = useState<string | null>(editTx?.emoji ?? null);
   const [selectedCbIds, setSelectedCbIds] = useState<number[]>(() => editTx?.custom_budgets.map((c) => c.id) ?? []);
   const [financeAccountId, setFinanceAccountId] = useState<string | null>(editTx?.finance_account_id ?? null);
-  const [creditCardId, setCreditCardId] = useState<string | null>(editTx?.credit_card_id ?? null);
+  const [creditCardGroupId, setCreditCardGroupId] = useState<string | null>(editTx?.credit_card_group_id ?? null);
   const [newAccountName, setNewAccountName] = useState("");
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [debtLink, setDebtLink] = useState<DebtLinkState>({ kind: "none" });
@@ -435,7 +435,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const usageCounts = catData?.usage_counts ?? {};
   const customBudgets = cbData?.custom_budgets ?? [];
   const financeAccounts = accountData?.accounts ?? [];
-  const cards = (cardData?.groups ?? []).flatMap((group) => group.cards);
+  const cardGroups = cardData?.groups ?? [];
   const selectedCategory = categoryId ? findCategoryById(allCats, categoryId) : null;
   const isSystemCategory = selectedCategory?.budget_behavior === "non_budget";
   const selectedCbIdSet = new Set(selectedCbIds);
@@ -454,7 +454,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     setEmoji(null);
     setSelectedCbIds([]);
     setFinanceAccountId(null);
-    setCreditCardId(null);
+    setCreditCardGroupId(null);
     setNewAccountName("");
     setDebtLink({ kind: "none" });
     setEditLinkedAmountStr("");
@@ -535,7 +535,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           body.category_id = categoryId;
           if (type === "expense") body.custom_budget_ids = selectedCbIds;
           if (isSystemCategory) body.finance_account_id = financeAccountId;
-          else if (type === "expense") body.credit_card_id = creditCardId;
+          else if (type === "expense") body.credit_card_group_id = creditCardGroupId;
         }
         // debt edit: amount/note/date/linked_amount
 
@@ -585,7 +585,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       if (isSystemCategory) body.finance_account_id = financeAccountId;
       else if (type === "expense") {
         body.custom_budget_ids = selectedCbIds;
-        if (creditCardId) body.credit_card_id = creditCardId;
+        if (creditCardGroupId) body.credit_card_group_id = creditCardGroupId;
       }
       const r = await fetch("/api/transactions", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -809,12 +809,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             </div>
           )}
 
-          {!isDebtMode && !isSystemCategory && type === "expense" && cards.length > 0 && (
+          {!isDebtMode && !isSystemCategory && type === "expense" && cardGroups.length > 0 && (
             <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
               <label htmlFor="credit-card" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Thanh toán</label>
-              <select id="credit-card" value={creditCardId ?? ""} onChange={(e) => setCreditCardId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
+              <select id="credit-card" value={creditCardGroupId ?? ""} onChange={(e) => setCreditCardGroupId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
                 <option value="">Tiền mặt</option>
-                {cards.map((card) => <option key={card.id} value={card.id}>{card.name}</option>)}
+                {cardGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
               </select>
             </div>
           )}

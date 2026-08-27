@@ -72,7 +72,7 @@ export interface TransactionTable {
   monthly_budget_id: number | null;
   debt_id: string | null;
   finance_account_id: string | null;
-  credit_card_id: string | null;
+  credit_card_group_id: string | null;
   linked_amount: number | null;
   created_at: Generated<number>;
   updated_at: Generated<number>;
