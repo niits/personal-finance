@@ -13,6 +13,18 @@ test.describe("Sign-in page — layout", () => {
     await expect(page.locator("input[type='email']")).toHaveCount(0);
     await expect(page.locator("input[type='password']")).toHaveCount(0);
   });
+
+  test("explains OAuth cancellation and offers a retry", async ({ page }) => {
+    await page.goto("/sign-in?error=access_denied");
+    await expect(page.getByRole("alert").filter({ hasText: "đã hủy" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Thử lại với GitHub" })).toBeVisible();
+  });
+
+  test("explains OAuth failure and offers a retry", async ({ page }) => {
+    await page.goto("/sign-in?error=oauth_error");
+    await expect(page.getByRole("alert").filter({ hasText: "Không thể đăng nhập" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Thử lại với GitHub" })).toBeVisible();
+  });
 });
 
 test.describe("Sign-in page — route protection", () => {

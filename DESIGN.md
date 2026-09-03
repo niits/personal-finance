@@ -254,8 +254,8 @@ Full-bleed backgrounds may reach screen edges, but their content remains on the 
 
 - Monthly outcome is the first reading point.
 - Budget progress communicates amount before percentage.
-- Pace uses plain language: “còn trong nhịp”, “nhanh hơn kế hoạch”, “chưa có ngân sách”.
-- Progress bars have one semantic fill and a neutral track; no gradients.
+- Budget status uses familiar language: “vẫn trong ngân sách”, “chi nhanh hơn kế hoạch”, “chưa có ngân sách”.
+- Progress bars normally have one semantic fill and a neutral track; no gradients. On the Dashboard, unpaid credit-card spend may appear as an amber segment within total spending, paired with a textual “Dư nợ thẻ tín dụng” label so color is not the only cue.
 - Over-budget adds text/icon and never relies on a red bar alone.
 
 ### Finance

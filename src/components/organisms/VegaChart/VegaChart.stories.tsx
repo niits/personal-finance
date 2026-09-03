@@ -3,6 +3,7 @@ import { VegaChart } from "./VegaChart";
 
 const meta: Meta<typeof VegaChart> = {
   component: VegaChart,
+  tags: ["autodocs"],
   parameters: {
     layout: "padded",
     viewport: { defaultViewport: "iphone14Pro" },

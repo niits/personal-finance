@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { signIn, authClient } from "@/lib/auth-client";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, authClient, getAuthClientErrorMessage } from "@/lib/auth-client";
 
 const GitHubIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -20,12 +20,54 @@ const GoogleIcon = () => (
 );
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={<SignInLoading />}>
+      <SignInContent />
+    </Suspense>
+  );
+}
+
+function SignInContent() {
   const router = useRouter();
-  const { data: session } = authClient.useSession();
+  const searchParams = useSearchParams();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const [signInPending, setSignInPending] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
+
+  const oauthError = searchParams.get("error");
+  const wasCancelled = oauthError === "access_denied" || oauthError === "cancelled" || oauthError === "canceled";
+  const errorMessage = requestError ?? (oauthError
+    ? wasCancelled
+      ? "Bạn đã hủy đăng nhập với GitHub. Dữ liệu của bạn không thay đổi."
+      : "Không thể đăng nhập với GitHub. Vui lòng thử lại."
+    : null);
 
   useEffect(() => {
     if (session?.user) router.replace("/");
   }, [session, router]);
+
+  async function handleGitHubSignIn() {
+    setSignInPending(true);
+    setRequestError(null);
+
+    const from = searchParams.get("from");
+    const safeDestination = from?.startsWith("/") && !from.startsWith("//") ? from : "/";
+
+    try {
+      const result = await signIn.social({
+        provider: "github",
+        callbackURL: `${window.location.origin}${safeDestination}`,
+      });
+      const message = getAuthClientErrorMessage(result);
+      if (message) {
+        setRequestError("Không thể đăng nhập với GitHub. Vui lòng thử lại.");
+        setSignInPending(false);
+      }
+    } catch {
+      setRequestError("Không thể đăng nhập với GitHub. Vui lòng thử lại.");
+      setSignInPending(false);
+    }
+  }
 
   return (
     <main style={{
@@ -60,12 +102,24 @@ export default function SignInPage() {
           </h1>
         </div>
 
+        {errorMessage ? (
+          <div role="alert" className="mb-md rounded-md border border-hairline bg-surface-pearl px-md py-sm font-body text-sm leading-[21px] text-ink-muted-80">
+            {errorMessage}
+          </div>
+        ) : null}
+
         <button type="button"
-          onClick={() => signIn.social({ provider: "github", callbackURL: `${window.location.origin}/` })}
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-md border border-hairline bg-surface-white text-ink font-body text-[15px] font-normal cursor-pointer mb-3"
+          onClick={handleGitHubSignIn}
+          disabled={sessionPending || signInPending}
+          aria-busy={signInPending}
+          className="mb-sm flex min-h-11 w-full items-center justify-center gap-xs rounded-md border border-hairline bg-surface-white px-5 py-sm font-body text-[15px] font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-60"
         >
           <GitHubIcon />
-          Tiếp tục với GitHub
+          {signInPending
+            ? "Đang chuyển đến GitHub…"
+            : errorMessage
+              ? "Thử lại với GitHub"
+              : "Tiếp tục với GitHub"}
         </button>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 18 }}>
@@ -84,6 +138,19 @@ export default function SignInPage() {
   );
 }
 
+function SignInLoading() {
+  return (
+    <main className="flex min-h-svh items-center justify-center bg-canvas px-5 py-xxl">
+      <div role="status" aria-label="Đang tải trang đăng nhập" className="w-full max-w-[400px]">
+        <div className="mx-auto mb-xs h-[18px] w-[120px] rounded-sm bg-divider-soft" />
+        <div className="mx-auto mb-xxl h-[33px] w-[140px] rounded-sm bg-divider-soft" />
+        <div className="h-11 w-full rounded-md bg-divider-soft" />
+        <span className="sr-only">Đang tải…</span>
+      </div>
+    </main>
+  );
+}
+
 function ComingSoonCard({
   icon,
   title,
@@ -97,7 +164,7 @@ function ComingSoonCard({
     <div style={{
       borderRadius: "var(--radius-lg)",
       border: "1px solid var(--hairline)",
-      background: "linear-gradient(180deg, var(--surface-white) 0%, var(--canvas-parchment) 100%)",
+      background: "var(--surface-pearl)",
       padding: "18px 18px 16px",
     }}>
       <div style={{

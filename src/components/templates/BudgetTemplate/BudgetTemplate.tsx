@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ConfirmationSheet } from "@/components/organisms/ConfirmationSheet";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -10,6 +11,7 @@ export type MonthlyBudget = {
   id: number;
   month: string;
   amount: number;
+  objective: string | null;
   adjustments: Adjustment[];
 };
 export type CustomBudget = {
@@ -18,6 +20,15 @@ export type CustomBudget = {
   amount: number;
   is_active: number;
   spent: number;
+  linked_transaction_count: number;
+  adjustments?: { id: number; previous_amount: number; new_amount: number; created_at: number }[];
+};
+export type BudgetDashboard = {
+  total_expense: number;
+  monthly_budget: { id: number; amount: number; remaining: number } | null;
+  days_in_period: number;
+  days_elapsed: number;
+  pace_status: "under" | "over" | "no_budget";
 };
 
 export type BudgetTemplateProps = {
@@ -25,13 +36,19 @@ export type BudgetTemplateProps = {
   period: { start: string; end: string } | null;
   monthlyBudget: MonthlyBudget | null;
   customBudgets: CustomBudget[];
+  dashboard: BudgetDashboard | null;
+  defaultMonthlyAmount: number | null;
   loading: boolean;
+  error: string | null;
   isCurrentMonth: boolean;
-  onCreateMonthlyBudget: (amount: number) => Promise<{ error?: string }>;
+  onRetry: () => void;
+  onCreateMonthlyBudget: (amount: number, objective: string | null) => Promise<{ error?: string }>;
   onCreateAdjustment: (delta: number, note: string | null) => Promise<{ error?: string }>;
+  onUpdateMonthlyObjective: (objective: string | null) => Promise<{ error?: string }>;
   onCreateCustomBudget: (name: string, amount: number) => Promise<{ error?: string }>;
+  onEditCustomBudget: (id: number, name: string, amount: number) => Promise<{ error?: string }>;
   onToggleCustomBudget: (id: number, active: boolean) => Promise<{ error?: string }>;
-  onDeleteCustomBudget: (id: number) => Promise<{ error?: string }>;
+  onDeleteCustomBudget: (id: number) => Promise<{ error?: string; affectedCount?: number }>;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -56,10 +73,16 @@ export function BudgetTemplate({
   period,
   monthlyBudget,
   customBudgets,
+  dashboard,
+  defaultMonthlyAmount,
   loading,
+  error,
+  onRetry,
   onCreateMonthlyBudget,
   onCreateAdjustment,
+  onUpdateMonthlyObjective,
   onCreateCustomBudget,
+  onEditCustomBudget,
   onToggleCustomBudget,
   onDeleteCustomBudget,
 }: BudgetTemplateProps) {
@@ -68,7 +91,8 @@ export function BudgetTemplate({
     : "";
 
   // Monthly budget create
-  const [createStr, setCreateStr] = useState("");
+  const [createStr, setCreateStr] = useState<string | null>(null);
+  const [createObjective, setCreateObjective] = useState("");
   const [createErr, setCreateErr] = useState("");
   const [createSaving, setCreateSaving] = useState(false);
 
@@ -79,6 +103,12 @@ export function BudgetTemplate({
   const [adjNote, setAdjNote] = useState("");
   const [adjErr, setAdjErr] = useState("");
   const [adjSaving, setAdjSaving] = useState(false);
+
+  // Monthly objective edit
+  const [objectiveOpen, setObjectiveOpen] = useState(false);
+  const [objectiveText, setObjectiveText] = useState("");
+  const [objectiveErr, setObjectiveErr] = useState("");
+  const [objectiveSaving, setObjectiveSaving] = useState(false);
 
   // Custom budget create
   const [cbOpen, setCbOpen] = useState(false);
@@ -95,27 +125,32 @@ export function BudgetTemplate({
   const [editSaving, setEditSaving] = useState(false);
 
   // Custom budget delete confirm
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [blockedDelete, setBlockedDelete] = useState<{ id: number; count: number; error?: string } | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<CustomBudget | null>(null);
+
+  const effectiveCreateStr = createStr ?? (defaultMonthlyAmount ? fmt(defaultMonthlyAmount) : "");
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   async function createBudget() {
-    const amount = parseVND(createStr);
+    const amount = parseVND(effectiveCreateStr);
     if (!amount || !month) { setCreateErr("Số tiền không hợp lệ"); return; }
     setCreateSaving(true); setCreateErr("");
-    const result = await onCreateMonthlyBudget(amount);
+    const result = await onCreateMonthlyBudget(amount, createObjective.trim() || null);
     if (result.error) { setCreateErr(result.error); setCreateSaving(false); return; }
-    setCreateStr("");
+    setCreateStr(null);
+    setCreateObjective("");
     setCreateSaving(false);
   }
 
   async function adjust() {
     const abs = parseInt(adjDeltaStr.replace(/[^\d]/g, ""), 10);
     if (!abs || abs <= 0) { setAdjErr("Nhập số tiền hợp lệ"); return; }
+    if (!adjNote.trim()) { setAdjErr("Nhập lý do điều chỉnh"); return; }
     const delta = abs * adjSign;
     if (monthlyBudget && monthlyBudget.amount + delta <= 0) { setAdjErr("Ngân sách sau điều chỉnh phải lớn hơn 0"); return; }
     setAdjSaving(true); setAdjErr("");
-    const result = await onCreateAdjustment(delta, adjNote || null);
+    const result = await onCreateAdjustment(delta, adjNote.trim());
     if (result.error) { setAdjErr(result.error); setAdjSaving(false); return; }
     setAdjOpen(false); setAdjDeltaStr(""); setAdjNote(""); setAdjSaving(false);
   }
@@ -136,25 +171,17 @@ export function BudgetTemplate({
     const amount = parseVND(editAmountStr);
     if (!amount) { setEditErr("Số tiền không hợp lệ"); return; }
     setEditSaving(true); setEditErr("");
-    // Use onToggleCustomBudget pattern won't work here — we need a name+amount update
-    // The page must handle edit via onCreateCustomBudget-like callback (or we call toggle with same active)
-    // Since props don't have onEditCustomBudget, we handle name+amount as a local optimistic update
-    // but the task says edit goes through callback. We call onToggleCustomBudget with the same active
-    // value and rely on page re-fetch — or just model it as onDeleteCustomBudget + onCreateCustomBudget.
-    // Actually the task says callbacks are: onToggleCustomBudget(id, active) and onDeleteCustomBudget(id).
-    // There's no edit callback in the spec. Let's use onToggleCustomBudget to signal — but that only
-    // changes active. For a full edit we'd need a separate prop.
-    // For now, model edit as: call a combined update via onCreateAdjustment (wrong) or
-    // treat it as "no edit support without onEditCustomBudget". Instead, add onEditCustomBudget
-    // as an optional prop or use the existing fetch pattern inline.
-    // The spec says these are the only callbacks. We'll skip the edit UI in the template
-    // (the original page called fetch directly — that's a side-effect we can't do).
-    // Best approach: add an optional onEditCustomBudget prop not in the spec
-    // but that changes the interface. Since the task says to keep form state local
-    // and callbacks return {error?}, we need this callback.
-    // We'll include it as optional with a graceful no-op fallback.
+    const result = await onEditCustomBudget(editingCbId, editName.trim(), amount);
+    if (result.error) { setEditErr(result.error); setEditSaving(false); return; }
     setEditSaving(false);
     setEditingCbId(null);
+  }
+
+  async function updateObjective() {
+    setObjectiveSaving(true); setObjectiveErr("");
+    const result = await onUpdateMonthlyObjective(objectiveText.trim() || null);
+    if (result.error) { setObjectiveErr(result.error); setObjectiveSaving(false); return; }
+    setObjectiveOpen(false); setObjectiveSaving(false);
   }
 
   function startEdit(cb: CustomBudget) {
@@ -165,22 +192,36 @@ export function BudgetTemplate({
   }
 
   async function requestDelete(cb: CustomBudget) {
-    if (cb.spent > 0) {
-      setConfirmDeleteId(cb.id);
+    if (cb.linked_transaction_count > 0) {
+      setBlockedDelete({ id: cb.id, count: cb.linked_transaction_count });
+      return;
+    }
+    setDeleteCandidate(cb);
+  }
+
+  async function confirmDelete() {
+    if (!deleteCandidate) return;
+    const result = await onDeleteCustomBudget(deleteCandidate.id);
+    if (result.error) {
+      setBlockedDelete({ id: deleteCandidate.id, count: result.affectedCount ?? 0, error: result.error });
+      setDeleteCandidate(null);
     } else {
-      const result = await onDeleteCustomBudget(cb.id);
-      if (result.error) return;
+      setDeleteCandidate(null);
     }
   }
 
-  async function confirmDelete(id: number) {
-    const result = await onDeleteCustomBudget(id);
-    if (!result.error) setConfirmDeleteId(null);
-  }
-
   if (loading) return (
-    <div style={{ padding: "48px", textAlign: "center", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14 }}>
-      Đang tải…
+    <div role="status" aria-live="polite" className="px-5 py-12 font-body text-ink-muted-48">
+      <p className="mb-4 text-[15px]">Đang tải ngân sách…</p>
+      <div className="h-32 animate-pulse rounded-lg bg-hairline" />
+    </div>
+  );
+
+  if (error) return (
+    <div role="alert" className="px-5 py-12 font-body">
+      <h1 className="mb-2 font-display text-[28px] font-semibold text-ink">Không tải được ngân sách</h1>
+      <p className="mb-5 text-[15px] text-ink-muted-80">{error}</p>
+      <button type="button" onClick={onRetry} className="min-h-11 rounded-full border-none bg-primary px-5 text-[15px] text-white">Thử lại</button>
     </div>
   );
 
@@ -228,9 +269,42 @@ export function BudgetTemplate({
 
             {monthlyBudget ? (
               <>
-                <p style={{ fontFamily: "var(--font-display)", fontSize: 34, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.374 }}>
+                {dashboard?.monthly_budget ? (
+                  <div className="mb-4">
+                    <p className="font-body text-[13px] text-ink-muted-48">
+                      {dashboard.monthly_budget.remaining < 0 ? "Đã vượt ngân sách" : "Còn có thể chi"}
+                    </p>
+                    <p className={`font-display text-[34px] font-semibold tracking-tight ${dashboard.monthly_budget.remaining < 0 ? "text-danger" : "text-ink"}`}>
+                      {fmt(Math.abs(dashboard.monthly_budget.remaining))}₫
+                    </p>
+                    <p className="mt-1 font-body text-[13px] text-ink-muted-80">
+                      Đã chi {fmt(dashboard.total_expense)}₫ · {dashboard.pace_status === "over" ? "Chi nhanh hơn kế hoạch" : "Vẫn trong kế hoạch"}
+                    </p>
+                  </div>
+                ) : null}
+                <p className="font-body text-[13px] text-ink-muted-48">Hạn mức hiện tại</p>
+                <p className="font-display text-[21px] font-semibold text-ink">
                   {fmt(monthlyBudget.amount)}₫
                 </p>
+                {objectiveOpen ? (
+                  <div className="mt-4 border-t border-hairline pt-4">
+                    <label htmlFor="monthly-objective-edit" className="mb-1 block font-body text-[13px] text-ink-muted-80">Mục tiêu tháng (tuỳ chọn)</label>
+                    <input id="monthly-objective-edit" type="text" maxLength={500} value={objectiveText}
+                      onChange={(event) => { setObjectiveText(event.target.value); setObjectiveErr(""); }}
+                      className="mb-2 min-h-11 w-full rounded-md border border-hairline bg-canvas-parchment px-[14px] font-body text-[17px] text-ink outline-none" />
+                    {objectiveErr ? <p className="mb-2 font-body text-[14px] text-danger">{objectiveErr}</p> : null}
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setObjectiveOpen(false)} className="min-h-11 flex-1 rounded-full border border-hairline bg-transparent font-body text-[14px] text-ink-muted-80">Huỷ</button>
+                      <button type="button" onClick={updateObjective} disabled={objectiveSaving} className="min-h-11 flex-[2] rounded-full border-none bg-primary font-body text-[14px] text-white disabled:opacity-70">
+                        {objectiveSaving ? "Đang lưu…" : "Lưu mục tiêu"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => { setObjectiveText(monthlyBudget.objective ?? ""); setObjectiveOpen(true); }} className="mt-3 min-h-11 bg-transparent p-0 font-body text-[14px] text-primary">
+                    {monthlyBudget.objective ? `Mục tiêu: ${monthlyBudget.objective}` : "+ Thêm mục tiêu tháng"}
+                  </button>
+                )}
                 {monthlyBudget.adjustments?.length > 0 && (
                   <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                     {monthlyBudget.adjustments.map((a) => (
@@ -254,7 +328,7 @@ export function BudgetTemplate({
               <div style={{ position: "relative", marginBottom: 10 }}>
                 <input
                   type="text" inputMode="numeric" placeholder="5,000,000" aria-label="Ngân sách tháng"
-                  value={createStr}
+                  value={effectiveCreateStr}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^\d]/g, "");
                     const n = parseInt(raw, 10);
@@ -268,14 +342,18 @@ export function BudgetTemplate({
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                 {[3000000, 5000000, 7000000, 10000000].map((n) => (
                   <button type="button" key={n} onClick={() => { setCreateStr(fmt(n)); setCreateErr(""); }}
-                    className={`px-3 py-[5px] rounded-full border border-hairline font-body text-[13px] cursor-pointer transition-colors ${createStr === fmt(n) ? "bg-primary text-white" : "bg-canvas-parchment text-ink-muted-48"}`}>
+                    className={`px-3 py-[5px] rounded-full border border-hairline font-body text-[13px] cursor-pointer transition-colors ${effectiveCreateStr === fmt(n) ? "bg-primary text-white" : "bg-canvas-parchment text-ink-muted-48"}`}>
                     {n / 1000000}tr
                   </button>
                 ))}
               </div>
+              <label htmlFor="monthly-objective-create" className="mb-1 block font-body text-[13px] text-ink-muted-80">Mục tiêu tháng (tuỳ chọn)</label>
+              <input id="monthly-objective-create" type="text" maxLength={500} placeholder="Ví dụ: Hạn chế ăn ngoài" value={createObjective}
+                onChange={(event) => setCreateObjective(event.target.value)}
+                className="mb-3 min-h-11 w-full rounded-md border border-hairline bg-canvas-parchment px-[14px] font-body text-[17px] text-ink outline-none" />
               {createErr && <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginBottom: 10 }}>{createErr}</p>}
-              <button type="button" onClick={createBudget} disabled={createSaving || !createStr}
-                className={`w-full p-3 rounded-full border-none font-body text-[15px] transition-[background,opacity] ${createStr ? "bg-primary text-white cursor-pointer" : "bg-hairline text-ink-muted-48 cursor-default"}`}>
+              <button type="button" onClick={createBudget} disabled={createSaving || !effectiveCreateStr}
+                className={`w-full p-3 rounded-full border-none font-body text-[15px] transition-[background,opacity] ${effectiveCreateStr ? "bg-primary text-white cursor-pointer" : "bg-hairline text-ink-muted-48 cursor-default"}`}>
                 {createSaving ? "Đang lưu…" : "Xác nhận ngân sách"}
               </button>
             </div>
@@ -299,11 +377,7 @@ export function BudgetTemplate({
               <div style={{ display: "flex", background: "var(--canvas-parchment)", borderRadius: 10, padding: 3, marginBottom: 12 }}>
                 {([1, -1] as const).map((s) => (
                   <button type="button" key={s} onClick={() => setAdjSign(s)}
-                    className={`flex-1 p-2 rounded-sm border-none font-body text-[15px] cursor-pointer transition-colors ${adjSign === s ? "font-semibold" : "font-normal"}`}
-                    style={{
-                      background: adjSign === s ? (s === 1 ? "var(--success)" : "var(--danger)") : "transparent",
-                      color: adjSign === s ? "#fff" : "var(--ink-muted-48)",
-                    }}>
+                    className={`flex-1 p-2 rounded-sm border-none font-body text-[15px] cursor-pointer transition-colors ${adjSign === s ? "bg-primary font-semibold text-white" : "bg-transparent font-normal text-ink-muted-48"}`}>
                     {s === 1 ? "+ Tăng" : "− Giảm"}
                   </button>
                 ))}
@@ -323,9 +397,10 @@ export function BudgetTemplate({
                 <span className="absolute right-[14px] top-1/2 -translate-y-1/2 text-base text-ink-muted-48 font-display font-semibold">₫</span>
               </div>
 
-              <input type="text" placeholder="Lý do (tuỳ chọn)" aria-label="Lý do điều chỉnh" value={adjNote}
-                onChange={(e) => setAdjNote(e.target.value)}
-                className="w-full px-[14px] py-2.5 rounded-md border border-hairline font-body text-[14px] text-ink bg-canvas-parchment outline-none mb-2.5"
+              <label htmlFor="adjustment-reason" className="mb-1 block font-body text-[13px] text-ink-muted-80">Lý do điều chỉnh</label>
+              <input id="adjustment-reason" required type="text" placeholder="Ví dụ: Phát sinh chi phí y tế" value={adjNote}
+                onChange={(e) => { setAdjNote(e.target.value); setAdjErr(""); }}
+                className="w-full px-[14px] py-2.5 rounded-md border border-hairline font-body text-[17px] text-ink bg-canvas-parchment outline-none mb-2.5"
               />
 
               {adjErr && <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginBottom: 10 }}>{adjErr}</p>}
@@ -335,12 +410,8 @@ export function BudgetTemplate({
                   className="flex-1 p-[11px] rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
                   Huỷ
                 </button>
-                <button type="button" onClick={adjust} disabled={adjSaving || !adjDeltaStr}
-                  className={`flex-[2] p-[11px] rounded-full border-none font-body text-[14px] transition-[background,opacity] ${adjDeltaStr ? "cursor-pointer" : "cursor-default"}`}
-                  style={{
-                    background: adjDeltaStr ? (adjSign === 1 ? "var(--success)" : "var(--danger)") : "var(--hairline)",
-                    color: adjDeltaStr ? "#fff" : "var(--ink-muted-48)",
-                  }}>
+                <button type="button" onClick={adjust} disabled={adjSaving || !adjDeltaStr || !adjNote.trim()}
+                  className={`flex-[2] p-[11px] rounded-full border-none font-body text-[14px] transition-[background,opacity] ${adjDeltaStr && adjNote.trim() ? "cursor-pointer bg-primary text-white" : "cursor-default bg-hairline text-ink-muted-48"}`}>
                   {adjSaving ? "Đang lưu…" : `${adjSign === 1 ? "Tăng" : "Giảm"} ${adjDeltaStr || "0"}₫`}
                 </button>
               </div>
@@ -419,8 +490,7 @@ export function BudgetTemplate({
                 const pct = Math.min((cb.spent / cb.amount) * 100, 100);
                 const over = cb.spent > cb.amount;
                 const isEditing = editingCbId === cb.id;
-                const isConfirming = confirmDeleteId === cb.id;
-                const canDelete = cb.is_active === 1;
+                const isDeleteBlocked = blockedDelete?.id === cb.id;
 
                 return (
                   <div key={cb.id} style={{
@@ -462,24 +532,18 @@ export function BudgetTemplate({
                           </button>
                         </div>
                       </div>
-                    ) : isConfirming ? (
+                    ) : isDeleteBlocked ? (
                       <div>
                         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>
-                          Xoá &ldquo;{cb.name}&rdquo;?
+                          Chưa thể xoá &ldquo;{cb.name}&rdquo;
                         </p>
                         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 16, lineHeight: 1.5 }}>
-                          Quỹ này đang có giao dịch liên kết. Xoá sẽ gỡ liên kết các giao dịch khỏi quỹ, giao dịch không bị xoá.
+                          {blockedDelete.error ?? `Ngân sách này đang liên kết với ${blockedDelete.count} giao dịch. Gỡ các liên kết trước khi xoá.`}
                         </p>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button type="button" onClick={() => setConfirmDeleteId(null)}
-                            className="flex-1 p-2.5 rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
-                            Huỷ
-                          </button>
-                          <button type="button" onClick={() => confirmDelete(cb.id)}
-                            className="flex-[2] p-2.5 rounded-full border-none bg-danger text-white font-body text-[14px] cursor-pointer">
-                            Xác nhận xoá
-                          </button>
-                        </div>
+                        <button type="button" onClick={() => setBlockedDelete(null)}
+                          className="min-h-11 rounded-full border border-hairline bg-transparent px-5 text-ink-muted-80 font-body text-[14px] cursor-pointer">
+                          Đã hiểu
+                        </button>
                       </div>
                     ) : (
                       <>
@@ -504,9 +568,9 @@ export function BudgetTemplate({
                               {cb.is_active ? "Tắt" : "Bật"}
                             </button>
                             <button type="button"
-                              onClick={() => canDelete ? requestDelete(cb) : undefined}
-                              disabled={!canDelete}
-                              className={`px-2 py-1 rounded-full bg-transparent font-body text-xs border ${canDelete ? "border-danger text-danger cursor-pointer opacity-100" : "border-hairline text-ink-muted-48 cursor-not-allowed opacity-[0.35]"}`}>
+                              onClick={() => requestDelete(cb)}
+                              aria-label={`Xoá ngân sách ${cb.name}`}
+                              className="cursor-pointer rounded-full border border-danger bg-transparent px-2 py-1 font-body text-xs text-danger">
                               ✕
                             </button>
                           </div>
@@ -528,6 +592,14 @@ export function BudgetTemplate({
           )}
         </div>
       </div>
+      <ConfirmationSheet
+        open={Boolean(deleteCandidate)}
+        title={deleteCandidate ? `Xoá “${deleteCandidate.name}”?` : "Xoá ngân sách?"}
+        consequence="Ngân sách riêng sẽ bị xoá vĩnh viễn. Không thể hoàn tác thao tác này."
+        confirmLabel="Xác nhận xoá"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteCandidate(null)}
+      />
     </div>
   );
 }

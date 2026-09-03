@@ -6,37 +6,52 @@ import { CreditCardsTemplate } from "@/components/templates/CreditCardsTemplate"
 import type { CardGroup, FinanceAccount } from "@/components/templates/CreditCardsTemplate";
 import { fetcher } from "@/lib/fetcher";
 
+async function mutation(url: string, options: RequestInit): Promise<string | null> {
+  try {
+    const response = await fetch(url, options);
+    if (response.ok) return null;
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    return body.error ?? "Không thể hoàn tất thay đổi. Vui lòng thử lại.";
+  } catch {
+    return "Không thể kết nối. Kiểm tra mạng và thử lại.";
+  }
+}
+
 export default function CardsPage() {
   const [payingStatementId, setPayingStatementId] = useState<string | null>(null);
-  const { data, mutate } = useSWR<{ groups: CardGroup[] }>("/api/credit-card-groups", fetcher);
-  const { data: financeAccountData, mutate: mutateFinanceAccounts } = useSWR<{ accounts: FinanceAccount[] }>("/api/finance-accounts", fetcher);
-  const groups = data?.groups ?? [];
-  const accounts = financeAccountData?.accounts ?? [];
+  const groupsQuery = useSWR<{ groups: CardGroup[] }>("/api/credit-card-groups", fetcher);
+  const accountsQuery = useSWR<{ accounts: FinanceAccount[] }>("/api/finance-accounts", fetcher);
+
+  async function mutateAndRefresh(url: string, options: RequestInit, refresh: () => Promise<unknown>) {
+    const error = await mutation(url, options);
+    if (!error) await refresh();
+    return error;
+  }
+
   async function pay(statementId: string, paidAt: string) {
     setPayingStatementId(statementId);
-    const response = await fetch(`/api/credit-card-statements/${statementId}/pay`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paid_at: paidAt }) });
+    const error = await mutateAndRefresh(`/api/credit-card-statements/${statementId}/pay`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paid_at: paidAt }),
+    }, groupsQuery.mutate);
     setPayingStatementId(null);
-    if (response.ok) mutate();
+    return error;
   }
-  async function createGroup(input: { name: string; statement_close_day: number }) {
-    const response = await fetch("/api/credit-card-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
-    if (response.ok) mutate();
-  }
-  async function updateGroup(id: string, input: { name: string; statement_close_day: number }) {
-    const response = await fetch(`/api/credit-card-groups/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
-    if (response.ok) mutate();
-  }
-  async function deleteGroup(id: string) {
-    const response = await fetch(`/api/credit-card-groups/${id}`, { method: "DELETE" });
-    if (response.ok) mutate();
-  }
-  async function accountMutation(url: string, options: RequestInit) {
-    const response = await fetch(url, options);
-    if (response.ok) {
-      await mutateFinanceAccounts();
-      return null;
-    }
-    return (await response.json().catch(() => ({})) as { error?: string }).error ?? "Không thể lưu tài khoản";
-  }
-  return <CreditCardsTemplate groups={groups} accounts={accounts} payingStatementId={payingStatementId} onPay={pay} onCreateGroup={createGroup} onUpdateGroup={updateGroup} onDeleteGroup={deleteGroup} onCreateFinanceAccount={(input) => accountMutation("/api/finance-accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) })} onUpdateFinanceAccount={(id, input) => accountMutation(`/api/finance-accounts/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) })} onDeleteFinanceAccount={(id) => accountMutation(`/api/finance-accounts/${id}`, { method: "DELETE" })} />;
+
+  return <CreditCardsTemplate
+    groups={groupsQuery.data?.groups ?? []}
+    accounts={accountsQuery.data?.accounts ?? []}
+    groupsLoading={groupsQuery.isLoading}
+    accountsLoading={accountsQuery.isLoading}
+    groupsError={groupsQuery.error ? "Tạm thời chưa tải được nhóm thẻ." : null}
+    accountsError={accountsQuery.error ? "Tạm thời chưa tải được tài khoản tài chính." : null}
+    payingStatementId={payingStatementId}
+    onRetryGroups={() => void groupsQuery.mutate()}
+    onRetryAccounts={() => void accountsQuery.mutate()}
+    onPay={pay}
+    onCreateGroup={(input) => mutateAndRefresh("/api/credit-card-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }, groupsQuery.mutate)}
+    onUpdateGroup={(id, input) => mutateAndRefresh(`/api/credit-card-groups/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }, groupsQuery.mutate)}
+    onDeleteGroup={(id) => mutateAndRefresh(`/api/credit-card-groups/${id}`, { method: "DELETE" }, groupsQuery.mutate)}
+    onUpdateFinanceAccount={(id, input) => mutateAndRefresh(`/api/finance-accounts/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }, accountsQuery.mutate)}
+    onDeleteFinanceAccount={(id) => mutateAndRefresh(`/api/finance-accounts/${id}`, { method: "DELETE" }, accountsQuery.mutate)}
+  />;
 }

@@ -96,6 +96,7 @@ export async function GET(request: NextRequest) {
     .where("t.date", useStoredDates ? "<=" : "<", useStoredDates ? periodEnd : periodEndExclusive)
     .where("t.type", "=", "expense")
     .where("c.budget_behavior", "=", "consumption")
+    .where("t.credit_card_group_id", "is not", null)
     .where(sql<boolean>`NOT EXISTS (
       SELECT 1 FROM credit_card_statement AS s
       WHERE s.user_id = ${userId} AND s.group_id = t.credit_card_group_id AND s.status = 'paid'

@@ -294,7 +294,7 @@ Thu nhập
 
 ### 6.10 Debt and Savings (DEBT)
 
-Lending and borrowing relationships with repayment history. Full SRS: `docs/specs/debt-tracking.md`.
+Lending, borrowing, and savings behavior follows `docs/intent/transactions-behavior.md`.
 
 | ID | Requirement | Priority |
 |----|-------------|----------|

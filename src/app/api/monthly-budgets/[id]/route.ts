@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getKysely } from "@/lib/db";
+import { getDB, getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 
@@ -51,23 +51,37 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
       );
   }
 
-  const note = typeof b.note === "string" ? b.note.substring(0, 500) : null;
+  const note = typeof b.note === "string" ? b.note.trim().substring(0, 500) : "";
+  if (hasDelta && !note) return Errors.validation("Lý do điều chỉnh không được để trống");
 
   if (hasDelta) {
-    await db
+    const updateAmount = db
       .updateTable("monthly_budget")
       .set((eb) => ({ amount: eb("amount", "+", delta as number) }))
       .where("id", "=", budgetId)
       .where("user_id", "=", userId)
-      .execute();
+      .compile();
 
-    await db
+    const insertAdjustment = db
       .insertInto("budget_adjustment")
       .values({ monthly_budget_id: budgetId, delta: delta as number, note })
-      .execute();
+      .compile();
+
+    const statements = [updateAmount, insertAdjustment];
+    if (hasObjective) {
+      statements.push(db
+        .updateTable("monthly_budget")
+        .set({ objective: newObjective })
+        .where("id", "=", budgetId)
+        .where("user_id", "=", userId)
+        .compile());
+    }
+
+    const d1 = await getDB();
+    await d1.batch(statements.map((statement) => d1.prepare(statement.sql).bind(...statement.parameters)));
   }
 
-  if (hasObjective) {
+  if (hasObjective && !hasDelta) {
     await db
       .updateTable("monthly_budget")
       .set({ objective: newObjective })

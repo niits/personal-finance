@@ -21,9 +21,20 @@ function splitSql(sql: string): string[] {
     })
     .join("\n");
 
-  return cleaned
+  const triggers: string[] = [];
+  const withoutTriggers = cleaned.replace(/CREATE\s+TRIGGER[\s\S]*?\bEND\s*;/gi, (trigger) => {
+    const marker = `__SQL_TRIGGER_${triggers.length}__`;
+    triggers.push(trigger);
+    return marker;
+  });
+
+  return withoutTriggers
     .split(";")
-    .map((s) => s.trim())
+    .map((s) => {
+      const statement = s.trim();
+      const triggerMatch = statement.match(/^__SQL_TRIGGER_(\d+)__$/);
+      return triggerMatch ? triggers[Number(triggerMatch[1])] : statement;
+    })
     .filter((s) => s.length > 0);
 }
 

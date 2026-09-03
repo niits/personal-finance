@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { SELF } from "cloudflare:test";
+import { env, SELF } from "cloudflare:test";
 import {
   applyMigrations,
   seedUser,
@@ -25,6 +25,33 @@ describe("GET /api/categories", () => {
     expect(res.status).toBe(200);
     const body = await res.json<{ categories: unknown[] }>();
     expect(Array.isArray(body.categories)).toBe(true);
+  });
+
+  it("returns hierarchy, system status, and transaction usage counts", async () => {
+    const parentId = await seedCategory(userId, "Nhà cửa", null, 1);
+    const childId = await seedCategory(userId, "Tiền thuê nhà", parentId, 2);
+    await env.DB.prepare("UPDATE category SET system_kind = 'savings_deposit', budget_behavior = 'non_budget' WHERE id = ?")
+      .bind(parentId)
+      .run();
+    const budgetId = (await env.DB.prepare(
+      "INSERT INTO monthly_budget (user_id, month, amount) VALUES (?, '2026-09', 10000000) RETURNING id",
+    ).bind(userId).first<{ id: number }>())!.id;
+    await env.DB.prepare(
+      "INSERT INTO `transaction` (user_id, amount, type, category_id, note, date, monthly_budget_id) VALUES (?, 5000000, 'expense', ?, 'Tiền nhà', '2026-09-01', ?)",
+    ).bind(userId, childId, budgetId).run();
+
+    const res = await SELF.fetch("http://localhost/api/categories", {
+      headers: { Cookie: cookie },
+    });
+    const body = await res.json<{
+      categories: Array<{ id: number; system_kind: string | null; children: Array<{ id: number }> }>;
+      usage_counts: Record<string, number>;
+    }>();
+    const parent = body.categories.find((category) => category.id === parentId);
+
+    expect(parent?.system_kind).toBe("savings_deposit");
+    expect(parent?.children).toContainEqual(expect.objectContaining({ id: childId }));
+    expect(body.usage_counts[String(childId)]).toBe(1);
   });
 });
 
@@ -96,6 +123,41 @@ describe("POST /api/categories", () => {
   });
 });
 
+describe("PATCH /api/categories/:id", () => {
+  it("renames a category and updates its emoji", async () => {
+    const catId = await seedCategory(userId, "Tên cũ", null, 1);
+
+    const res = await SELF.fetch(`http://localhost/api/categories/${catId}`, {
+      method: "PATCH",
+      headers: authHeaders(cookie),
+      body: JSON.stringify({ name: "  Tên mới  ", emoji: "🧾" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json<{ category: { name: string; emoji: string | null } }>();
+    expect(body.category).toEqual(expect.objectContaining({ name: "Tên mới", emoji: "🧾" }));
+  });
+
+  it("rejects changes to a protected system category", async () => {
+    const catId = await seedCategory(userId, "Gửi tiết kiệm", null, 1);
+    await env.DB.prepare("UPDATE category SET system_kind = 'savings_deposit', budget_behavior = 'non_budget' WHERE id = ?")
+      .bind(catId)
+      .run();
+
+    const res = await SELF.fetch(`http://localhost/api/categories/${catId}`, {
+      method: "PATCH",
+      headers: authHeaders(cookie),
+      body: JSON.stringify({ name: "Không được đổi" }),
+    });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual(expect.objectContaining({
+      error: "Danh mục hệ thống không thể chỉnh sửa",
+      code: "VALIDATION_ERROR",
+    }));
+  });
+});
+
 describe("DELETE /api/categories/:id", () => {
   it("deletes a leaf category with no transactions", async () => {
     const catId = await seedCategory(userId, "Temp category", null, 1);
@@ -116,6 +178,28 @@ describe("DELETE /api/categories/:id", () => {
       headers: { Cookie: cookie },
     });
     expect(res.status).toBe(409);
+  });
+
+  it("returns the transaction count when a category is in use", async () => {
+    const catId = await seedCategory(userId, "Đang sử dụng", null, 1);
+    const budgetId = (await env.DB.prepare(
+      "INSERT INTO monthly_budget (user_id, month, amount) VALUES (?, '2026-10', 10000000) RETURNING id",
+    ).bind(userId).first<{ id: number }>())!.id;
+    await env.DB.prepare(
+      "INSERT INTO `transaction` (user_id, amount, type, category_id, date, monthly_budget_id) VALUES (?, 100000, 'expense', ?, '2026-10-01', ?), (?, 200000, 'expense', ?, '2026-10-02', ?)",
+    ).bind(userId, catId, budgetId, userId, catId, budgetId).run();
+
+    const res = await SELF.fetch(`http://localhost/api/categories/${catId}`, {
+      method: "DELETE",
+      headers: { Cookie: cookie },
+    });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "Danh mục đang được dùng bởi 2 giao dịch",
+      code: "CATEGORY_IN_USE",
+      details: { transaction_count: 2 },
+    });
   });
 
   it("returns 404 for non-existent category", async () => {

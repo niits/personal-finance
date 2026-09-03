@@ -29,7 +29,9 @@ is paid.
 - The primary dashboard number is the month's total spending, for example:
   `Tổng chi 15.000.000đ`.
 - A supporting line exposes the unpaid subset, for example:
-  `Trong đó 3.000.000đ dùng thẻ chưa thanh toán`.
+  `Dư nợ thẻ tín dụng: 3.000.000đ`.
+- The budget bar uses an amber segment for this unpaid subset and pairs it with
+  the same text label so the meaning does not depend on color.
 - The unpaid-card amount is part of total spending, never an additional expense.
 - Paying a statement never changes a past month's total spending, monthly budget,
   pace, or custom-budget spending.

@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
-
-// ── Types ──────────────────────────────────────────────────────────────────
 
 export type Category = {
   id: number;
@@ -13,710 +11,412 @@ export type Category = {
   level: number;
   type: "income" | "expense";
   parent_id: number | null;
+  system_kind: string | null;
   children: Category[];
 };
 
-export type Suggestion = {
-  name: string;
-  type: "income" | "expense";
-  parent_category_id: number | null;
-  parent_category_name: string | null;
-  example_notes: string[];
-  transaction_count: number;
-};
-
-export type RecategorizeSuggestion = {
-  transaction_id: number;
-  note: string;
-  current_category_id: number;
-  current_category_name: string;
-  suggested_category_id: number;
-  suggested_category_name: string;
-  reason: string;
-};
+type MutationResult = { error?: string };
+type CategoryType = Category["type"];
 
 export type CategoriesTemplateProps = {
   categories: Category[];
+  usageCounts: Record<number, number>;
   loading: boolean;
-  suggestions: Suggestion[] | null;
-  suggestState: "loading" | "done" | "error" | "idle";
-  recatSuggestions: RecategorizeSuggestion[] | null;
-  recatState: "loading" | "done" | "error" | "idle";
-  onAddCategory: (name: string, emoji: string | null, parentId: number | null, type: "income" | "expense") => Promise<{ error?: string }>;
-  onEditCategory: (id: number, name: string, emoji: string | null) => Promise<{ error?: string }>;
-  onDeleteCategory: (id: number) => Promise<{ error?: string }>;
-  onAcceptSuggestion: (suggestion: Suggestion) => Promise<{ error?: string }>;
-  onAcceptRecat: (s: RecategorizeSuggestion) => Promise<{ error?: string }>;
-  onLoadSuggestions: () => void;
-  onLoadRecatSuggestions: () => void;
-  fillEmojiState: "idle" | "loading" | "done" | "error";
-  onFillEmoji: () => void;
+  loadError?: string;
+  seedState: "idle" | "loading" | "error";
+  seedError?: string;
+  onRetry: () => void;
+  onSeed: () => Promise<MutationResult>;
+  onAddCategory: (
+    name: string,
+    emoji: string | null,
+    parentId: number | null,
+    type: CategoryType,
+  ) => Promise<MutationResult>;
+  onEditCategory: (id: number, name: string, emoji: string | null) => Promise<MutationResult>;
+  onDeleteCategory: (id: number) => Promise<MutationResult>;
 };
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function getParentType(cats: Category[], parentId: number | null): "income" | "expense" | null {
-  if (parentId === null) return null;
-  for (const c of cats) {
-    if (c.id === parentId) return c.type;
-    for (const cc of c.children) {
-      if (cc.id === parentId) return cc.type;
-    }
-  }
-  return null;
+function flattenCategories(categories: Category[]): Category[] {
+  return categories.flatMap((category) => [category, ...flattenCategories(category.children)]);
 }
 
-// ── Shared button styles ───────────────────────────────────────────────────
+function systemLabel(systemKind: string): string {
+  return systemKind.startsWith("savings_") ? "Hệ thống · Tiết kiệm" : "Hệ thống · Nợ";
+}
 
-const primaryBtnStyle: React.CSSProperties = {
-  padding: "12px 20px",
-  borderRadius: 11,
-  border: "none",
-  background: "var(--primary)",
-  color: "#fff",
-  fontFamily: "var(--font-body)",
-  fontSize: 15,
-  fontWeight: 400,
-  cursor: "pointer",
-};
-
-const ghostBtnStyle: React.CSSProperties = {
-  padding: "12px 20px",
-  borderRadius: 11,
-  border: "1px solid var(--hairline)",
-  background: "var(--canvas-parchment)",
-  color: "var(--ink-muted-48)",
-  fontFamily: "var(--font-body)",
-  fontSize: 15,
-  cursor: "pointer",
-};
-
-// ── Template ───────────────────────────────────────────────────────────────
+function TypeSelector({
+  value,
+  onChange,
+  counts,
+}: {
+  value: CategoryType;
+  onChange: (type: CategoryType) => void;
+  counts: Record<CategoryType, number>;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-xxs rounded-md bg-canvas-parchment p-xxs" aria-label="Loại danh mục">
+      {(["expense", "income"] as const).map((type) => {
+        const selected = value === type;
+        return (
+          <button
+            key={type}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(type)}
+            className={`min-h-11 rounded-sm border px-sm font-body text-[15px] font-semibold transition-colors ${
+              selected
+                ? "border-hairline bg-canvas text-ink"
+                : "border-transparent bg-transparent text-ink-muted-48"
+            }`}
+          >
+            {type === "expense" ? "Chi tiêu" : "Thu nhập"} · {counts[type]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function CategoriesTemplate({
   categories,
+  usageCounts,
   loading,
-  suggestions,
-  suggestState,
-  recatSuggestions,
-  recatState,
+  loadError,
+  seedState,
+  seedError,
+  onRetry,
+  onSeed,
   onAddCategory,
-  onAcceptSuggestion,
-  onAcceptRecat,
-  onLoadSuggestions,
-  onLoadRecatSuggestions,
-  onFillEmoji,
+  onEditCategory,
+  onDeleteCategory,
 }: CategoriesTemplateProps) {
+  const [activeType, setActiveType] = useState<CategoryType>("expense");
+  const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmoji, setNewEmoji] = useState<string | null>(null);
   const [parentId, setParentId] = useState<number | null>(null);
-  const [newType, setNewType] = useState<"income" | "expense">("expense");
+  const [createError, setCreateError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [actionCategoryId, setActionCategoryId] = useState<number | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmoji, setEditEmoji] = useState<string | null>(null);
+  const [editError, setEditError] = useState("");
+  const [deleteCategory, setDeleteCategory] = useState<Category | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const dialogCancelRef = useRef<HTMLButtonElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
-  // AI suggest sheet
-  const [showSuggest, setShowSuggest] = useState(false);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [applying, setApplying] = useState(false);
-  const [recatSelected, setRecatSelected] = useState<Set<number>>(new Set());
-  const [applyingRecat, setApplyingRecat] = useState(false);
+  const allCategories = flattenCategories(categories);
+  const counts = allCategories.reduce<Record<CategoryType, number>>(
+    (result, category) => {
+      result[category.type] += 1;
+      return result;
+    },
+    { expense: 0, income: 0 },
+  );
+  const visibleCategories = categories.filter((category) => category.type === activeType);
+  const parentOptions = allCategories.filter(
+    (category) => category.type === activeType && category.level < 3 && !category.system_kind,
+  );
+  const selectedParent = parentOptions.find((category) => category.id === parentId);
 
-  const inheritedType = getParentType(categories, parentId);
-  const resolvedType = inheritedType ?? newType;
+  useEffect(() => {
+    if (!editingCategory && !deleteCategory) return;
+    if (editingCategory) editInputRef.current?.focus();
+    else dialogCancelRef.current?.focus();
 
-  const flatCats = categories.flatMap((c) => [
-    c,
-    ...c.children.map((cc) => ({ ...cc, children: [] })),
-  ]).filter((c) => c.level < 3);
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setEditingCategory(null);
+      setDeleteCategory(null);
+    }
 
-  async function save() {
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [editingCategory, deleteCategory]);
+
+  function changeType(type: CategoryType) {
+    setActiveType(type);
+    setParentId(null);
+    setActionCategoryId(null);
+  }
+
+  async function createCategory() {
     if (!newName.trim()) return;
     setSaving(true);
-    setError("");
-    const result = await onAddCategory(newName.trim(), newEmoji, parentId, resolvedType);
-    if (result.error) { setError(result.error); setSaving(false); return; }
+    setCreateError("");
+    const result = await onAddCategory(newName.trim(), newEmoji, parentId, activeType);
+    setSaving(false);
+    if (result.error) {
+      setCreateError(result.error);
+      return;
+    }
     setNewName("");
     setNewEmoji(null);
     setParentId(null);
-    setShowForm(false);
+    setShowCreate(false);
+  }
+
+  function openEdit(category: Category) {
+    setActionCategoryId(null);
+    setEditName(category.name);
+    setEditEmoji(category.emoji);
+    setEditError("");
+    setEditingCategory(category);
+  }
+
+  async function saveEdit() {
+    if (!editingCategory || !editName.trim()) return;
+    setSaving(true);
+    setEditError("");
+    const result = await onEditCategory(editingCategory.id, editName.trim(), editEmoji);
     setSaving(false);
-  }
-
-  function openSuggest() {
-    setShowSuggest(true);
-    setSelected(new Set());
-    setRecatSelected(new Set());
-    onLoadSuggestions();
-    onFillEmoji();
-  }
-
-  function closeSheet() {
-    setShowSuggest(false);
-    setSelected(new Set());
-    setRecatSelected(new Set());
-  }
-
-  async function applySelected() {
-    if (!suggestions) return;
-    const toCreate = suggestions.filter((_, i) => selected.has(i));
-    setApplying(true);
-    for (const s of toCreate) {
-      await onAcceptSuggestion(s);
+    if (result.error) {
+      setEditError(result.error);
+      return;
     }
-    setApplying(false);
-    // After applying, load recat suggestions
-    setRecatSelected(new Set());
-    onLoadRecatSuggestions();
+    setEditingCategory(null);
   }
 
-  async function applyRecategorize() {
-    if (!recatSuggestions) return;
-    const toApply = recatSuggestions.filter((_, i) => recatSelected.has(i));
-    if (toApply.length === 0) { closeSheet(); return; }
-    setApplyingRecat(true);
-    for (const s of toApply) {
-      await onAcceptRecat(s);
+  async function confirmDelete() {
+    if (!deleteCategory) return;
+    setSaving(true);
+    setDeleteError("");
+    const result = await onDeleteCategory(deleteCategory.id);
+    setSaving(false);
+    if (result.error) {
+      setDeleteError(result.error);
+      return;
     }
-    setApplyingRecat(false);
-    closeSheet();
+    setDeleteCategory(null);
   }
 
-  function renderCategory(cat: Category, depth = 0): React.ReactNode {
+  function renderCategory(category: Category, depth = 0): React.ReactNode {
+    const childCount = category.children.length;
+    const usageCount = usageCounts[category.id] ?? 0;
+    const protectedCategory = Boolean(category.system_kind);
+    const metadata = [
+      childCount > 0 ? `${childCount} danh mục con` : null,
+      usageCount > 0 ? `${usageCount} giao dịch` : "Chưa sử dụng",
+    ].filter(Boolean).join(" · ");
+    const indent = depth === 0 ? "pl-0" : depth === 1 ? "pl-lg" : "pl-xxl";
+
     return (
-      <div key={cat.id}>
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          padding: "12px 20px",
-          paddingLeft: 20 + depth * 20,
-          borderBottom: "1px solid var(--hairline)",
-          background: "var(--canvas)",
-        }}>
-          <span style={{
-            fontFamily: "var(--font-body)",
-            fontSize: 17,
-            color: "var(--ink)",
-            letterSpacing: -0.374,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}>
-            {depth > 0 && <span style={{ color: "var(--ink-muted-48)" }}>└</span>}
-            {cat.emoji && <span style={{ fontSize: 18 }}>{cat.emoji + "️"}</span>}
-            {cat.name}
-          </span>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
-            {depth === 0 && (
-              <span style={{
-                fontSize: 12,
-                color: cat.type === "income" ? "#34c759" : "var(--primary)",
-                fontFamily: "var(--font-body)",
-                background: cat.type === "income" ? "rgba(52,199,89,0.1)" : "rgba(0,102,204,0.08)",
-                padding: "2px 8px",
-                borderRadius: 999,
-              }}>
-                {cat.type === "income" ? "Thu nhập" : "Chi tiêu"}
+      <li key={category.id}>
+        <div className={`relative border-b border-divider-soft py-sm pr-0 ${indent}`}>
+          <div className="flex min-w-0 items-center gap-sm">
+            {depth > 0 ? <span aria-hidden="true" className="text-ink-muted-48">└</span> : null}
+            <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-md bg-canvas-parchment text-[20px]">
+              {category.emoji ?? "•"}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-xs gap-y-xxs">
+                <p className="min-w-0 break-words font-body text-[17px] font-semibold leading-[23px] text-ink">
+                  {category.name}
+                </p>
+                {protectedCategory ? (
+                  <span className="inline-flex items-center gap-xxs rounded-pill bg-canvas-parchment px-xs py-xxs font-body text-[11px] font-semibold text-ink-muted-80">
+                    <span aria-hidden="true">⌑</span>
+                    {systemLabel(category.system_kind!)}
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-xxs font-body text-[13px] leading-[18px] text-ink-muted-48">{metadata}</p>
+            </div>
+            {!protectedCategory ? (
+              <button
+                type="button"
+                aria-label={`Thao tác cho ${category.name}`}
+                aria-expanded={actionCategoryId === category.id}
+                onClick={() => setActionCategoryId((current) => current === category.id ? null : category.id)}
+                className="flex size-11 shrink-0 items-center justify-center rounded-sm border-0 bg-transparent font-body text-[22px] leading-none text-ink-muted-48"
+              >
+                ···
+              </button>
+            ) : (
+              <span className="flex size-11 shrink-0 items-center justify-center text-ink-muted-48" aria-label="Danh mục được bảo vệ" title="Danh mục được bảo vệ">
+                <span aria-hidden="true">🔒</span>
               </span>
             )}
-            <span style={{
-              fontSize: 12,
-              color: "var(--ink-muted-48)",
-              fontFamily: "var(--font-body)",
-              background: "var(--canvas-parchment)",
-              padding: "2px 8px",
-              borderRadius: 999,
-            }}>
-              Cấp {cat.level}
-            </span>
           </div>
-        </div>
-        {cat.children?.map((child) => renderCategory(child, depth + 1))}
-      </div>
-    );
-  }
-
-  function renderSuggestSheet() {
-    if (suggestState === "loading") {
-      return (
-        <div style={{ padding: "40px 22px", textAlign: "center" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)" }}>
-            Đang phân tích giao dịch…
-          </p>
-        </div>
-      );
-    }
-
-    if (suggestState === "error") {
-      return (
-        <div style={{ padding: "32px 22px", textAlign: "center" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 17, color: "var(--danger)" }}> Thử lại sau.
-          </p>
-        </div>
-      );
-    }
-
-    if (recatState === "loading") {
-      return (
-        <div style={{ padding: "40px 22px", textAlign: "center" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)" }}>
-            Đang kiểm tra danh mục giao dịch…
-          </p>
-        </div>
-      );
-    }
-
-    if (recatState === "error") {
-      return (
-        <div style={{ padding: "32px 22px", textAlign: "center" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 17, color: "var(--danger)", marginBottom: 16 }}>
-            Không thể kiểm tra danh mục lúc này.
-          </p>
-          <button type="button" onClick={closeSheet} style={ghostBtnStyle}>Đóng</button>
-        </div>
-      );
-    }
-
-    if (recatState === "done") {
-      const recs = recatSuggestions ?? [];
-      if (recs.length === 0) {
-        return (
-          <div style={{ padding: "32px 22px", textAlign: "center" }}>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)", marginBottom: 20 }}>
-              Tất cả giao dịch đã có danh mục phù hợp
-            </p>
-            <button type="button" onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
-          </div>
-        );
-      }
-
-      const selectedCount = recatSelected.size;
-      return (
-        <div>
-          <div style={{ padding: "16px 20px 8px", borderBottom: "1px solid var(--hairline)" }}>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
-              Đề xuất đổi danh mục cho {recs.length} giao dịch
-            </p>
-          </div>
-          <div style={{ overflowY: "auto", maxHeight: 340 }}>
-            {recs.map((s, i) => (
-              <div
-                key={`${s.transaction_id}-${s.suggested_category_id}`}
-                role="checkbox"
-                aria-checked={recatSelected.has(i)}
-                tabIndex={0}
+          {actionCategoryId === category.id ? (
+            <div className="mt-xs flex justify-end gap-xs" aria-label={`Thao tác cho ${category.name}`}>
+              <button type="button" onClick={() => openEdit(category)} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] font-semibold text-primary">
+                Đổi tên
+              </button>
+              <button
+                type="button"
                 onClick={() => {
-                  const next = new Set(recatSelected);
-                  if (next.has(i)) next.delete(i); else next.add(i);
-                  setRecatSelected(next);
+                  setActionCategoryId(null);
+                  setDeleteError("");
+                  setDeleteCategory(category);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    const next = new Set(recatSelected);
-                    if (next.has(i)) next.delete(i); else next.add(i);
-                    setRecatSelected(next);
-                  }
-                }}
-                style={{
-                  padding: "14px 20px",
-                  borderBottom: "1px solid var(--hairline)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  background: recatSelected.has(i) ? "rgba(0,102,204,0.04)" : "var(--canvas)",
-                }}
+                className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] font-semibold text-danger"
               >
-                <div
-                  className="size-5 rounded-[6px] shrink-0 mt-0.5 flex items-center justify-center"
-                  style={{
-                    background: recatSelected.has(i) ? "var(--primary)" : "transparent",
-                    border: `1.5px solid ${recatSelected.has(i) ? "var(--primary)" : "var(--hairline)"}`,
-                  }}
-                >
-                  {recatSelected.has(i) && (
-                    <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
-                      <path d="M1 4l3 3 6-6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="font-body text-[15px] text-ink tracking-[-0.374px] mb-1 truncate">
-                    &ldquo;{s.note}&rdquo;
-                  </p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                    <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
-                      {s.current_category_name}
-                    </span>
-                    <span style={{ color: "var(--ink-muted-48)", fontSize: 12 }}>→</span>
-                    <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--primary)" }}>
-                      {s.suggested_category_name}
-                    </span>
-                  </div>
-                  <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", fontStyle: "italic" }}>
-                    {s.reason}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ padding: "14px 20px", display: "flex", gap: 10 }}>
-            <button type="button" onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Bỏ qua</button>
-            <button type="button"
-              onClick={applyRecategorize}
-              disabled={applyingRecat || selectedCount === 0}
-              style={{ ...primaryBtnStyle, flex: 2, opacity: selectedCount === 0 ? 0.4 : 1 }}
-            >
-              {applyingRecat ? "Đang đổi…" : `Đổi ${selectedCount} giao dịch`}
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // suggestState === "done" — show suggestions
-    const suggs = suggestions ?? [];
-    if (suggs.length === 0) {
-      return (
-        <div style={{ padding: "32px 22px", textAlign: "center" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)", marginBottom: 20 }}>
-            Danh mục hiện tại đã phù hợp với lịch sử giao dịch
-          </p>
-          <button type="button" onClick={closeSheet} style={primaryBtnStyle}>Xong</button>
-        </div>
-      );
-    }
-
-    const selectedCount = selected.size;
-    return (
-      <div>
-        <div style={{ padding: "16px 20px 8px", borderBottom: "1px solid var(--hairline)" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
-            {suggs.length} danh mục được gợi ý
-          </p>
-        </div>
-        <div style={{ overflowY: "auto", maxHeight: 340 }}>
-          {suggs.map((s, i) => (
-            <div
-              key={`${s.name}-${s.parent_category_id ?? 'root'}`}
-              role="checkbox"
-              aria-checked={selected.has(i)}
-              tabIndex={0}
-              onClick={() => {
-                const next = new Set(selected);
-                if (next.has(i)) next.delete(i); else next.add(i);
-                setSelected(next);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  const next = new Set(selected);
-                  if (next.has(i)) next.delete(i); else next.add(i);
-                  setSelected(next);
-                }
-              }}
-              style={{
-                padding: "14px 20px",
-                borderBottom: "1px solid var(--hairline)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 12,
-                background: selected.has(i) ? "rgba(0,102,204,0.04)" : "var(--canvas)",
-              }}
-            >
-              <div
-                className="size-5 rounded-[6px] shrink-0 mt-0.5 flex items-center justify-center"
-                style={{
-                  background: selected.has(i) ? "var(--primary)" : "transparent",
-                  border: `1.5px solid ${selected.has(i) ? "var(--primary)" : "var(--hairline)"}`,
-                }}
-              >
-                {selected.has(i) && (
-                  <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
-                    <path d="M1 4l3 3 6-6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span style={{
-                    fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600,
-                    color: "var(--ink)", letterSpacing: -0.374,
-                  }}>
-                    {s.parent_category_name && (
-                      <span style={{ color: "var(--ink-muted-48)", fontWeight: 400 }}>
-                        └ {s.parent_category_name} / {" "}
-                      </span>
-                    )}
-                    {s.name}
-                  </span>
-                  <span style={{
-                    fontSize: 12,
-                    color: s.type === "income" ? "#34c759" : "var(--primary)",
-                    background: s.type === "income" ? "rgba(52,199,89,0.1)" : "rgba(0,102,204,0.08)",
-                    padding: "2px 7px", borderRadius: 999,
-                    fontFamily: "var(--font-body)",
-                  }}>
-                    {s.type === "income" ? "Thu nhập" : "Chi tiêu"}
-                  </span>
-                </div>
-                <p style={{
-                  fontFamily: "var(--font-body)", fontSize: 12,
-                  color: "var(--ink-muted-48)", fontStyle: "italic", marginBottom: 2,
-                }}>
-                  {s.example_notes.join(" · ")}
-                </p>
-                <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
-                  ~{s.transaction_count} giao dịch
-                </p>
-              </div>
+                Xóa
+              </button>
             </div>
-          ))}
+          ) : null}
         </div>
-        <div style={{ padding: "14px 20px", display: "flex", gap: 10 }}>
-          <button type="button" onClick={closeSheet} style={{ ...ghostBtnStyle, flex: 1 }}>Huỷ</button>
-          <button type="button"
-            onClick={applySelected}
-            disabled={applying || selectedCount === 0}
-            style={{ ...primaryBtnStyle, flex: 2, opacity: selectedCount === 0 ? 0.4 : 1 }}
-          >
-            {applying ? "Đang thêm…" : `Thêm ${selectedCount} danh mục`}
-          </button>
-        </div>
-      </div>
+        {category.children.length > 0 ? (
+          <ul>{category.children.map((child) => renderCategory(child, depth + 1))}</ul>
+        ) : null}
+      </li>
     );
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{
-        background: "var(--surface-black)",
-        padding: "28px 22px 20px",
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "space-between",
-      }}>
-        <div>
-          <nav aria-label="Điều hướng cài đặt" className="mb-xs">
-            <Link
-              href="/account"
-              className="-ml-2 inline-flex min-h-11 items-center gap-1 px-2 font-body text-[14px] text-primary-on-dark no-underline"
-            >
-              <span aria-hidden="true" className="text-[22px] leading-none">‹</span>
-              <span>Cài đặt</span>
-            </Link>
-          </nav>
-          <h1 style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 28,
-            fontWeight: 600,
-            color: "var(--on-dark)",
-            letterSpacing: -0.28,
-          }}>
-            Danh mục
-          </h1>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="button"
-            onClick={openSuggest}
-            className="bg-transparent text-white/75 border border-white/25 rounded-full px-4 py-2 font-body text-[14px] font-normal cursor-pointer"
-          >
-            ✦ Gợi ý
-          </button>
-          <button type="button"
-            onClick={() => setShowForm(!showForm)}
-            className="bg-primary text-white border-none rounded-full px-[18px] py-2 font-body text-[14px] font-normal cursor-pointer"
-          >
-            + Thêm
-          </button>
-        </div>
-      </div>
+    <main className="mx-auto min-h-full w-full max-w-[720px] bg-canvas px-5 pb-section pt-lg">
+      <nav aria-label="Điều hướng cài đặt">
+        <Link href="/account" className="-ml-xs inline-flex min-h-11 items-center gap-xxs px-xs font-body text-[15px] text-primary no-underline">
+          <span aria-hidden="true" className="text-[22px] leading-none">‹</span>
+          Cài đặt
+        </Link>
+      </nav>
 
-      {/* Add form */}
-      {showForm && (
-        <div style={{
-          background: "var(--canvas)",
-          padding: "20px",
-          borderBottom: "1px solid var(--hairline)",
-        }}>
-          <p style={{
-            fontFamily: "var(--font-body)",
-            fontSize: 14,
-            fontWeight: 600,
-            color: "var(--ink)",
-            marginBottom: 12,
-          }}>
-            Danh mục mới
-          </p>
+      <header className="mt-xs flex items-end justify-between gap-md border-b border-hairline pb-lg">
+        <div className="min-w-0">
+          <h1 className="font-display text-[28px] font-semibold leading-[33px] tracking-[-0.28px] text-ink">Danh mục</h1>
+          <p className="mt-xs font-body text-[15px] leading-[21px] text-ink-muted-48">Sắp xếp cách bạn theo dõi tiền vào và tiền ra.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setShowCreate((visible) => !visible);
+            setCreateError("");
+          }}
+          aria-expanded={showCreate}
+          className="min-h-11 shrink-0 rounded-pill border-0 bg-primary px-md font-body text-[15px] font-semibold text-on-primary"
+        >
+          {showCreate ? "Đóng" : "Thêm"}
+        </button>
+      </header>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <EmojiPicker value={newEmoji} onChange={setNewEmoji} suggestForName={newName} />
+      {showCreate ? (
+        <section className="border-b border-hairline py-lg" aria-labelledby="create-category-title">
+          <h2 id="create-category-title" className="font-body text-[17px] font-semibold text-ink">Danh mục mới</h2>
+          <div className="mt-sm flex items-start gap-xs">
+            <EmojiPicker value={newEmoji} onChange={setNewEmoji} suggestForName={newName} />
+            <label className="min-w-0 flex-1 font-body text-[13px] text-ink-muted-80">
+              Tên danh mục
               <input
-                placeholder="Tên danh mục"
-                aria-label="Tên danh mục"
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && save()}
-                className="flex-1 px-4 py-[11px] rounded-md border border-hairline font-body text-[17px] text-ink bg-canvas-parchment outline-none tracking-[-0.374px]"
+                onChange={(event) => setNewName(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && createCategory()}
+                maxLength={100}
+                className="mt-xxs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-sm font-body text-[17px] text-ink outline-none"
               />
-            </div>
-
+            </label>
+          </div>
+          <label className="mt-sm block font-body text-[13px] text-ink-muted-80">
+            Nằm trong
             <select
               value={parentId ?? ""}
-              aria-label="Danh mục cha"
-              onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}
-              className={`w-full px-4 py-[11px] rounded-md border border-hairline font-body text-[15px] bg-canvas-parchment outline-none appearance-none ${parentId ? "text-ink" : "text-ink-muted-48"}`}
+              onChange={(event) => setParentId(event.target.value ? Number(event.target.value) : null)}
+              className="mt-xxs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-sm font-body text-[17px] text-ink outline-none"
             >
-              <option value="">Không có danh mục cha (cấp 1)</option>
-              {flatCats.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {"  ".repeat(c.level - 1)}{c.level > 1 ? "└ " : ""}{c.name} (cấp {c.level + 1})
-                </option>
+              <option value="">Danh mục gốc</option>
+              {parentOptions.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
               ))}
             </select>
-
-            {parentId === null ? (
-              <div style={{ display: "flex", gap: 8 }}>
-                {(["expense", "income"] as const).map((t) => (
-                  <button type="button"
-                    key={t}
-                    onClick={() => setNewType(t)}
-                    className={`flex-1 p-[9px] rounded-md font-body text-[14px] cursor-pointer border ${
-                      newType === t
-                        ? "border-primary bg-[rgba(0,102,204,0.08)] text-primary font-semibold"
-                        : "border-hairline bg-canvas-parchment text-ink-muted-48 font-normal"
-                    }`}
-                  >
-                    {t === "expense" ? "Chi tiêu" : "Thu nhập"}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p style={{ fontSize: 12, color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", paddingLeft: 4 }}>
-                Phân loại: <strong>{resolvedType === "expense" ? "Chi tiêu" : "Thu nhập"}</strong> (kế thừa từ danh mục cha)
-              </p>
-            )}
-
-            {error && (
-              <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)" }}>
-                {error}
-              </p>
-            )}
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button"
-                onClick={() => { setShowForm(false); setError(""); }}
-                className="flex-1 p-[11px] rounded-md border border-hairline bg-canvas-parchment font-body text-[15px] text-ink-muted-48 cursor-pointer"
-              >
-                Huỷ
-              </button>
-              <button type="button"
-                onClick={save}
-                disabled={saving || !newName.trim()}
-                className={`flex-[2] p-[11px] rounded-md border-none font-body text-[15px] font-normal transition-colors ${
-                  newName.trim() ? "bg-primary text-white cursor-pointer" : "bg-hairline text-ink-muted-48 cursor-not-allowed"
-                }`}
-              >
-                {saving ? "Đang lưu…" : "Lưu"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Category list */}
-      <div style={{ marginTop: 1 }}>
-        {loading ? (
-          <div style={{ padding: "40px 22px", textAlign: "center", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14 }}>
-            Đang tải…
-          </div>
-        ) : categories.length === 0 ? (
-          <div style={{ padding: "40px 22px", textAlign: "center" }}>
-            <p style={{ fontFamily: "var(--font-display)", fontSize: 21, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>
-              Chưa có danh mục
-            </p>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 24 }}>
-              Tạo thủ công hoặc dùng bộ danh mục mẫu
-            </p>
-            <button type="button"
-              onClick={() => onAddCategory("_seed_", null, null, "expense")}
-              disabled={saving}
-              className={`bg-primary text-white border-none rounded-full px-6 py-3 font-body text-[15px] font-normal ${
-                saving ? "cursor-not-allowed opacity-60" : "cursor-pointer opacity-100"
-              }`}
-            >
-              {saving ? "Đang tạo…" : "Tạo danh mục mẫu"}
+          </label>
+          <p className="mt-xs font-body text-[13px] leading-[18px] text-ink-muted-48">
+            {selectedParent ? `Kế thừa loại từ “${selectedParent.name}”.` : `Danh mục ${activeType === "expense" ? "chi tiêu" : "thu nhập"} cấp 1.`}
+          </p>
+          {createError ? <p role="alert" className="mt-xs font-body text-[14px] text-danger">{createError}</p> : null}
+          <div className="mt-md flex gap-xs">
+            <button type="button" onClick={() => setShowCreate(false)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas font-body text-[15px] font-semibold text-ink">Hủy</button>
+            <button type="button" onClick={createCategory} disabled={saving || !newName.trim()} className="min-h-11 flex-[2] rounded-md border-0 bg-primary font-body text-[15px] font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60">
+              {saving ? "Đang lưu…" : "Lưu danh mục"}
             </button>
           </div>
-        ) : (
-          categories.map((c) => renderCategory(c))
-        )}
-      </div>
+        </section>
+      ) : null}
 
-      {categories.length > 0 && (
-        <div style={{ padding: "16px 22px" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", lineHeight: 1.5 }}>
-            Tối đa 3 cấp. Chỉ danh mục không có danh mục con mới có thể gán vào giao dịch.
-          </p>
+      {!loading && !loadError ? (
+        <div className="py-lg"><TypeSelector value={activeType} onChange={changeType} counts={counts} /></div>
+      ) : null}
+
+      {loading ? (
+        <div aria-live="polite" aria-busy="true" className="space-y-xs py-lg">
+          <p className="sr-only">Đang tải danh mục</p>
+          {[0, 1, 2, 3].map((item) => <div key={item} className="h-16 animate-pulse rounded-md bg-canvas-parchment" />)}
         </div>
+      ) : loadError ? (
+        <section className="py-xxl text-center" aria-labelledby="load-error-title">
+          <h2 id="load-error-title" className="font-display text-[21px] font-semibold text-ink">Không thể tải danh mục</h2>
+          <p role="alert" className="mx-auto mt-xs max-w-md font-body text-[15px] leading-[21px] text-ink-muted-80">{loadError}</p>
+          <button type="button" onClick={onRetry} className="mt-lg min-h-11 rounded-pill border-0 bg-primary px-lg font-body text-[15px] font-semibold text-on-primary">Thử lại</button>
+        </section>
+      ) : categories.length === 0 ? (
+        <section className="py-xxl text-center" aria-labelledby="empty-title">
+          <h2 id="empty-title" className="font-display text-[21px] font-semibold text-ink">Bắt đầu với danh mục của bạn</h2>
+          <p className="mx-auto mt-xs max-w-sm font-body text-[15px] leading-[21px] text-ink-muted-48">Tạo riêng từng danh mục hoặc dùng bộ mẫu để bắt đầu nhanh.</p>
+          {seedError ? <p role="alert" className="mx-auto mt-sm max-w-sm font-body text-[14px] leading-[20px] text-danger">{seedError}</p> : null}
+          <button type="button" onClick={onSeed} disabled={seedState === "loading"} className="mt-lg min-h-11 rounded-pill border-0 bg-primary px-lg font-body text-[15px] font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60">
+            {seedState === "loading" ? "Đang tạo danh mục mẫu…" : seedState === "error" ? "Thử tạo lại" : "Tạo danh mục mẫu"}
+          </button>
+        </section>
+      ) : visibleCategories.length === 0 ? (
+        <section className="py-xxl text-center">
+          <h2 className="font-display text-[21px] font-semibold text-ink">Chưa có danh mục {activeType === "expense" ? "chi tiêu" : "thu nhập"}</h2>
+          <p className="mt-xs font-body text-[15px] text-ink-muted-48">Chọn “Thêm” để tạo danh mục đầu tiên.</p>
+        </section>
+      ) : (
+        <section aria-labelledby="category-list-title">
+          <div className="flex items-baseline justify-between gap-sm">
+            <h2 id="category-list-title" className="font-body text-[17px] font-semibold text-ink">{activeType === "expense" ? "Chi tiêu" : "Thu nhập"}</h2>
+            <p className="font-body text-[13px] text-ink-muted-48">Tối đa 3 cấp</p>
+          </div>
+          <ul className="mt-xs border-t border-divider-soft">{visibleCategories.map((category) => renderCategory(category))}</ul>
+        </section>
       )}
 
-      {/* AI suggest bottom sheet */}
-      {showSuggest && (
-        <>
-          <button
-            type="button"
-            aria-label="Đóng"
-            onClick={closeSheet}
-            style={{
-              position: "fixed", inset: 0, border: "none", padding: 0, cursor: "pointer", background: "rgba(0,0,0,0.4)",
-              zIndex: 100,
-            }}
-          />
-          <div className="fixed bottom-0 left-0 right-0 bg-canvas rounded-t-2xl z-[101] max-h-[80vh] flex flex-col">
-            <div style={{
-              padding: "12px 20px 0",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 12,
-            }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)" }} />
-              <div style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingBottom: 12,
-                borderBottom: "1px solid var(--hairline)",
-              }}>
-                <span style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
-                  {recatState === "done" || recatState === "loading" || recatState === "error"
-                    ? "Kiểm tra danh mục"
-                    : "✦ Gợi ý danh mục"}
-                </span>
-                <button type="button"
-                  onClick={closeSheet}
-                  style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    color: "var(--ink-muted-48)", fontSize: 20, lineHeight: 1,
-                    padding: "0 4px",
-                  }}
-                >
-                  ×
-                </button>
-              </div>
+      {editingCategory ? (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-surface-black/40 p-0 sm:items-center sm:p-lg" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingCategory(null)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="edit-title" className="w-full max-w-md rounded-t-[24px] bg-canvas p-5 sm:rounded-[24px]">
+            <h2 id="edit-title" className="font-display text-[21px] font-semibold text-ink">Đổi tên “{editingCategory.name}”</h2>
+            <div className="mt-lg flex items-start gap-xs">
+              <EmojiPicker value={editEmoji} onChange={setEditEmoji} suggestForName={editName} />
+              <label className="min-w-0 flex-1 font-body text-[13px] text-ink-muted-80">
+                Tên danh mục
+                <input ref={editInputRef} value={editName} onChange={(event) => setEditName(event.target.value)} maxLength={100} className="mt-xxs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-sm font-body text-[17px] text-ink outline-none" />
+              </label>
             </div>
-            <div style={{ overflowY: "auto", flex: 1 }}>
-              {renderSuggestSheet()}
+            {editError ? <p role="alert" className="mt-xs font-body text-[14px] text-danger">{editError}</p> : null}
+            <div className="mt-lg flex gap-xs">
+              <button ref={dialogCancelRef} type="button" onClick={() => setEditingCategory(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas font-body text-[15px] font-semibold text-ink">Hủy</button>
+              <button type="button" onClick={saveEdit} disabled={saving || !editName.trim()} className="min-h-11 flex-[2] rounded-md border-0 bg-primary font-body text-[15px] font-semibold text-on-primary disabled:opacity-60">{saving ? "Đang lưu…" : "Lưu thay đổi"}</button>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+          </section>
+        </div>
+      ) : null}
+
+      {deleteCategory ? (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-surface-black/40 p-0 sm:items-center sm:p-lg" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDeleteCategory(null)}>
+          <section role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description" className="w-full max-w-md rounded-t-[24px] bg-canvas p-5 sm:rounded-[24px]">
+            <h2 id="delete-title" className="font-display text-[21px] font-semibold text-ink">Xóa “{deleteCategory.name}”?</h2>
+            <p id="delete-description" className="mt-xs font-body text-[15px] leading-[21px] text-ink-muted-80">
+              {deleteCategory.children.length > 0
+                ? `Danh mục này có ${deleteCategory.children.length} danh mục con. Bạn cần xóa các danh mục con trước.`
+                : (usageCounts[deleteCategory.id] ?? 0) > 0
+                  ? `Danh mục này đang được dùng bởi ${usageCounts[deleteCategory.id]} giao dịch. Các giao dịch phải được chuyển sang danh mục khác trước.`
+                  : "Thao tác này không thể hoàn tác."}
+            </p>
+            {deleteError ? <p role="alert" className="mt-sm font-body text-[14px] leading-[20px] text-danger">{deleteError}</p> : null}
+            <div className="mt-lg flex gap-xs">
+              {deleteCategory.children.length > 0 || (usageCounts[deleteCategory.id] ?? 0) > 0 ? (
+                <button ref={dialogCancelRef} type="button" onClick={() => setDeleteCategory(null)} className="min-h-11 w-full rounded-md border border-hairline bg-canvas font-body text-[15px] font-semibold text-ink">Đã hiểu</button>
+              ) : (
+                <><button ref={dialogCancelRef} type="button" onClick={() => setDeleteCategory(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas font-body text-[15px] font-semibold text-ink">Giữ lại</button><button type="button" onClick={confirmDelete} disabled={saving} className="min-h-11 flex-[2] rounded-md border-0 bg-danger font-body text-[15px] font-semibold text-on-primary disabled:opacity-60">{saving ? "Đang xóa…" : `Xóa “${deleteCategory.name}”`}</button></>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </main>
   );
 }

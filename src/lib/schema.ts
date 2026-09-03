@@ -42,6 +42,14 @@ export type CustomBudget = Selectable<CustomBudgetTable>;
 export type NewCustomBudget = Insertable<CustomBudgetTable>;
 export type CustomBudgetUpdate = Updateable<CustomBudgetTable>;
 
+export interface CustomBudgetAdjustmentTable {
+  id: Generated<number>;
+  custom_budget_id: number;
+  previous_amount: number;
+  new_amount: number;
+  created_at: Generated<number>;
+}
+
 // ─── debt ─────────────────────────────────────────────────────────────────────
 export interface DebtTable {
   id: string;
@@ -175,6 +183,7 @@ export interface Database {
   monthly_budget: MonthlyBudgetTable;
   budget_adjustment: BudgetAdjustmentTable;
   custom_budget: CustomBudgetTable;
+  custom_budget_adjustment: CustomBudgetAdjustmentTable;
   transaction: TransactionTable;
   transaction_custom_budget: TransactionCustomBudgetTable;
   category: CategoryTable;

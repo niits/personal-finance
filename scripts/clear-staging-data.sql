@@ -7,6 +7,7 @@ PRAGMA foreign_keys = OFF;
 DELETE FROM transaction_custom_budget;
 DELETE FROM ai_suggestion_run;
 DELETE FROM budget_adjustment;
+DELETE FROM custom_budget_adjustment;
 DELETE FROM "transaction";
 DELETE FROM monthly_budget;
 DELETE FROM custom_budget;

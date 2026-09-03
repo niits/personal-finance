@@ -15,6 +15,8 @@ test.describe("Dashboard — transaction list", () => {
   test("shows budget bar when monthly budget exists", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/Ngân sách/)).toBeVisible();
+    await expect(page.getByText("Chi kỳ này")).toBeVisible();
+    await expect(page.getByText(/Còn trong nhịp|Nhanh hơn kế hoạch/)).toBeVisible();
   });
 
   test("shows income/savings panel when income exists", async ({ page }) => {
@@ -62,9 +64,9 @@ test.describe("Dashboard — add transaction", () => {
     await resetTestData("full");
   });
 
-  test("opens form via FAB and creates an expense", async ({ page }) => {
+  test("opens form via the labeled transaction action and creates an expense", async ({ page }) => {
     await page.goto("/");
-    await page.locator("button", { hasText: "+" }).click();
+    await page.getByRole("button", { name: "Ghi giao dịch" }).click();
     await expect(page.getByText("Chi tiêu").first()).toBeVisible();
 
     await page.locator("input[inputmode='numeric']").fill("120000");
@@ -77,14 +79,14 @@ test.describe("Dashboard — add transaction", () => {
 
   test("shows validation error when amount is missing", async ({ page }) => {
     await page.goto("/");
-    await page.locator("button", { hasText: "+" }).click();
+    await page.getByRole("button", { name: "Ghi giao dịch" }).click();
     await page.getByRole("button", { name: "Lưu", exact: true }).click();
     await expect(page.getByText("Nhập số tiền hợp lệ")).toBeVisible();
   });
 
   test("shows validation error when category is not selected", async ({ page }) => {
     await page.goto("/");
-    await page.locator("button", { hasText: "+" }).click();
+    await page.getByRole("button", { name: "Ghi giao dịch" }).click();
     await page.locator("input[inputmode='numeric']").fill("50000");
     await page.getByRole("button", { name: "Lưu", exact: true }).click();
     await expect(page.getByText("Chọn danh mục")).toBeVisible();
@@ -96,62 +98,62 @@ test.describe("Dashboard — delete transaction", () => {
     await resetTestData("full");
   });
 
-  test("delete removes transaction from list", async ({ page }) => {
+  test("requires named confirmation before deleting a transaction", async ({ page }) => {
     await page.goto("/");
     await page.getByText("Bún bò buổi trưa").first().click();
     await page.getByRole("button", { name: "Xoá" }).click();
+    await expect(page.getByRole("heading", { name: "Xoá “Bún bò buổi trưa”?" })).toBeVisible();
+    await expect(page.getByText(/không thể hoàn tác/)).toBeVisible();
+    await expect(page.getByText("Bún bò buổi trưa").first()).toBeVisible();
+    await page.getByRole("button", { name: "Xác nhận xoá" }).click();
     await expect(page.getByText("Bún bò buổi trưa").first()).not.toBeVisible();
+  });
+
+  test("keeps confirmation open and explains a failed delete", async ({ page }) => {
+    await page.route("**/api/transactions/*", async (route) => {
+      if (route.request().method() === "DELETE") {
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "failed" }) });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto("/");
+    await page.getByText("Bún bò buổi trưa").first().click();
+    await page.getByRole("button", { name: "Xoá" }).click();
+    await page.getByRole("button", { name: "Xác nhận xoá" }).click();
+
+    await expect(page.getByRole("alert").filter({ hasText: "Không thể xoá giao dịch" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Xác nhận xoá" })).toBeEnabled();
   });
 });
 
-// PR #74: remove organize buttons, add ✦ sparkle button
-// PR #75: hide all AI features from transaction screen
 test.describe("Dashboard — AI surface controls", () => {
   test.beforeAll(async () => {
     await resetTestData("full");
   });
 
-  test("sparkle button (Sắp xếp bằng AI) is visible in header", async ({ page }) => {
+  test("labeled AI organize action is visible for the current month", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByTitle("Sắp xếp bằng AI")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Tổ chức bằng AI" })).toBeVisible();
   });
 
-  test("no Tổ chức button on dashboard", async ({ page }) => {
+  test("AI organize action is hidden for a historical month", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: /Tổ chức/ })).not.toBeVisible();
+    await page.getByRole("button", { name: "Tháng trước" }).click();
+    await expect(page.getByRole("button", { name: "Tổ chức bằng AI" })).not.toBeVisible();
   });
 });
 
-// PR #78: animate total on category filter + context subtitle
-test.describe("Dashboard — category filter subtitle", () => {
+test.describe("Dashboard — continuous ledger", () => {
   test.beforeAll(async () => {
     await resetTestData("full");
   });
 
-  test("subtitle changes to 'trong tổng' when category chip is active", async ({ page }) => {
+  test("does not show transaction filter controls", async ({ page }) => {
     await page.goto("/");
-    // Wait for data to load (default subtitle visible first)
-    await expect(page.getByText("đã chi tháng này")).toBeVisible();
-    // Subtitle should NOT show "trong tổng" before filtering
-    await expect(page.getByText(/trong tổng/)).not.toBeVisible();
-
-    // Click the Ăn uống chip (seeded category)
-    await page.getByRole("button", { name: "Ăn uống" }).first().click();
-    // Subtitle now shows breakdown context
-    await expect(page.getByText(/trong tổng/)).toBeVisible();
-    await expect(page.getByText(/đã chi tháng này/)).toBeVisible();
-  });
-
-  test("subtitle resets when All chip is clicked", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("đã chi tháng này")).toBeVisible();
-
-    await page.getByRole("button", { name: "Ăn uống" }).first().click();
-    await expect(page.getByText(/trong tổng/)).toBeVisible();
-
-    // Click "Tất cả" to deselect
-    await page.getByRole("button", { name: /Tất cả/ }).click();
-    await expect(page.getByText(/trong tổng/)).not.toBeVisible();
-    await expect(page.getByText("đã chi tháng này")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Tất cả/ })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "Ăn uống" })).not.toBeVisible();
+    await expect(page.getByText("Bún bò buổi trưa")).toBeVisible();
   });
 });

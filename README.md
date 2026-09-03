@@ -2,18 +2,18 @@
 
 > Mobile-first expense tracker for daily spending, monthly budgets, and pace-line visualization — built for iPhone, deployed on Cloudflare.
 
-**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Cloudflare Workers · D1 (SQLite) · better-auth · Workers AI
+**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Cloudflare Workers · D1 (SQLite) · better-auth · AI SDK
 
 ---
 
 ## Features
 
 - **Quick transaction entry** — record an expense or income in under 10 seconds; form auto-focuses the amount field on open
-- **Pace line chart** — live comparison of cumulative spending vs. the ideal linear budget line; fill turns red when over pace
+- **Budget pace** — plain-language comparison of spending against the working-day budget period
 - **Monthly budgets** — one budget per period with mid-month adjustments and a full adjustment history
 - **Custom budgets** — open-ended named budgets for trips or projects; one transaction can belong to multiple custom budgets
 - **Hierarchical categories** — up to 3 levels; only leaf nodes are assignable to transactions
-- **AI suggestions** — Cloudflare Workers AI integration for category and note suggestions
+- **AI organization and insights** — reviewable categorization changes and narrative monthly analysis
 - **GitHub OAuth** — authentication via better-auth; each GitHub account is an isolated data silo
 
 ---
@@ -65,7 +65,7 @@ Production deploys automatically via GitHub Actions on push to `main` — migrat
 ## Tests
 
 ```bash
-npm test                  # Unit + integration
+npm test                  # Unit tests
 npm run test:unit         # Vitest / Node runtime
 npm run test:integration  # Vitest / Cloudflare Workers runtime
 ```
@@ -100,7 +100,7 @@ src/
 │   │   ├── pace-line/
 │   │   ├── budget-config/
 │   │   └── ai-suggestion-runs/
-│   └── dashboard/         # UI pages (home, categories, budgets)
+│   └── (app)/             # Authenticated UI pages
 ├── components/            # Shared UI components
 └── lib/                   # Business logic (validators, pace-line calc, auth, db, seed)
 migrations/                # D1 schema migrations (applied in order)
@@ -117,3 +117,4 @@ docs/                      # Project documentation
 | [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) | Schema, API contracts, edge cases |
 | [docs/TESTING.md](docs/TESTING.md) | Testing strategy — unit and integration setup |
 | [DESIGN.md](DESIGN.md) | Design system — color tokens, typography, spacing (read before writing any UI) |
+| [docs/CALM_LEDGER_APP_REDESIGN.md](docs/CALM_LEDGER_APP_REDESIGN.md) | Authenticated app composition and component contracts |

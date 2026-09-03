@@ -12,30 +12,34 @@ test.describe("Finance accounts API", () => {
 test.describe("Tài chính", () => {
   test.beforeAll(async () => { await resetTestData("minimal"); });
 
-  test("shows empty account sections", async ({ page }) => {
+  test("shows mode-specific empty account guidance", async ({ page }) => {
     await page.goto("/cards");
     await expect(page.getByRole("heading", { name: "Tài chính" })).toBeVisible();
-    await expect(page.getByText("Chưa có tài khoản.")).toHaveCount(2);
+    await expect(page.getByText(/Chưa có khoản nợ/)).toBeVisible();
+    await page.getByRole("tab", { name: "Tiền gửi" }).click();
+    await expect(page.getByText(/Chưa có khoản tiền gửi/)).toBeVisible();
   });
   test("shows account balances and linked transaction history", async ({ page }) => {
     await resetTestData("accounts");
     await page.goto("/cards");
 
-    await expect(page.getByRole("heading", { name: "Nợ" })).toBeVisible();
     await expect(page.getByText("Minh", { exact: true })).toBeVisible();
-    await expect(page.getByText("Cho vay", { exact: true })).toBeVisible();
-    await expect(page.getByText(/1[.,]500[.,]000/)).toBeVisible();
+    await expect(page.getByText(/Cho vay/)).toBeVisible();
+    await expect(page.getByText("Còn được nhận 1.500.000₫", { exact: true })).toBeVisible();
+    await page.getByText("Minh", { exact: true }).click();
     await expect(page.getByText(/Cho Minh vay/)).toBeVisible();
     await expect(page.getByText(/Minh trả một phần/)).toBeVisible();
 
-    await expect(page.getByRole("heading", { name: "Tiết kiệm", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Tiền gửi" }).click();
     await expect(page.getByText("Quỹ dự phòng", { exact: true })).toBeVisible();
-    await expect(page.getByText("2.000.000₫", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Quỹ dự phòng.*2\.000\.000₫.*Đang để dành/ })).toBeVisible();
   });
 
-  test("offers account management", async ({ page }) => {
+  test("offers contextual account management without creating from Finance", async ({ page }) => {
     await resetTestData("accounts");
     await page.goto("/cards");
-    await expect(page.getByRole("button", { name: "Thêm" }).first()).toBeVisible();
+    await page.getByText("Minh", { exact: true }).click();
+    await expect(page.getByRole("button", { name: "Sửa thông tin" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Thêm khoản nợ/ })).toHaveCount(0);
   });
 });

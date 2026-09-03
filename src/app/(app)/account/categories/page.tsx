@@ -1,24 +1,49 @@
 "use client";
 
-import { useState, useRef } from "react";
-import useSWR, { mutate } from "swr";
-import { fetcher } from "@/lib/fetcher";
+import { useState } from "react";
+import useSWR from "swr";
 import { CategoriesTemplate } from "@/components/templates/CategoriesTemplate";
-import type { Category, Suggestion, RecategorizeSuggestion } from "@/components/templates/CategoriesTemplate";
+import type { Category } from "@/components/templates/CategoriesTemplate";
+import { fetcher } from "@/lib/fetcher";
 
-const CATS_KEY = "/api/categories";
+const CATEGORIES_KEY = "/api/categories";
+
+type CategoriesResponse = {
+  categories: Category[];
+  usage_counts: Record<number, number>;
+};
+
+type ErrorResponse = {
+  error?: string;
+  details?: { transaction_count?: number };
+};
+
+async function readError(response: Response, fallback: string): Promise<string> {
+  const body = await response.json().catch(() => null) as ErrorResponse | null;
+  return body?.error ?? fallback;
+}
 
 export default function CategoriesPage() {
-  const { data, isLoading } = useSWR<{ categories: Category[] }>(CATS_KEY, fetcher);
-  const cats = data?.categories ?? [];
+  const { data, error, isLoading, mutate } = useSWR<CategoriesResponse>(CATEGORIES_KEY, fetcher);
+  const [seedState, setSeedState] = useState<"idle" | "loading" | "error">("idle");
+  const [seedError, setSeedError] = useState("");
 
-  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
-  const [suggestState, setSuggestState] = useState<"loading" | "done" | "error" | "idle">("idle");
-  const [recatSuggestions, setRecatSuggestions] = useState<RecategorizeSuggestion[] | null>(null);
-  const [recatState, setRecatState] = useState<"loading" | "done" | "error" | "idle">("idle");
-  // run id is only consulted inside handlers, never rendered → ref avoids re-renders
-  const runIdRef = useRef<number | null>(null);
-  const [fillEmojiState, setFillEmojiState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  async function handleSeed(): Promise<{ error?: string }> {
+    setSeedState("loading");
+    setSeedError("");
+    const response = await fetch("/api/categories/seed", { method: "POST" }).catch(() => null);
+    if (!response?.ok) {
+      const message = response
+        ? await readError(response, "Không thể tạo danh mục mẫu. Vui lòng thử lại.")
+        : "Không thể kết nối. Vui lòng thử lại.";
+      setSeedError(message);
+      setSeedState("error");
+      return { error: message };
+    }
+    await mutate();
+    setSeedState("idle");
+    return {};
+  }
 
   async function handleAddCategory(
     name: string,
@@ -26,127 +51,53 @@ export default function CategoriesPage() {
     parentId: number | null,
     type: "income" | "expense",
   ): Promise<{ error?: string }> {
-    // Seed action — the template passes "_seed_" as a signal
-    if (name === "_seed_") {
-      await fetch("/api/categories/seed", { method: "POST" });
-      mutate(CATS_KEY);
-      return {};
-    }
-    const r = await fetch("/api/categories", {
+    const response = await fetch(CATEGORIES_KEY, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, parent_id: parentId, type, emoji }),
-    });
-    const d = await r.json() as { category?: Category; error?: string };
-    if (!r.ok) return { error: d.error ?? "Lỗi" };
-    mutate(CATS_KEY);
+      body: JSON.stringify({ name, emoji, parent_id: parentId, type }),
+    }).catch(() => null);
+    if (!response?.ok) {
+      return { error: response ? await readError(response, "Không thể tạo danh mục.") : "Không thể kết nối. Vui lòng thử lại." };
+    }
+    await mutate();
     return {};
   }
 
-  async function handleEditCategory(
-    id: number,
-    name: string,
-    emoji: string | null,
-  ): Promise<{ error?: string }> {
-    const r = await fetch(`/api/categories/${id}`, {
+  async function handleEditCategory(id: number, name: string, emoji: string | null): Promise<{ error?: string }> {
+    const response = await fetch(`/api/categories/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, emoji }),
-    });
-    const d = await r.json() as { error?: string };
-    if (!r.ok) return { error: d.error ?? "Lỗi" };
-    mutate(CATS_KEY);
+    }).catch(() => null);
+    if (!response?.ok) {
+      return { error: response ? await readError(response, "Không thể cập nhật danh mục.") : "Không thể kết nối. Vui lòng thử lại." };
+    }
+    await mutate();
     return {};
   }
 
   async function handleDeleteCategory(id: number): Promise<{ error?: string }> {
-    const r = await fetch(`/api/categories/${id}`, { method: "DELETE" });
-    if (!r.ok) return { error: "Lỗi" };
-    mutate(CATS_KEY);
-    return {};
-  }
-
-  async function handleAcceptSuggestion(suggestion: Suggestion): Promise<{ error?: string }> {
-    const r = await fetch("/api/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: suggestion.name, parent_id: suggestion.parent_category_id, type: suggestion.type }),
-    });
-    if (!r.ok) return { error: "Lỗi" };
-    mutate(CATS_KEY);
-    return {};
-  }
-
-  async function handleAcceptRecat(s: RecategorizeSuggestion): Promise<{ error?: string }> {
-    const r = await fetch(`/api/transactions/${s.transaction_id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category_id: s.suggested_category_id }),
-    });
-    if (!r.ok) return { error: "Lỗi" };
-    return {};
-  }
-
-  async function handleLoadSuggestions() {
-    setSuggestState("loading");
-    setSuggestions(null);
-    setRecatState("idle");
-    setRecatSuggestions(null);
-
-    const r = await fetch("/api/categories/suggest", { method: "POST" }).catch(() => null);
-    if (!r) { setSuggestState("error"); return; }
-    const d = await r.json() as { suggestions: Suggestion[]; run_id: number; error?: string };
-    if (!r.ok) { setSuggestState("error"); return; }
-    setSuggestions(d.suggestions ?? []);
-    runIdRef.current = d.run_id ?? null;
-    setSuggestState("done");
-  }
-
-  async function handleFillEmoji() {
-    setFillEmojiState("loading");
-    const r = await fetch("/api/categories/fill-emoji", { method: "POST" }).catch(() => null);
-    if (!r?.ok) { setFillEmojiState("error"); return; }
-    setFillEmojiState("done");
-    mutate(CATS_KEY);
-  }
-
-  async function handleLoadRecatSuggestions() {
-    setRecatState("loading");
-    setRecatSuggestions(null);
-
-    // Mark run as available
-    if (runIdRef.current) {
-      await fetch(`/api/ai-suggestion-runs/${runIdRef.current}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "available" }),
-      });
+    const response = await fetch(`/api/categories/${id}`, { method: "DELETE" }).catch(() => null);
+    if (!response?.ok) {
+      return { error: response ? await readError(response, "Không thể xóa danh mục.") : "Không thể kết nối. Vui lòng thử lại." };
     }
-
-    const r = await fetch("/api/transactions/recategorize", { method: "POST" }).catch(() => null);
-    if (!r?.ok) { setRecatState("error"); return; }
-    const d = await r.json() as { suggestions: RecategorizeSuggestion[] };
-    setRecatSuggestions(d.suggestions ?? []);
-    setRecatState("done");
+    await mutate();
+    return {};
   }
 
   return (
     <CategoriesTemplate
-      categories={cats}
+      categories={data?.categories ?? []}
+      usageCounts={data?.usage_counts ?? {}}
       loading={isLoading}
-      suggestions={suggestions}
-      suggestState={suggestState}
-      recatSuggestions={recatSuggestions}
-      recatState={recatState}
+      loadError={error instanceof Error ? error.message : error ? "Không thể kết nối. Vui lòng thử lại." : undefined}
+      seedState={seedState}
+      seedError={seedError}
+      onRetry={() => mutate()}
+      onSeed={handleSeed}
       onAddCategory={handleAddCategory}
       onEditCategory={handleEditCategory}
       onDeleteCategory={handleDeleteCategory}
-      onAcceptSuggestion={handleAcceptSuggestion}
-      onAcceptRecat={handleAcceptRecat}
-      onLoadSuggestions={handleLoadSuggestions}
-      onLoadRecatSuggestions={handleLoadRecatSuggestions}
-      fillEmojiState={fillEmojiState}
-      onFillEmoji={handleFillEmoji}
     />
   );
 }

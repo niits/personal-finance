@@ -9,7 +9,7 @@ import type { Database } from "@/lib/schema";
 async function getBudgetWithAdjustments(db: Kysely<Database>, budgetId: number) {
   const budget = await db
     .selectFrom("monthly_budget")
-    .select(["id", "user_id", "month", "amount", "created_at"])
+    .select(["id", "user_id", "month", "amount", "objective", "created_at"])
     .where("id", "=", budgetId)
     .executeTakeFirst();
 

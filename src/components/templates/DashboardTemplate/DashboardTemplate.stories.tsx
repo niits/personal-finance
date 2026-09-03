@@ -3,6 +3,7 @@ import { DashboardTemplate } from "./DashboardTemplate";
 
 const meta: Meta<typeof DashboardTemplate> = {
   component: DashboardTemplate,
+  tags: ["autodocs"],
   parameters: { layout: "fullscreen", viewport: { defaultViewport: "iphone14Pro" } },
 };
 export default meta;
@@ -103,5 +104,35 @@ export const Empty: Story = {
   args: {
     ...Default.args,
     transactions: [],
+  },
+};
+
+export const HistoricalMonth: Story = {
+  args: {
+    ...Default.args,
+    isCurrentMonth: false,
+  },
+};
+
+export const SummaryFailedWithLedger: Story = {
+  args: {
+    ...Default.args,
+    data: null,
+    summaryError: "Không tải được tổng quan kỳ này.",
+  },
+};
+
+export const LedgerFailedWithSummary: Story = {
+  args: {
+    ...Default.args,
+    transactions: [],
+    ledgerError: "Không tải được sổ giao dịch.",
+  },
+};
+
+export const TransactionActions: Story = {
+  args: {
+    ...Default.args,
+    actionTxn: mockTransactions[0],
   },
 };

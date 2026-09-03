@@ -11,7 +11,7 @@
 | Author | niits |
 | Created | 2026-04-29 |
 | Last Updated | 2026-05-14 |
-| Based On | BRD v1.2, specs/flows.md v1.1, COMPONENT_ARCHITECTURE.md v1.0 |
+| Based On | BRD v1.2, docs/intent/*, COMPONENT_ARCHITECTURE.md v1.0 |
 
 ---
 
@@ -882,7 +882,7 @@ type ChartDatum = {
 
 > **Epic 3 note:** The per-screen AI endpoints below (`/api/categories/suggest`, `/api/transactions/recategorize`, `/api/categories/fill-emoji`, `/api/ai-suggestion-runs/:id`) are retained in the backend but are **no longer called from the UI**. They are used internally by the new `/api/ai/organize` endpoint. The single-transaction suggest endpoint (`/api/transactions/:id/suggest`) has been **removed**.
 >
-> See `docs/EPIC_3_AI_REFACTOR.md` for the full design.
+> See `docs/specs/ai-organize.md` and `docs/SEMANTIC_LAYER.md` for the current design.
 
 #### `POST /api/ai/organize` *(Epic 3)*
 
@@ -953,7 +953,7 @@ Removed. Replaced by `/api/ai/organize` batch flow.
 
 ### 4.11 Debts (Epic 4)
 
-Debts model lending/borrowing. A debt's **opening transaction** records the principal; **repayments** are ordinary transactions with `debt_id` set. See `docs/specs/debt-tracking.md` for the full SRS and `src/lib/debt.ts` for computed values.
+The legacy debt tables remain implementation history. Current lending, borrowing, and savings behavior uses finance accounts and protected transaction categories; see `docs/intent/transactions-behavior.md`.
 
 | Method | Path | Description |
 |--------|------|-------------|

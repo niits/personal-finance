@@ -1,12 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import dynamic from "next/dynamic";
-import { expressionInterpreter } from "vega-interpreter";
-import type { TopLevelSpec } from "vega-lite";
-import type { Insight, AgentEvent, ChartDatum } from "@/lib/statistics";
-
-// ── Types ──────────────────────────────────────────────────────────────────
+import { Button } from "@/components/atoms/Button";
+import { VegaChart } from "@/components/organisms/VegaChart";
+import type { AgentEvent, Insight } from "@/lib/statistics";
+import { formatReportTime, generationProgress, safeStatisticsError } from "./presentation";
 
 export type AgentStep = AgentEvent & { id: number };
 
@@ -29,7 +26,7 @@ export type ApiError = {
 export type StatisticsTemplateProps = {
   selectedMonth: string;
   isAtUpperBound: boolean;
-  status: "loading" | "generating" | "ready" | "error";
+  status: "loading" | "no-report" | "generating" | "ready" | "error";
   report: Report | null;
   agentSteps: AgentStep[];
   refreshing: boolean;
@@ -42,419 +39,149 @@ export type StatisticsTemplateProps = {
   onDismissRegenError: () => void;
 };
 
-// ── Design constants ───────────────────────────────────────────────────────
-
-const PRIMARY = "#0066cc";
-// Storytelling-with-data "focus attention": highlighted bar is PRIMARY, the rest grey.
-const MUTED = "#c7c7cc";
-const CHART_PALETTE = [PRIMARY, "#30d158", "#ff9f0a", "#bf5af2", "#32ade6", "#ff453a", "#ac8e68", "#5856d6"];
-const INK = "#1d1d1f";
-const INK_MUTED = "#7a7a7a";
-const HAIRLINE = "#e0e0e0";
-const FONT_BODY = "SF Pro Text, system-ui, -apple-system, sans-serif";
-
-const VEGA_FORMAT_LOCALE = {
-  decimal: ",",
-  thousands: ".",
-  grouping: [3],
-  currency: ["", " ₫"],
-};
-const VEGA_TIME_FORMAT_LOCALE = {
-  dateTime: "%A, %e %B %Y, %X",
-  date: "%d/%m/%Y",
-  time: "%H:%M:%S",
-  periods: ["SA", "CH"],
-  days: ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"],
-  shortDays: ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
-  months: ["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"],
-  shortMonths: ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","T11","T12"],
-};
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function toMonthLabel(m: string) {
-  const [y, mo] = m.split("-");
-  return `Tháng ${parseInt(mo)}/${y}`;
+function toMonthLabel(month: string) {
+  const [year, monthNumber] = month.split("-");
+  return `Tháng ${Number(monthNumber)}/${year}`;
 }
 
-function vegaFormat(unit?: Insight["value_unit"]): string {
-  if (unit === "percent") return ",.2~f";
-  return ",.0f";
-}
-
-function vegaUnitSuffix(unit?: Insight["value_unit"]): string {
-  if (unit === "percent") return "%";
-  if (unit === "count") return "";
-  return " ₫";
-}
-
-function buildVegaLiteSpec(insight: Insight, featured?: boolean): TopLevelSpec | null {
-  const data = insight.chart_data;
-  if (!data || data.length === 0 || !insight.chart_type) return null;
-  const unit = insight.value_unit;
-  const format = vegaFormat(unit);
-  const suffix = vegaUnitSuffix(unit);
-  const valueTitle = unit === "percent" ? "Tỷ lệ" : unit === "count" ? "Số lượng" : "Số tiền";
-
-  const onDark = !!featured;
-  const axisLabelColor = onDark ? "rgba(255,255,255,0.55)" : INK_MUTED;
-  const legendLabelColor = onDark ? "rgba(255,255,255,0.85)" : INK;
-
-  const baseAxis = {
-    labelFont: FONT_BODY,
-    titleFont: FONT_BODY,
-    labelColor: axisLabelColor,
-    titleColor: axisLabelColor,
-    labelFontSize: 11,
-    titleFontSize: 11,
-    labelFontWeight: 400 as const,
-    grid: false,
-    domain: false,
-    ticks: false,
-  };
-  const config = {
-    view: { stroke: null },
-    axis: baseAxis,
-    axisX: { ...baseAxis },
-    axisY: { ...baseAxis, grid: true, gridColor: onDark ? "rgba(255,255,255,0.12)" : HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] },
-    legend: {
-      labelFont: FONT_BODY,
-      titleFont: FONT_BODY,
-      labelColor: legendLabelColor,
-      labelFontSize: 12,
-      symbolSize: 72,
-      symbolType: "circle" as const,
-      orient: "bottom" as const,
-      padding: 12,
-      offset: 8,
-    },
-    range: { category: CHART_PALETTE },
-    font: FONT_BODY,
-  };
-
-  const valueLabelExpr =
-    unit === "currency"
-      ? `datum.value >= 1000000 ? format(datum.value / 1000000, '.1~f') + 'tr' : datum.value >= 1000 ? format(datum.value / 1000, '.0f') + 'k' : format(datum.value, '.0f') + ' ₫'`
-      : `datum.label + '${suffix}'`;
-
-  const base = {
-    $schema: "https://vega.github.io/schema/vega-lite/v6.json",
-    width: "container" as const,
-    autosize: { type: "fit" as const, contains: "padding" as const, resize: true },
-    background: "transparent",
-    config,
-    data: { values: data as ChartDatum[] },
-  };
-
-  if (insight.chart_type === "forecast_line") {
-    const meta = insight.forecast_meta;
-    if (!meta) return null;
-    return {
-      ...base,
-      height: 150,
-      layer: [
-        {
-          mark: { type: "line", strokeWidth: 2, interpolate: "monotone" },
-          encoding: {
-            x: {
-              field: "name",
-              type: "temporal" as const,
-              title: null,
-              axis: {
-                values: [meta.period_start, meta.today, meta.next_period_start],
-                format: "%d/%m",
-                labelAngle: 0,
-                labelFont: FONT_BODY,
-                labelColor: axisLabelColor,
-                labelFontSize: 11,
-                grid: false,
-                domain: false,
-                ticks: false,
-                title: null,
-              },
-            },
-            y: {
-              field: "value",
-              type: "quantitative" as const,
-              title: null,
-              axis: null,
-              scale: { zero: true },
-            },
-            color: {
-              field: "series",
-              type: "nominal" as const,
-              scale: { domain: ["Thực tế", "Ngân sách"], range: ["#30d158", PRIMARY] },
-              legend: { title: null },
-            },
-          },
-        },
-      ],
-    } as TopLevelSpec;
-  }
-
-  if (insight.chart_type === "line") {
-    // A line through a single point is not a trend — show nothing.
-    if (data.length < 2) return null;
-    const isDate = data.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.name));
-    const xEnc = isDate
-      ? { field: "name", type: "temporal" as const, title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 5 } }
-      : { field: "name", type: "ordinal" as const, title: null, axis: { labelAngle: 0 } };
-    const yEnc = { field: "value", type: "quantitative" as const, title: null, axis: { format, labelExpr: valueLabelExpr } };
-    const lineTooltip = [
-      isDate
-        ? { field: "name", type: "temporal" as const, title: "Ngày", format: "%d/%m/%Y" }
-        : { field: "name", type: "ordinal" as const, title: "Mục" },
-      { field: "value", type: "quantitative" as const, title: valueTitle, format },
-    ];
-    return {
-      ...base,
-      height: 200,
-      layer: [
-        {
-          mark: { type: "line", color: PRIMARY, strokeWidth: 2, interpolate: "monotone" },
-          encoding: { x: xEnc, y: yEnc, tooltip: lineTooltip },
-        },
-        // Visible markers so each data point is locatable, not just the trend line.
-        {
-          mark: { type: "point", color: PRIMARY, filled: true, size: 56 },
-          encoding: { x: { ...xEnc, axis: null }, y: { field: "value", type: "quantitative" as const }, tooltip: lineTooltip },
-        },
-      ],
-    } as TopLevelSpec;
-  }
-
-  const hasSeries = data.some((d) => d.series);
-  const grouped = insight.chart_type === "bar_grouped" || hasSeries;
-  const distinctNames = new Set(data.map((d) => d.name)).size;
-  const hasHighlight = data.some((d) => d.highlight === true);
-
-  const REF_SERIES_RE = /^(Ngân sách|Giới hạn|Trung bình|Mục tiêu)$/;
-  const allSeriesNames = [...new Set(data.filter((d) => d.series).map((d) => d.series!))];
-  const refSeriesName = allSeriesNames.find((s) => REF_SERIES_RE.test(s));
-  const refEntries = refSeriesName ? data.filter((d) => d.series === refSeriesName) : [];
-  const uniqueRefValues = new Set(refEntries.map((d) => d.value));
-  const isRefChart = grouped && !!refSeriesName && allSeriesNames.length === 2 && uniqueRefValues.size === 1;
-
-  if (isRefChart) {
-    const actualData = data.filter((d) => d.series !== refSeriesName);
-    const refValue = [...uniqueRefValues][0];
-    const actualRowCount = new Set(actualData.map((d) => d.name)).size;
-    const xAxisSpec = {
-      format, labelExpr: valueLabelExpr, tickCount: 3,
-      grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] as number[],
-    };
-    return {
-      ...base,
-      height: Math.max(72, actualRowCount * 44 + 20),
-      layer: [
-        {
-          mark: { type: "bar", cornerRadiusEnd: 4, height: 28 },
-          data: { values: actualData },
-          encoding: {
-            y: { field: "name", type: "nominal", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK } },
-            x: { field: "value", type: "quantitative", title: null, axis: { ...xAxisSpec, gridColor: HAIRLINE } },
-            color: { value: PRIMARY },
-            tooltip: [
-              { field: "name", type: "nominal", title: "Mục" },
-              { field: "value", type: "quantitative", title: valueTitle, format },
-            ],
-          },
-        },
-        {
-          mark: { type: "rule", color: INK_MUTED, strokeDash: [4, 3], strokeWidth: 1.5 },
-          encoding: { x: { datum: refValue, type: "quantitative" as const } },
-        },
-        {
-          mark: { type: "text", align: "left", dx: 4, dy: 0, fontSize: 10, color: INK_MUTED, baseline: "top" as const },
-          encoding: {
-            x: { datum: refValue, type: "quantitative" as const },
-            y: { value: 2 },
-            text: { value: refSeriesName },
-          },
-        },
-      ],
-    } as TopLevelSpec;
-  }
-
-  // A bar chart with a single category compares nothing — its one number already
-  // lives in the summary. Render no chart so a lone bar can never ship.
-  if (distinctNames < 2) return null;
-
-  return {
-    ...base,
-    height: Math.max(180, Math.min(360, distinctNames * (grouped ? 32 : 28) + 40)),
-    mark: { type: "bar", cornerRadiusEnd: 4 },
-    encoding: {
-      y: { field: "name", type: "nominal", sort: "-x", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK, labelFontWeight: 400 } },
-      x: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: valueLabelExpr, tickCount: 3, grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] } },
-      ...(grouped
-        ? {
-            color: { field: "series", type: "nominal", legend: { title: null } },
-            yOffset: { field: "series", type: "nominal" },
-          }
-        : {
-            // Focus attention: highlighted row in the accent colour, rest grey.
-            color: hasHighlight
-              ? { condition: { test: "datum.highlight === true", value: PRIMARY }, value: MUTED }
-              : { value: PRIMARY },
-          }),
-      tooltip: [
-        { field: "name", type: "nominal", title: "Mục" },
-        ...(grouped ? [{ field: "series", type: "nominal" as const, title: "Nhóm" }] : []),
-        { field: "value", type: "quantitative", title: valueTitle, format },
-      ],
-    },
-  } as TopLevelSpec;
-}
-
-// ── Vega embed ─────────────────────────────────────────────────────────────
-
-type VegaEmbedProps = {
-  spec: TopLevelSpec;
-  options?: Record<string, unknown>;
-  onError?: (error: unknown) => void;
-  className?: string;
-};
-
-const VegaEmbed = dynamic<VegaEmbedProps>(
-  () => import("react-vega").then((m) => m.VegaEmbed as React.ComponentType<VegaEmbedProps>),
-  { ssr: false, loading: () => <div style={{ height: 220, background: "var(--canvas)" }} /> },
-);
-
-// ── Local sub-components ───────────────────────────────────────────────────
-
-function GeneratingSpinner() {
+function MonthHeader({
+  selectedMonth,
+  isAtUpperBound,
+  onPrevMonth,
+  onNextMonth,
+}: Pick<StatisticsTemplateProps, "selectedMonth" | "isAtUpperBound" | "onPrevMonth" | "onNextMonth">) {
   return (
-    <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: "50%",
-        border: "2.5px solid var(--hairline)",
-        borderTopColor: "var(--primary)",
-        animation: "stats-spin 0.75s linear infinite",
-      }} />
-      <style>{`@keyframes stats-spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+    <header className="border-b border-divider-soft bg-canvas px-5 pt-7 pb-5">
+      <div className="mx-auto flex max-w-[720px] items-center gap-2">
+        <button
+          type="button"
+          onClick={onPrevMonth}
+          aria-label="Tháng trước"
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center border-none bg-transparent font-body text-[24px] text-primary"
+        >
+          ‹
+        </button>
+        <div className="min-w-0 flex-1 text-center">
+          <p className="m-0 font-body text-[13px] leading-[18px] text-ink-muted-48">Phân tích chi tiêu</p>
+          <p className="mt-1 mb-0 font-display text-[21px] leading-[26px] font-semibold text-ink">
+            {toMonthLabel(selectedMonth)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onNextMonth}
+          disabled={isAtUpperBound}
+          aria-label="Tháng sau"
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center border-none bg-transparent font-body text-[24px] text-primary disabled:cursor-default disabled:opacity-30"
+        >
+          ›
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function CenteredState({ children }: { children: React.ReactNode }) {
+  return <div className="px-0 py-12 text-center">{children}</div>;
+}
+
+function NoReportState({ monthLabel, showCurrent, onGenerate, onNextMonth }: {
+  monthLabel: string;
+  showCurrent: boolean;
+  onGenerate: () => void;
+  onNextMonth: () => void;
+}) {
+  return (
+    <CenteredState>
+      <h1 className="m-0 font-display text-[21px] leading-[26px] font-semibold text-ink">Chưa có bản phân tích</h1>
+      <p className="mx-auto mt-2 mb-6 max-w-[34ch] font-body text-[17px] leading-[25px] text-ink-muted-80">
+        Khi bạn sẵn sàng, chúng tôi sẽ xem lại thu chi trong {monthLabel.toLowerCase()} và nêu những điều đáng chú ý.
+      </p>
+      <div className="mx-auto flex max-w-[320px] flex-col gap-2">
+        <Button label="Phân tích tháng này" fullWidth onClick={onGenerate} />
+        {showCurrent ? <Button label="Xem tháng hiện tại" variant="ghost" fullWidth onClick={onNextMonth} /> : null}
+      </div>
+    </CenteredState>
+  );
+}
+
+function EmptyState({ monthLabel, showCurrent, onNextMonth }: {
+  monthLabel: string;
+  showCurrent: boolean;
+  onNextMonth: () => void;
+}) {
+  return (
+    <CenteredState>
+      <h1 className="m-0 font-display text-[21px] leading-[26px] font-semibold text-ink">Chưa có giao dịch để phân tích</h1>
+      <p className="mx-auto mt-2 mb-6 max-w-[34ch] font-body text-[17px] leading-[25px] text-ink-muted-80">
+        Không có giao dịch nào trong {monthLabel.toLowerCase()}.
+      </p>
+      {showCurrent ? <Button label="Xem tháng hiện tại" variant="secondary" onClick={onNextMonth} /> : null}
+    </CenteredState>
+  );
+}
+
+function GeneratingState({ steps }: { steps: AgentStep[] }) {
+  return (
+    <CenteredState>
+      <div className="mx-auto mb-5 size-9 animate-spin rounded-full border-[3px] border-hairline border-t-primary motion-reduce:animate-none" aria-hidden="true" />
+      <h1 className="m-0 font-display text-[21px] leading-[26px] font-semibold text-ink">Đang phân tích tháng này</h1>
+      <p aria-live="polite" className="mt-2 mb-0 font-body text-[17px] leading-[25px] text-ink-muted-80">
+        {generationProgress(steps)}
+      </p>
+    </CenteredState>
   );
 }
 
 function ErrorState({ error, onRetry }: { error: ApiError | null; onRetry: () => void }) {
-  const headline = error
-    ? `Lỗi ${error.status}${error.code ? ` · ${error.code}` : ""}`
-    : "Không thể tạo thống kê";
-  const message = error?.details?.message ?? error?.error ?? "Đã có lỗi xảy ra.";
-  const stack = error?.details?.stack;
-  const causeText = error?.details?.cause ? JSON.stringify(error.details.cause, null, 2) : null;
-
   return (
-    <div style={{ padding: "24px 20px" }}>
-      <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>
-        {headline}
+    <CenteredState>
+      <h1 className="m-0 font-display text-[21px] leading-[26px] font-semibold text-ink">Chưa thể tạo bản phân tích</h1>
+      <p className="mx-auto mt-2 mb-6 max-w-[36ch] font-body text-[17px] leading-[25px] text-ink-muted-80">
+        {safeStatisticsError(error?.status)}
       </p>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", marginBottom: 16, lineHeight: 1.5, wordBreak: "break-word" }}>
-        {message}
-      </p>
-      {(stack || causeText) && (
-        <details style={{ marginBottom: 20 }}>
-          <summary style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", cursor: "pointer", marginBottom: 8 }}>
-            Chi tiết
-          </summary>
-          <pre className="font-mono text-xs leading-[1.45] text-ink-muted-48 bg-canvas border border-hairline rounded-sm p-3 m-0 whitespace-pre-wrap break-words max-h-[320px] overflow-auto">
-            {stack ?? ""}
-            {causeText ? `\n\nCause:\n${causeText}` : ""}
-          </pre>
-        </details>
-      )}
-      <button type="button"
-        onClick={onRetry}
-        className="px-6 py-3 rounded-xl border-none bg-primary text-white font-body text-[15px] font-semibold cursor-pointer"
-      >
-        Thử lại
-      </button>
-    </div>
+      <Button label="Thử lại" onClick={onRetry} />
+    </CenteredState>
   );
 }
 
-function EmptyState({ monthLabel, showJumpToCurrent, onJumpToCurrent }: {
-  monthLabel: string;
-  showJumpToCurrent: boolean;
-  onJumpToCurrent: () => void;
+function ReportStatus({ report, refreshing, regenError, onRegenerate, onDismiss }: {
+  report: Report;
+  refreshing: boolean;
+  regenError: ApiError | null;
+  onRegenerate: () => void;
+  onDismiss: () => void;
 }) {
-  return (
-    <div style={{ padding: "60px 20px", textAlign: "center" }}>
-      <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", marginBottom: 8, letterSpacing: -0.374 }}>
-        Chưa có dữ liệu
-      </p>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", lineHeight: 1.5, marginBottom: 20 }}>
-        Không có giao dịch nào trong {monthLabel} để phân tích.
-      </p>
-      {showJumpToCurrent && (
-        <button type="button"
-          onClick={onJumpToCurrent}
-          className="px-6 py-3 rounded-xl border-none bg-primary text-white font-body text-[15px] font-semibold cursor-pointer"
-        >
-          Xem tháng hiện tại
-        </button>
-      )}
-    </div>
-  );
-}
+  const changed = report.is_dirty;
 
-const INSIGHT_TYPE_STYLE: Record<string, { label: string; color: string; bg: string }> = {
-  analysis:       { label: "Phân tích",     color: "#0066cc", bg: "rgba(0,102,204,0.08)" },
-  recommendation: { label: "Gợi ý",         color: "#1c7c34", bg: "rgba(48,209,88,0.1)"  },
-  alert:          { label: "Cảnh báo",      color: "#b94a05", bg: "rgba(255,69,58,0.08)" },
-};
-
-function InsightCard({ insight, featured }: { insight: Insight; featured?: boolean }) {
-  const spec = buildVegaLiteSpec(insight, featured);
-  const badge = insight.type ? INSIGHT_TYPE_STYLE[insight.type] ?? null : null;
-  const [vegaError, setVegaError] = useState<string | null>(null);
   return (
-    <div style={{
-      background: featured ? "var(--surface-black)" : "var(--canvas)",
-      borderRadius: 18,
-      padding: "20px",
-      boxShadow: featured
-        ? "0 4px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12)"
-        : "0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)",
-    }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-        <p style={{ fontFamily: "var(--font-display)", fontSize: featured ? 20 : 17, fontWeight: 600, color: featured ? "#ffffff" : "var(--ink)", letterSpacing: -0.374, margin: 0, flex: 1 }}>
-          {insight.title}
-        </p>
-        {badge && (
-          <span className="font-body text-xs font-semibold rounded-sm px-2 py-[3px] shrink-0 mt-px" style={{ color: featured ? "#ffffff" : badge.color, background: featured ? "rgba(255,255,255,0.15)" : badge.bg }}>
-            {badge.label}
-          </span>
-        )}
-      </div>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: featured ? "var(--body-muted)" : "var(--ink-muted-48)", lineHeight: 1.43, marginBottom: spec ? 16 : 0 }}>
-        {insight.summary}
-      </p>
-      {spec && (
-        <div style={{ width: "100%" }}>
-          <VegaEmbed
-            spec={spec}
-            onError={(e) => setVegaError(String(e))}
-            options={{
-              actions: false,
-              renderer: "canvas",
-              ast: true,
-              expr: expressionInterpreter,
-              formatLocale: VEGA_FORMAT_LOCALE,
-              timeFormatLocale: VEGA_TIME_FORMAT_LOCALE,
-            }}
-          />
-          {vegaError && (
-            <pre style={{ fontSize: 12, color: "red", whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 8 }}>{vegaError}</pre>
-          )}
+    <div className="mb-6 border-y border-divider-soft py-3">
+      {regenError ? (
+        <div role="status" className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="m-0 font-body text-[15px] leading-[21px] font-semibold text-ink">Chưa cập nhật được bản phân tích</p>
+            <p className="mt-1 mb-0 font-body text-[13px] leading-[18px] text-ink-muted-48">
+              Bản hiện tại vẫn ở đây. Bạn có thể thử cập nhật lại.
+            </p>
+          </div>
+          <button type="button" onClick={onDismiss} aria-label="Đóng thông báo" className="flex size-11 shrink-0 cursor-pointer items-center justify-center border-none bg-transparent text-[20px] text-ink-muted-48">×</button>
         </div>
+      ) : (
+        <p aria-live="polite" className="m-0 font-body text-[13px] leading-[18px] text-ink-muted-48">
+          {refreshing && changed ? "Dữ liệu đã thay đổi. Đang cập nhật bản phân tích…" : null}
+          {refreshing && !changed ? "Đang cập nhật bản phân tích. Nội dung cũ vẫn được giữ để bạn đọc…" : null}
+          {!refreshing && changed ? "Dữ liệu đã thay đổi. Bản phân tích này cần được cập nhật." : null}
+          {!refreshing && !changed ? `Cập nhật ${formatReportTime(report.generated_at)}` : null}
+        </p>
       )}
+      {!refreshing ? (
+        <button type="button" onClick={onRegenerate} className="mt-2 min-h-11 cursor-pointer border-none bg-transparent p-0 font-body text-[15px] font-semibold text-primary">
+          {changed || regenError ? "Cập nhật phân tích" : "Phân tích lại"}
+        </button>
+      ) : null}
     </div>
   );
 }
-
-// ── Template ───────────────────────────────────────────────────────────────
 
 export function StatisticsTemplate({
   selectedMonth,
@@ -471,127 +198,46 @@ export function StatisticsTemplate({
   onRetry,
   onDismissRegenError,
 }: StatisticsTemplateProps) {
-  const chevron = (disabled?: boolean): React.CSSProperties => ({
-    background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-    color: disabled ? "rgba(255,255,255,0.15)" : "var(--body-muted)",
-    fontSize: 20, padding: "0 6px", lineHeight: 1, flexShrink: 0,
-  });
+  const monthLabel = toMonthLabel(selectedMonth);
 
   return (
-    <div style={{ minHeight: "calc(100svh - 44px - 72px)", background: "var(--canvas-parchment)" }}>
+    <div className="min-h-[calc(100svh-44px-72px)] bg-canvas">
       <style>{`.vega-embed { display: block !important; width: 100% !important; }`}</style>
-
-      {/* ── Header ── */}
-      <div style={{ background: "var(--surface-black)", color: "var(--on-dark)", padding: "28px 20px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 4 }}>
-          <button type="button" style={chevron()} onClick={onPrevMonth}>‹</button>
-          <span style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, letterSpacing: -0.374, flex: 1, textAlign: "center" }}>
-            {toMonthLabel(selectedMonth)}
-          </span>
-          <button type="button" style={chevron(isAtUpperBound)} onClick={() => !isAtUpperBound && onNextMonth()}>›</button>
-        </div>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--body-muted)", textAlign: "center", letterSpacing: -0.1 }}>
-          Phân tích chi tiêu
-        </p>
-      </div>
-
-      {/* ── Content ── */}
-      <div style={{ padding: "16px" }}>
-
-        {status === "loading" && (
-          <div style={{ padding: "60px 20px", textAlign: "center", color: "var(--ink-muted-48)", fontFamily: "var(--font-body)", fontSize: 14 }}>
-            Đang tải…
-          </div>
-        )}
-
-        {status === "generating" && (
-          <div style={{ padding: "40px 0 32px" }}>
-            <GeneratingSpinner />
-            <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", textAlign: "center", marginBottom: agentSteps.length > 0 ? 20 : 0 }}>
-              Đang phân tích…
-            </p>
-            {agentSteps.length > 0 && (
-              <div style={{ background: "var(--canvas)", borderRadius: 14, padding: "14px 16px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", fontFamily: "var(--font-body)", fontSize: 14 }}>
-                {agentSteps.map((step) => (
-                  <div key={step.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", color: step.type === "tool_result" ? "var(--ink-muted-48)" : step.type === "tool_error" ? "var(--danger, #c0392b)" : "var(--ink)" }}>
-                    <span style={{ flexShrink: 0, width: 16, textAlign: "center", fontSize: 12 }}>
-                      {step.type === "tool_call" ? "○" : step.type === "tool_error" ? "✗" : "●"}
-                    </span>
-                    <span style={{ flex: 1 }}>
-                      {step.type === "tool_call"
-                        ? step.label
-                        : step.type === "tool_result"
-                          ? `↳ ${step.rows > 0 ? `${step.rows} mục` : "Không có dữ liệu"}${step.durationMs > 0 ? ` · ${(step.durationMs / 1000).toFixed(1)}s` : ""}`
-                          : step.type === "tool_error"
-                            ? `✗ ${step.message}`
-                            : null}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex gap-2 mt-2 pt-2 border-t border-hairline items-center text-ink-muted-48 text-[13px]">
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", animation: "stats-pulse 0.9s ease-in-out infinite" }} />
-                  <span>AI đang xử lý…</span>
-                  <style>{`@keyframes stats-pulse { 0%,100%{opacity:.25} 50%{opacity:1} }`}</style>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {status === "error" && (
-          <ErrorState error={error} onRetry={onRetry} />
-        )}
-
-        {status === "ready" && report && report.insights.length === 0 && (
-          <EmptyState
-            monthLabel={toMonthLabel(selectedMonth)}
-            showJumpToCurrent={isAtUpperBound === false}
-            onJumpToCurrent={onNextMonth}
-          />
-        )}
-
-        {status === "ready" && regenError && (
-          <div className="rounded-[14px] px-4 py-[14px] mb-2 flex gap-3 items-start" style={{ background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)" }}>
-            <span style={{ color: "var(--danger)", flexShrink: 0, fontSize: 17, lineHeight: 1.4 }}>!</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--danger)", margin: "0 0 4px" }}>
-                Tạo lại thất bại
-              </p>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", margin: 0, lineHeight: 1.43, wordBreak: "break-word" }}>
-                {regenError.details?.message ?? regenError.error}
-              </p>
-            </div>
-            <button type="button"
-              onClick={onDismissRegenError}
-              className="bg-transparent border-none text-ink-muted-48 cursor-pointer text-[18px] leading-none shrink-0 p-0"
-              aria-label="Đóng"
-            >×</button>
-          </div>
-        )}
-
-        {status === "ready" && report && report.insights.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, opacity: refreshing ? 0.6 : 1, transition: "opacity 0.2s" }}>
-            {report.insights.map((insight, i) => (
-              <InsightCard key={insight.title} insight={insight} featured={i === 0} />
-            ))}
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 8 }}>
-              <p suppressHydrationWarning style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)" }}>
-                {refreshing ? "Đang cập nhật…" : `Phân tích lúc ${new Date(report.generated_at * 1000).toLocaleString("vi-VN", {
-                  day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit",
-                })}`}
-              </p>
-              <button type="button"
-                onClick={onRegenerate}
-                disabled={refreshing}
-                className={`bg-transparent border-none font-body text-xs text-primary py-1 px-0 ${refreshing ? "cursor-default opacity-40" : "cursor-pointer opacity-100"}`}
-              >
-                Tạo lại
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <MonthHeader
+        selectedMonth={selectedMonth}
+        isAtUpperBound={isAtUpperBound}
+        onPrevMonth={onPrevMonth}
+        onNextMonth={onNextMonth}
+      />
+      <main className="mx-auto max-w-[720px] px-5 pt-8 pb-12">
+        {status === "loading" ? (
+          <p role="status" className="py-12 text-center font-body text-[17px] leading-[25px] text-ink-muted-48">Đang tải bản phân tích…</p>
+        ) : null}
+        {status === "no-report" ? (
+          <NoReportState monthLabel={monthLabel} showCurrent={!isAtUpperBound} onGenerate={onRegenerate} onNextMonth={onNextMonth} />
+        ) : null}
+        {status === "generating" ? <GeneratingState steps={agentSteps} /> : null}
+        {status === "error" ? <ErrorState error={error} onRetry={onRetry} /> : null}
+        {status === "ready" && report?.insights.length === 0 ? (
+          <EmptyState monthLabel={monthLabel} showCurrent={!isAtUpperBound} onNextMonth={onNextMonth} />
+        ) : null}
+        {status === "ready" && report?.insights.length ? (
+          <>
+            <ReportStatus
+              report={report}
+              refreshing={refreshing}
+              regenError={regenError}
+              onRegenerate={onRegenerate}
+              onDismiss={onDismissRegenError}
+            />
+            <section aria-label={`Nhận xét cho ${monthLabel.toLowerCase()}`}>
+              {report.insights.map((insight, index) => (
+                <VegaChart key={`${insight.type ?? "insight"}-${insight.title}`} insight={insight} featured={index === 0} />
+              ))}
+            </section>
+          </>
+        ) : null}
+      </main>
     </div>
   );
 }
