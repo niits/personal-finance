@@ -6,7 +6,7 @@
 | Status | Active |
 | Epic | Epic 3: AI Refactor |
 | GitHub issue | #64 |
-| Related | EPIC_3_AI_REFACTOR.md, COMPONENT_ARCHITECTURE.md |
+| Related | CALM_LEDGER_APP_REDESIGN.md, COMPONENT_ARCHITECTURE.md |
 
 ---
 

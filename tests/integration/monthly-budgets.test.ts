@@ -19,6 +19,26 @@ describe("GET /api/monthly-budgets", () => {
     const body = await res.json<{ monthly_budget: null }>();
     expect(body.monthly_budget).toBeNull();
   });
+
+  it("returns the optional monthly objective", async () => {
+    const createRes = await SELF.fetch("http://localhost/api/monthly-budgets", {
+      method: "POST",
+      headers: authHeaders(cookie),
+      body: JSON.stringify({
+        month: "2030-02",
+        amount: 9_000_000,
+        objective: "Giữ chi tiêu ăn uống ổn định",
+      }),
+    });
+    expect(createRes.status).toBe(201);
+
+    const res = await SELF.fetch("http://localhost/api/monthly-budgets?month=2030-02", {
+      headers: { Cookie: cookie },
+    });
+    const body = await res.json<{ monthly_budget: { objective: string | null } }>();
+
+    expect(body.monthly_budget.objective).toBe("Giữ chi tiêu ăn uống ổn định");
+  });
 });
 
 describe("POST /api/monthly-budgets", () => {
@@ -111,6 +131,34 @@ describe("PATCH /api/monthly-budgets/:id", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it.each([undefined, "", "   "])(
+    "returns 400 for an adjustment without a non-empty reason (%s)",
+    async (note) => {
+      const createRes = await SELF.fetch("http://localhost/api/monthly-budgets", {
+        method: "POST",
+        headers: authHeaders(cookie),
+        body: JSON.stringify({ month: `2027-0${note === undefined ? 1 : note === "" ? 2 : 3}`, amount: 10_000_000 }),
+      });
+      const { monthly_budget } = await createRes.json<{ monthly_budget: { id: number } }>();
+
+      const patchRes = await SELF.fetch(`http://localhost/api/monthly-budgets/${monthly_budget.id}`, {
+        method: "PATCH",
+        headers: authHeaders(cookie),
+        body: JSON.stringify({ delta: 500_000, ...(note === undefined ? {} : { note }) }),
+      });
+
+      expect(patchRes.status).toBe(400);
+
+      const getRes = await SELF.fetch(
+        `http://localhost/api/monthly-budgets?month=2027-0${note === undefined ? 1 : note === "" ? 2 : 3}`,
+        { headers: { Cookie: cookie } },
+      );
+      const body = await getRes.json<{ monthly_budget: { amount: number; adjustments: unknown[] } }>();
+      expect(body.monthly_budget.amount).toBe(10_000_000);
+      expect(body.monthly_budget.adjustments).toEqual([]);
+    },
+  );
 
   it("returns 400 when delta would reduce amount to 0 or below", async () => {
     const createRes = await SELF.fetch("http://localhost/api/monthly-budgets", {

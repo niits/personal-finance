@@ -14,6 +14,7 @@ import {
   deriveLinkedAccountState,
   parseLinkedAccountsResponse,
 } from "@/lib/account-password";
+import { ConfirmationSheet } from "@/components/organisms/ConfirmationSheet";
 
 const GitHubIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -100,13 +101,16 @@ function ListRow({ icon, label, value, action, isLast = false }: {
 }
 
 export default function AccountPage() {
-  const { data: session } = useSession();
+  const { data: session, isPending: sessionPending } = useSession();
   const router = useRouter();
 
   const [hasPassword, setHasPassword] = useState<boolean | null>(null);
   const [githubLinked, setGithubLinked] = useState<boolean | null>(null);
   const [googleLinked, setGoogleLinked] = useState<boolean | null>(null);
   const [accountLoadError, setAccountLoadError] = useState<string | null>(null);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signOutPending, setSignOutPending] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session?.user.id) return;
@@ -146,6 +150,12 @@ export default function AccountPage() {
     };
   }, [session?.user.id]);
 
+  useEffect(() => {
+    if (!sessionPending && !session) {
+      void signOut().finally(() => router.replace("/sign-in"));
+    }
+  }, [router, session, sessionPending]);
+
   async function handleLinkGitHub() {
     await linkSocial({ provider: "github", callbackURL: "/account" });
   }
@@ -154,7 +164,36 @@ export default function AccountPage() {
     window.location.href = `/api/account/export?format=${format}`;
   }
 
-  if (!session) return null;
+  async function handleSignOut() {
+    setSignOutPending(true);
+    setSignOutError(null);
+
+    try {
+      const result = await signOut();
+      if (getAuthClientErrorMessage(result)) {
+        setSignOutError("Không thể đăng xuất. Vui lòng thử lại.");
+        setSignOutPending(false);
+        return;
+      }
+      router.replace("/sign-in");
+    } catch {
+      setSignOutError("Không thể đăng xuất. Vui lòng thử lại.");
+      setSignOutPending(false);
+    }
+  }
+
+  if (sessionPending || !session) {
+    return (
+      <div className="min-h-svh bg-canvas-parchment px-md pb-xxl pt-xl">
+        <div role="status" aria-label="Đang tải tài khoản" className="mx-auto max-w-[560px]">
+          <div className="mb-lg h-[38px] w-[160px] rounded-sm bg-divider-soft" />
+          <div className="mb-lg h-[142px] rounded-lg bg-canvas" />
+          <div className="h-[168px] rounded-lg bg-canvas" />
+          <span className="sr-only">Đang tải tài khoản…</span>
+        </div>
+      </div>
+    );
+  }
 
   const userInitials = (session.user.name ?? session.user.email ?? "?")
     .split(" ")
@@ -188,6 +227,27 @@ export default function AccountPage() {
       </div>
 
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 var(--space-md)" }}>
+
+        {/* Management tasks lead because they are the primary reason to visit Account. */}
+        <SectionGroup label="Quản lý">
+          <Link href="/account/categories" style={{ textDecoration: "none" }}>
+            <ListRow
+              icon={<span style={{ fontSize: 18 }}>⊞</span>}
+              label="Danh mục"
+              value="Quản lý danh mục thu chi"
+              action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
+            />
+          </Link>
+          <Link href="/account/budget" style={{ textDecoration: "none" }}>
+            <ListRow
+              icon={<span style={{ fontSize: 18 }}>⊟</span>}
+              label="Ngân sách"
+              value="Quản lý ngân sách tháng"
+              action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
+              isLast
+            />
+          </Link>
+        </SectionGroup>
 
         {/* Profile card */}
         <div style={{
@@ -314,27 +374,6 @@ export default function AccountPage() {
           </div>
         </SectionGroup>
 
-        {/* Master data */}
-        <SectionGroup label="Dữ liệu chính">
-          <Link href="/account/categories" style={{ textDecoration: "none" }}>
-            <ListRow
-              icon={<span style={{ fontSize: 18 }}>⊞</span>}
-              label="Danh mục"
-              value="Quản lý danh mục thu chi"
-              action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
-            />
-          </Link>
-          <Link href="/account/budget" style={{ textDecoration: "none" }}>
-            <ListRow
-              icon={<span style={{ fontSize: 18 }}>⊟</span>}
-              label="Ngân sách"
-              value="Quản lý ngân sách tháng"
-              action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
-              isLast
-            />
-          </Link>
-        </SectionGroup>
-
         {/* Export */}
         <SectionGroup label="Dữ liệu">
           <div style={{ padding: "var(--space-md)" }}>
@@ -362,14 +401,31 @@ export default function AccountPage() {
         {/* Sign out */}
         <SectionGroup label="Phiên đăng nhập">
           <button type="button"
-            onClick={() => signOut({ fetchOptions: { onSuccess: () => router.replace("/sign-in") } })}
-            className="w-full py-[14px] px-md bg-transparent border-none text-danger font-body text-base font-normal cursor-pointer text-left"
+            onClick={() => {
+              setSignOutError(null);
+              setSignOutOpen(true);
+            }}
+            className="min-h-11 w-full border-none bg-transparent px-md py-sm text-left font-body text-base font-normal text-ink cursor-pointer"
           >
             Đăng xuất
           </button>
         </SectionGroup>
 
       </div>
+      <ConfirmationSheet
+        open={signOutOpen}
+        title={`Đăng xuất khỏi tài khoản ${session.user.email ?? session.user.name ?? "này"}?`}
+        consequence="Bạn sẽ cần đăng nhập lại để xem dữ liệu tài chính của mình."
+        confirmLabel="Đăng xuất"
+        pending={signOutPending}
+        error={signOutError}
+        onConfirm={handleSignOut}
+        onCancel={() => {
+          if (signOutPending) return;
+          setSignOutOpen(false);
+          setSignOutError(null);
+        }}
+      />
     </div>
   );
 }

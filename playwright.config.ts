@@ -18,8 +18,8 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:8787",
     trace: "on-first-retry",
-    // iPhone 14 Pro — primary target device per DESIGN.md
-    viewport: { width: 393, height: 852 },
+    // iPhone 13 is the canonical flow artboard; narrow stories separately cover 375px.
+    viewport: { width: 390, height: 844 },
     deviceScaleFactor: 3,
     storageState: STORAGE_STATE,
     // Per-action timeout (click, fill, expect…)
@@ -28,7 +28,16 @@ export default defineConfig({
   },
 
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 3,
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
   ],
 
   // Locally: build + serve in one shot; reuse if already running.

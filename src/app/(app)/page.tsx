@@ -5,20 +5,24 @@ import { useRouter } from "next/navigation";
 import { DashboardTemplate } from "@/components/templates/DashboardTemplate";
 import type { DashboardData, Transaction } from "@/components/templates/DashboardTemplate";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
+import { currentBudgetMonth } from "@/lib/validators";
 
 export default function DashboardPage() {
+  const initialMonth = currentBudgetMonth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const currentMonthRef = useRef("");
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
+  const [currentMonth, setCurrentMonth] = useState(initialMonth);
   const [formOpen, setFormOpen] = useState(false);
   const [editTxn, setEditTxn] = useState<Transaction | undefined>(undefined);
   const [actionTxn, setActionTxn] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [organizeState, setOrganizeState] = useState<"idle" | "loading" | "review" | "applying">("idle");
   const [organizePreview, setOrganizePreview] = useState<OrganizePreview | null>(null);
-  const [error, setError] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [ledgerError, setLedgerError] = useState<string | null>(null);
   const { replace } = useRouter();
   const abortRef = useRef<AbortController | null>(null);
 
@@ -30,77 +34,116 @@ export default function DashboardPage() {
     abortRef.current = ctrl;
     const { signal } = ctrl;
 
-    setError(false);
-    if (!silent) setLoading(true);
+    setSummaryError(null);
+    setLedgerError(null);
+    if (!silent) {
+      setLoading(true);
+      setData(null);
+      setTxns([]);
+    }
 
     const q = month ? `?month=${month}` : "";
 
-    // Retry up to 3 attempts with 500ms / 1000ms backoff
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise<void>((r) => setTimeout(r, attempt * 500));
-      if (signal.aborted) return;
-
-      try {
-        const [dashRes, txnRes] = await Promise.all([
-          fetch(`/api/dashboard${q}`, { signal }),
-          fetch(`/api/transactions${q}`, { signal }),
-        ]);
-
-        if (signal.aborted) return;
-
-        if (dashRes.status === 401 || txnRes.status === 401) {
-          replace("/sign-in");
-          return;
-        }
-
-        if (!dashRes.ok) throw new Error(`dashboard: ${dashRes.status}`);
-        if (!txnRes.ok) throw new Error(`transactions: ${txnRes.status}`);
-
-        const [dr, tr] = await Promise.all([
-          dashRes.json() as Promise<DashboardData>,
-          txnRes.json() as Promise<{ transactions: Transaction[] }>,
-        ]);
-
-        if (signal.aborted) return;
-
-        setData(dr);
-        setTxns(tr.transactions ?? []);
-        if (!currentMonthRef.current) currentMonthRef.current = dr.month;
-        setSelectedMonth(dr.month);
-        setLoading(false);
-        return; // success — stop retrying
-      } catch (err) {
-        if ((err as DOMException)?.name === "AbortError") return;
-        if (attempt < 2) continue; // retry
-        if (!signal.aborted) {
-          setError(true);
-          setLoading(false);
+    async function fetchWithRetry(url: string) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise<void>((resolve) => setTimeout(resolve, attempt * 500));
+        if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+        try {
+          const response = await fetch(url, { signal });
+          if (response.ok || response.status === 401 || attempt === 2) return response;
+        } catch (requestError) {
+          if ((requestError as DOMException)?.name === "AbortError" || attempt === 2) throw requestError;
         }
       }
+      throw new Error(`Không thể tải ${url}`);
     }
+
+    const [dashboardResult, transactionResult] = await Promise.allSettled([
+      fetchWithRetry(`/api/dashboard${q}`),
+      fetchWithRetry(`/api/transactions${q}`),
+    ]);
+
+    if (signal.aborted) return;
+    const unauthorized = [dashboardResult, transactionResult].some(
+      (result) => result.status === "fulfilled" && result.value.status === 401,
+    );
+    if (unauthorized) {
+      replace("/sign-in");
+      return;
+    }
+
+    if (dashboardResult.status === "fulfilled" && dashboardResult.value.ok) {
+      try {
+        const dashboard = await dashboardResult.value.json() as DashboardData;
+        if (!signal.aborted) {
+          setData(dashboard);
+          if (!month) setCurrentMonth(dashboard.month);
+          setSelectedMonth(dashboard.month);
+        }
+      } catch {
+        setSummaryError("Không tải được tổng quan kỳ này.");
+      }
+    } else {
+      setSummaryError("Không tải được tổng quan kỳ này.");
+    }
+
+    if (transactionResult.status === "fulfilled" && transactionResult.value.ok) {
+      try {
+        const result = await transactionResult.value.json() as { transactions: Transaction[] };
+        if (!signal.aborted) setTxns(result.transactions ?? []);
+      } catch {
+        setLedgerError("Không tải được sổ giao dịch.");
+      }
+    } else {
+      setLedgerError("Không tải được sổ giao dịch.");
+    }
+
+    if (!signal.aborted) setLoading(false);
   }, [replace]);
 
   // Abort on unmount to avoid state updates on unmounted component
   useEffect(() => () => { abortRef.current?.abort(); }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const pendingLoad = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(pendingLoad);
+  }, [load]);
 
   // Reload when the PWA/tab is brought back to the foreground after being suspended.
   // HTTP cache (stale-while-revalidate) serves instantly on resume; pass silent=true
   // so existing data stays visible while revalidation happens in the background.
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") load(undefined, true);
+      if (document.visibilityState !== "visible") return;
+      const latestMonth = currentBudgetMonth();
+      if (selectedMonth === currentMonth && latestMonth !== currentMonth) {
+        setCurrentMonth(latestMonth);
+        setSelectedMonth(latestMonth);
+        load(latestMonth, true);
+      } else {
+        load(selectedMonth, true);
+      }
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [load]);
+  }, [currentMonth, load, selectedMonth]);
 
   async function handleDelete(txn: Transaction) {
     setDeleting(true);
-    const r = await fetch(`/api/transactions/${txn.id}`, { method: "DELETE" });
-    setDeleting(false);
-    if (r.ok) { setActionTxn(null); load(selectedMonth, true); }
+    setDeleteError(null);
+    try {
+      const response = await fetch(`/api/transactions/${txn.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        setDeleteError("Không thể xoá giao dịch. Vui lòng thử lại.");
+        return;
+      }
+      setActionTxn(null);
+      load(selectedMonth, true);
+    } catch {
+      setDeleteError("Không thể xoá giao dịch. Kiểm tra kết nối và thử lại.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function prevMonth(m: string) {
@@ -156,23 +199,7 @@ export default function DashboardPage() {
     load(m);
   }
 
-  const isCurrentMonth = selectedMonth === currentMonthRef.current;
-
-  if (error && !data) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60svh", gap: 16, padding: 24 }}>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink-muted-48)", textAlign: "center" }}>
-          Không tải được dữ liệu. Kiểm tra kết nối mạng và thử lại.
-        </p>
-        <button type="button"
-          onClick={() => load()}
-          className="font-body text-[15px] font-semibold text-primary bg-transparent border-none cursor-pointer px-4 py-2"
-        >
-          Thử lại
-        </button>
-      </div>
-    );
-  }
+  const isCurrentMonth = selectedMonth === currentMonth;
 
   return (
     <DashboardTemplate
@@ -187,7 +214,7 @@ export default function DashboardPage() {
       editTxn={editTxn}
       onPrevMonth={() => navigate(prevMonth(selectedMonth))}
       onNextMonth={() => !isCurrentMonth && navigate(nextMonth(selectedMonth))}
-      onSetActionTxn={setActionTxn}
+      onSetActionTxn={(txn) => { setDeleteError(null); setActionTxn(txn); }}
       onOpenForm={(txn) => { setEditTxn(txn); setFormOpen(true); }}
       onCloseForm={() => { setFormOpen(false); setEditTxn(undefined); }}
       onSaved={() => load(selectedMonth, true)}
@@ -197,6 +224,11 @@ export default function DashboardPage() {
       onOrganize={handleOrganize}
       onOrganizeApply={handleOrganizeApply}
       onOrganizeClose={handleOrganizeClose}
+      summaryError={summaryError}
+      ledgerError={ledgerError}
+      deleteError={deleteError}
+      onRetrySummary={() => load(selectedMonth || undefined)}
+      onRetryLedger={() => load(selectedMonth || undefined)}
     />
   );
 }

@@ -3,6 +3,7 @@ import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
 import { parseAmount } from "@/lib/validators";
+import { sql } from "kysely";
 
 type Params = Promise<{ id: string }>;
 
@@ -19,7 +20,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   const existing = await db
     .selectFrom("custom_budget")
-    .select("id")
+    .select(["id", "amount"])
     .where("id", "=", budgetId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
@@ -52,12 +53,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   if (Object.keys(updates).length === 0) return Errors.validation("Không có trường nào để cập nhật");
 
-  const row = await db
+  await db
     .updateTable("custom_budget")
     .set(updates)
     .where("id", "=", budgetId)
     .where("user_id", "=", userId)
-    .returning(["id", "name", "amount", "is_active", "created_at"])
+    .execute();
+
+  const row = await db
+    .selectFrom("custom_budget")
+    .select(["id", "name", "amount", "is_active", "created_at"])
+    .where("id", "=", budgetId)
+    .where("user_id", "=", userId)
     .executeTakeFirst();
 
   return Response.json({ custom_budget: row });
@@ -82,12 +89,42 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
     .executeTakeFirst();
   if (!existing) return Errors.notFound("Custom budget không tồn tại");
 
-  // transaction_custom_budget rows cascade-deleted by DB; transactions are NOT deleted
-  await db
+  const linked = await db
+    .selectFrom("transaction_custom_budget")
+    .select(({ fn }) => fn.count<number>("transaction_id").as("count"))
+    .where("custom_budget_id", "=", budgetId)
+    .executeTakeFirstOrThrow();
+  const affectedCount = Number(linked.count);
+  if (affectedCount > 0) {
+    return Errors.conflict(
+      `Không thể xoá vì ngân sách đang liên kết với ${affectedCount} giao dịch`,
+      "CUSTOM_BUDGET_LINKED",
+      { affected_count: affectedCount },
+    );
+  }
+
+  const deleted = await db
     .deleteFrom("custom_budget")
     .where("id", "=", budgetId)
     .where("user_id", "=", userId)
-    .execute();
+    .where(sql<boolean>`NOT EXISTS (
+      SELECT 1 FROM transaction_custom_budget
+      WHERE custom_budget_id = ${budgetId}
+    )`)
+    .executeTakeFirst();
+
+  if (Number(deleted.numDeletedRows) === 0) {
+    const currentLinked = await db
+      .selectFrom("transaction_custom_budget")
+      .select(({ fn }) => fn.count<number>("transaction_id").as("count"))
+      .where("custom_budget_id", "=", budgetId)
+      .executeTakeFirstOrThrow();
+    return Errors.conflict(
+      `Không thể xoá vì ngân sách đang liên kết với ${Number(currentLinked.count)} giao dịch`,
+      "CUSTOM_BUDGET_LINKED",
+      { affected_count: Number(currentLinked.count) },
+    );
+  }
 
   return Response.json({});
 }

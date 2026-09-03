@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatVND } from "@/components/atoms/CurrencyDisplay";
+import { ConfirmationSheet } from "@/components/organisms/ConfirmationSheet";
 
 export type CardStatement = {
   id: string;
@@ -31,104 +32,209 @@ export type FinanceAccount = {
 };
 
 type GroupInput = { name: string; statement_close_day: number };
-type FinanceAccountInput = { type: "debt" | "savings"; name: string; note: string; debt_direction?: "lend" | "borrow" };
-type FinanceAccountUpdate = Pick<FinanceAccountInput, "name" | "note">;
+type MutationResult = Promise<string | null>;
+type Mode = "debt" | "savings" | "cards";
 
-type CreditCardsTemplateProps = {
+export type CreditCardsTemplateProps = {
   groups: CardGroup[];
   accounts: FinanceAccount[];
+  groupsLoading?: boolean;
+  accountsLoading?: boolean;
+  groupsError?: string | null;
+  accountsError?: string | null;
   payingStatementId: string | null;
-  onPay: (statementId: string, paidAt: string) => void;
-  onCreateGroup: (input: GroupInput) => void;
-  onUpdateGroup: (id: string, input: GroupInput) => void;
-  onDeleteGroup: (id: string) => void;
-  onCreateFinanceAccount: (input: FinanceAccountInput) => Promise<string | null>;
-  onUpdateFinanceAccount: (id: string, input: FinanceAccountUpdate) => Promise<string | null>;
-  onDeleteFinanceAccount: (id: string) => Promise<string | null>;
+  onRetryGroups?: () => void;
+  onRetryAccounts?: () => void;
+  onPay: (statementId: string, paidAt: string) => MutationResult;
+  onCreateGroup: (input: GroupInput) => MutationResult;
+  onUpdateGroup: (id: string, input: GroupInput) => MutationResult;
+  onDeleteGroup: (id: string) => MutationResult;
+  onUpdateFinanceAccount: (id: string, input: { name: string; note: string }) => MutationResult;
+  onDeleteFinanceAccount: (id: string) => MutationResult;
 };
 
-export function CreditCardsTemplate({ groups, accounts, payingStatementId, onPay, onCreateGroup, onUpdateGroup, onDeleteGroup, onCreateFinanceAccount, onUpdateFinanceAccount, onDeleteFinanceAccount }: CreditCardsTemplateProps) {
-  const [showGroupForm, setShowGroupForm] = useState(false);
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+const today = () => new Date().toISOString().slice(0, 10);
+
+function signedAmount(type: "income" | "expense", amount: number) {
+  return `${type === "expense" ? "−" : "+"}${formatVND(amount)}₫`;
+}
+
+function accountMeaning(account: FinanceAccount) {
+  if (account.type === "savings") {
+    return account.balance > 0
+      ? { label: "Đã rút vượt", amount: account.balance }
+      : { label: "Đang để dành", amount: -account.balance };
+  }
+  if (account.debt_direction === "lend") {
+    return account.balance > 0
+      ? { label: "Đã nhận dư", amount: account.balance }
+      : { label: "Còn được nhận", amount: -account.balance };
+  }
+  return account.balance < 0
+    ? { label: "Đã trả dư", amount: -account.balance }
+    : { label: "Còn phải trả", amount: account.balance };
+}
+
+export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
+  const [mode, setMode] = useState<Mode>("debt");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [groupForm, setGroupForm] = useState<CardGroup | "new" | null>(null);
   const [groupName, setGroupName] = useState("");
   const [closeDay, setCloseDay] = useState("15");
-  const [paymentDates, setPaymentDates] = useState<Record<string, string>>({});
-  const [accountFormType, setAccountFormType] = useState<"debt" | "savings" | null>(null);
   const [editingAccount, setEditingAccount] = useState<FinanceAccount | null>(null);
   const [accountName, setAccountName] = useState("");
   const [accountNote, setAccountNote] = useState("");
-  const [debtDirection, setDebtDirection] = useState<"lend" | "borrow">("borrow");
-  const [accountError, setAccountError] = useState<string | null>(null);
-  const [savingAccount, setSavingAccount] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: "group" | "account"; id: string; name: string } | null>(null);
+  const [paymentTarget, setPaymentTarget] = useState<CardStatement | null>(null);
+  const [paymentDate, setPaymentDate] = useState(today);
 
-  const debts = accounts.filter((account) => account.type === "debt");
-  const savings = accounts.filter((account) => account.type === "savings");
+  const debts = props.accounts.filter((account) => account.type === "debt");
+  const savings = props.accounts.filter((account) => account.type === "savings");
+  const visibleAccounts = mode === "debt" ? debts : savings;
+  const accountLoading = props.accountsLoading;
+  const accountError = props.accountsError;
 
-  function resetAccountForm() {
-    setAccountFormType(null); setEditingAccount(null); setAccountName(""); setAccountNote(""); setDebtDirection("borrow"); setAccountError(null);
-  }
+  const debtTotals = debts.reduce((totals, account) => {
+    const meaning = accountMeaning(account);
+    if (meaning.label === "Còn được nhận") totals.receivable += meaning.amount;
+    if (meaning.label === "Còn phải trả") totals.payable += meaning.amount;
+    return totals;
+  }, { receivable: 0, payable: 0 });
+  const savingsTotal = savings.reduce((total, account) => total - account.balance, 0);
+  const unpaidTotal = props.groups.flatMap((group) => group.statements)
+    .filter((statement) => statement.status === "unpaid")
+    .reduce((total, statement) => total + statement.amount, 0);
 
-  function beginAccountCreate(type: "debt" | "savings") {
-    resetAccountForm(); setAccountFormType(type);
-  }
-
-  function beginAccountEdit(account: FinanceAccount) {
-    setAccountFormType(account.type); setEditingAccount(account); setAccountName(account.name); setAccountNote(account.note ?? ""); setDebtDirection(account.debt_direction ?? "borrow"); setAccountError(null);
-  }
-
-  function submitGroup(event: React.FormEvent) {
+  async function submitGroup(event: React.FormEvent) {
     event.preventDefault();
-    const statementCloseDay = Number(closeDay);
-    if (!groupName.trim() || !Number.isInteger(statementCloseDay) || statementCloseDay < 1 || statementCloseDay > 31) return;
-    const input = { name: groupName.trim(), statement_close_day: statementCloseDay };
-    if (editingGroupId) onUpdateGroup(editingGroupId, input);
-    else onCreateGroup(input);
-    setGroupName(""); setCloseDay("15"); setEditingGroupId(null); setShowGroupForm(false);
+    const day = Number(closeDay);
+    if (!groupName.trim() || !Number.isInteger(day) || day < 1 || day > 31) {
+      setMutationError("Nhập tên nhóm và ngày chốt từ 1 đến 31.");
+      return;
+    }
+    setPending(true); setMutationError(null);
+    const input = { name: groupName.trim(), statement_close_day: day };
+    const error = groupForm === "new"
+      ? await props.onCreateGroup(input)
+      : await props.onUpdateGroup((groupForm as CardGroup).id, input);
+    setPending(false);
+    if (error) setMutationError(error);
+    else setGroupForm(null);
   }
 
   async function submitAccount(event: React.FormEvent) {
     event.preventDefault();
-    if (!accountFormType || !accountName.trim()) return;
-    setSavingAccount(true); setAccountError(null);
-    const error = editingAccount
-      ? await onUpdateFinanceAccount(editingAccount.id, { name: accountName.trim(), note: accountNote })
-      : await onCreateFinanceAccount({ type: accountFormType, name: accountName.trim(), note: accountNote, ...(accountFormType === "debt" ? { debt_direction: debtDirection } : {}) });
-    setSavingAccount(false);
-    if (error) setAccountError(error);
-    else resetAccountForm();
+    if (!editingAccount || !accountName.trim()) return;
+    setPending(true); setMutationError(null);
+    const error = await props.onUpdateFinanceAccount(editingAccount.id, { name: accountName.trim(), note: accountNote.trim() });
+    setPending(false);
+    if (error) setMutationError(error);
+    else setEditingAccount(null);
   }
 
-  async function deleteAccount(account: FinanceAccount) {
-    if (!window.confirm(`Xóa tài khoản “${account.name}”?`)) return;
-    setAccountError(null);
-    const error = await onDeleteFinanceAccount(account.id);
-    if (error) setAccountError(error);
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setPending(true); setMutationError(null);
+    const error = deleteTarget.kind === "group"
+      ? await props.onDeleteGroup(deleteTarget.id)
+      : await props.onDeleteFinanceAccount(deleteTarget.id);
+    setPending(false);
+    if (error) setMutationError(error);
+    else setDeleteTarget(null);
+  }
+
+  async function confirmPayment() {
+    if (!paymentTarget || !paymentDate) return;
+    setPending(true); setMutationError(null);
+    const error = await props.onPay(paymentTarget.id, paymentDate);
+    setPending(false);
+    if (error) setMutationError(error);
+    else setPaymentTarget(null);
   }
 
   return (
-    <main className="min-h-dvh bg-canvas-parchment pb-24">
-      <section className="bg-canvas px-5 py-12 text-center sm:px-8">
-        <p className="m-0 font-body text-sm text-ink-muted-48">Quản lý dòng tiền</p>
-        <h1 className="mt-2 font-display text-[40px] font-semibold tracking-[-0.5px] text-ink">Tài chính</h1>
-        <p className="mx-auto mt-3 max-w-xl font-body text-[17px] text-ink-muted-80">Theo dõi thẻ, các khoản nợ và mục tiêu tiết kiệm ở một nơi.</p>
+    <main className="mx-auto min-h-svh w-full max-w-[720px] bg-canvas px-5 pb-section pt-lg">
+      <header>
+        <p className="font-body text-[13px] text-ink-muted-48">Nợ, tiền gửi và chi thẻ</p>
+        <h1 className="mt-xxs font-display text-[28px] font-semibold leading-[33px] text-ink">Tài chính</h1>
+      </header>
+
+      <div role="tablist" aria-label="Nội dung tài chính" className="mt-lg grid grid-cols-3 gap-xxs rounded-md bg-canvas-parchment p-xxs">
+        {([['debt', 'Nợ'], ['savings', 'Tiền gửi'], ['cards', 'Chi thẻ']] as const).map(([value, label]) => (
+          <button key={value} role="tab" aria-selected={mode === value} type="button" onClick={() => { setMode(value); setExpandedId(null); setMutationError(null); }} className={`min-h-11 rounded-sm border font-body text-[15px] font-semibold ${mode === value ? "border-hairline bg-canvas text-primary" : "border-transparent bg-transparent text-ink-muted-48"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <section className="border-b border-hairline py-xl">
+        {(mode === "cards" ? props.groupsLoading || props.groupsError : accountLoading || accountError) ? (
+          <><p className="font-body text-[13px] text-ink-muted-48">Số dư</p><p className="mt-xxs font-display text-[21px] font-semibold text-ink-muted-48">Chưa xác định</p></>
+        ) : mode === "debt" ? (
+          <><p className="font-body text-[13px] text-ink-muted-48">Còn phải trả</p><p className="mt-xxs font-display text-[34px] font-semibold leading-[38px] text-ink">{formatVND(debtTotals.payable)}₫</p>{debtTotals.receivable > 0 ? <p className="mt-xs font-body text-[15px] text-ink-muted-80">Còn được nhận {formatVND(debtTotals.receivable)}₫</p> : null}</>
+        ) : mode === "savings" ? (
+          <><p className="font-body text-[13px] text-ink-muted-48">{savingsTotal < 0 ? "Đã rút vượt" : "Đang để dành"}</p><p className="mt-xxs font-display text-[34px] font-semibold leading-[38px] text-ink">{formatVND(Math.abs(savingsTotal))}₫</p></>
+        ) : (
+          <><p className="font-body text-[13px] text-ink-muted-48">Chưa thanh toán</p><p className="mt-xxs font-display text-[34px] font-semibold leading-[38px] text-ink">{formatVND(unpaidTotal)}₫</p><p className="mt-xs font-body text-[15px] text-ink-muted-80">Đã được tính trong chi tiêu.</p></>
+        )}
       </section>
 
-      <section className="mx-auto max-w-3xl px-5 py-8 sm:px-8">
-        <div className="flex items-end justify-between gap-md"><div><p className="m-0 font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Thanh toán</p><h2 className="mt-1 font-display text-[28px] font-semibold tracking-[-0.3px] text-ink">Nhóm thẻ</h2></div><button type="button" onClick={() => { setEditingGroupId(null); setGroupName(""); setCloseDay("15"); setShowGroupForm((shown) => !shown); }} className="min-h-11 rounded-pill border-none bg-primary px-[22px] font-body text-[17px] text-on-primary">{showGroupForm && !editingGroupId ? "Đóng" : "Thêm nhóm"}</button></div>
-        <p className="mt-xs font-body text-sm text-ink-muted-48">Mỗi nhóm có một ngày chốt sao kê.</p>
+      {mutationError ? <p role="alert" className="mt-md rounded-md bg-canvas-parchment p-md font-body text-[15px] text-danger">{mutationError}</p> : null}
 
-        {showGroupForm && <form className="mt-lg rounded-lg border border-hairline bg-canvas p-lg" onSubmit={submitGroup}><h3 className="font-display text-[21px] font-semibold tracking-[-0.2px] text-ink">{editingGroupId ? "Sửa nhóm thẻ" : "Nhóm thẻ mới"}</h3><div className="mt-md grid gap-sm sm:grid-cols-[1fr_140px]"><label className="font-body text-sm text-ink">Tên nhóm<input aria-label="Tên nhóm thẻ" value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Ví dụ: Chi tiêu gia đình" className="mt-xs min-h-11 w-full rounded-sm border border-hairline bg-canvas-parchment px-sm font-body text-[17px] text-ink" /></label><label className="font-body text-sm text-ink">Ngày chốt<input aria-label="Ngày chốt sao kê" value={closeDay} onChange={(event) => setCloseDay(event.target.value)} inputMode="numeric" className="mt-xs min-h-11 w-full rounded-sm border border-hairline bg-canvas-parchment px-sm font-body text-[17px] text-ink" /></label></div><div className="mt-lg flex gap-sm"><button type="submit" className="min-h-11 rounded-pill border-none bg-primary px-[22px] font-body text-[17px] text-on-primary">{editingGroupId ? "Lưu" : "Tạo nhóm"}</button><button type="button" onClick={() => { setShowGroupForm(false); setEditingGroupId(null); }} className="min-h-11 rounded-pill border border-primary bg-canvas px-[22px] font-body text-[17px] text-primary">Hủy</button></div></form>}
+      {mode !== "cards" ? (
+        <section className="py-lg">
+          {accountLoading ? <LoadingState label="Đang tải tài khoản…" /> : accountError ? <ErrorState message={accountError} onRetry={props.onRetryAccounts} /> : visibleAccounts.length === 0 ? <EmptyState>{mode === "debt" ? "Chưa có khoản nợ. Hãy ghi một giao dịch nợ từ Tổng quan để tạo tài khoản ngay trong biểu mẫu." : "Chưa có khoản tiền gửi. Hãy ghi giao dịch tiền gửi từ Tổng quan."}</EmptyState> : (
+            <div className="divide-y divide-divider-soft">
+              {visibleAccounts.map((account) => {
+                const meaning = accountMeaning(account);
+                const expanded = expandedId === account.id;
+                return <article key={account.id} className="py-md first:pt-0">
+                  <button type="button" onClick={() => setExpandedId(expanded ? null : account.id)} aria-expanded={expanded} className="flex min-h-11 w-full items-start justify-between gap-md border-0 bg-transparent text-left">
+                    <span className="min-w-0"><span className="block break-words font-body text-[17px] font-semibold text-ink">{account.name}</span><span className="mt-xxs block font-body text-[13px] text-ink-muted-48">{account.type === "debt" ? account.debt_direction === "lend" ? "Cho vay" : "Đi vay" : "Tiền gửi"}{account.note ? ` · ${account.note}` : ""}</span></span>
+                    <span className="shrink-0 text-right"><span className="block font-display text-[17px] font-semibold text-ink">{formatVND(meaning.amount)}₫</span><span className="block font-body text-[13px] text-ink-muted-48">{meaning.label}</span></span>
+                  </button>
+                  {expanded ? <div className="mt-md border-t border-divider-soft pt-md">
+                    <p className="font-body text-[13px] font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Lịch sử dòng tiền</p>
+                    {account.transactions.length === 0 ? <p className="mt-sm font-body text-[15px] text-ink-muted-48">Tài khoản đã tạo nhưng chưa có giao dịch.</p> : account.transactions.map((transaction) => <div key={transaction.id} className="flex justify-between gap-sm border-b border-divider-soft py-sm last:border-0"><span className="min-w-0"><span className="block break-words font-body text-[15px] text-ink">{transaction.note || "Giao dịch"}</span><span className="font-body text-[13px] text-ink-muted-48">{transaction.date}</span></span><span className={`shrink-0 font-body text-[15px] font-semibold ${transaction.type === "expense" ? "text-danger" : "text-success"}`}>{signedAmount(transaction.type, transaction.amount)}</span></div>)}
+                    <div className="mt-md flex gap-xs"><button type="button" onClick={() => { setEditingAccount(account); setAccountName(account.name); setAccountNote(account.note ?? ""); setMutationError(null); }} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-primary">Sửa thông tin</button><button type="button" onClick={() => setDeleteTarget({ kind: "account", id: account.id, name: account.name })} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-danger">Xóa</button></div>
+                  </div> : null}
+                </article>;
+              })}
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="py-lg">
+          <div className="flex items-center justify-between gap-md"><h2 className="font-display text-[21px] font-semibold text-ink">Nhóm thẻ</h2><button type="button" onClick={() => { setGroupForm("new"); setGroupName(""); setCloseDay("15"); setMutationError(null); }} className="min-h-11 rounded-pill border border-primary bg-canvas px-md font-body text-[15px] text-primary">Thêm nhóm thẻ</button></div>
+          {props.groupsLoading ? <LoadingState label="Đang tải nhóm thẻ…" /> : props.groupsError ? <ErrorState message={props.groupsError} onRetry={props.onRetryGroups} /> : props.groups.length === 0 ? <EmptyState>Chưa có nhóm thẻ. Tạo một nhóm để theo dõi kỳ sao kê.</EmptyState> : <div className="mt-md divide-y divide-divider-soft">{props.groups.map((group) => {
+            const unpaid = group.statements.filter((statement) => statement.status === "unpaid").reduce((sum, statement) => sum + statement.amount, 0);
+            const expanded = expandedId === group.id;
+            return <article key={group.id} className="py-md first:pt-0"><button type="button" onClick={() => setExpandedId(expanded ? null : group.id)} aria-expanded={expanded} className="flex min-h-11 w-full items-start justify-between gap-md border-0 bg-transparent text-left"><span><span className="block font-body text-[17px] font-semibold text-ink">{group.name}</span><span className="font-body text-[13px] text-ink-muted-48">Chốt ngày {group.statement_close_day}</span></span><span className="text-right"><span className="block font-display text-[17px] font-semibold text-ink">{formatVND(unpaid)}₫</span><span className="font-body text-[13px] text-ink-muted-48">Chưa thanh toán</span></span></button>{expanded ? <div className="mt-md border-t border-divider-soft pt-md">{group.statements.length === 0 ? <p className="font-body text-[15px] text-ink-muted-48">Nhóm thẻ chưa có giao dịch hoặc sao kê.</p> : group.statements.map((statement) => <div key={statement.id} className="border-b border-divider-soft py-sm last:border-0"><div className="flex justify-between gap-sm"><span><span className="block font-body text-[15px] font-semibold text-ink">{statement.period_start} đến {statement.period_end}</span><span className="font-body text-[13px] text-ink-muted-48">{statement.status === "paid" ? `Đã thanh toán ${statement.paid_at}` : `${statement.purchases.length} giao dịch`}</span></span><span className="font-body text-[15px] font-semibold text-ink">{formatVND(statement.amount)}₫</span></div>{statement.purchases.length > 0 ? <div className="mt-sm divide-y divide-divider-soft">{statement.purchases.map((purchase) => <div key={purchase.id} className="flex justify-between gap-sm py-xs font-body text-[13px]"><span className="min-w-0"><span className="block break-words text-ink">{purchase.note || "Giao dịch thẻ"}</span><span className="text-ink-muted-48">{purchase.date}</span></span><span className="shrink-0 text-ink">{formatVND(purchase.amount)}₫</span></div>)}</div> : null}{statement.status === "unpaid" ? <button type="button" onClick={() => { setPaymentTarget(statement); setPaymentDate(today()); setMutationError(null); }} disabled={props.payingStatementId === statement.id} className="mt-sm min-h-11 rounded-sm border border-primary bg-canvas px-md font-body text-[15px] text-primary disabled:opacity-60">Ghi nhận đã thanh toán</button> : null}</div>)}<div className="mt-md flex gap-xs"><button type="button" onClick={() => { setGroupForm(group); setGroupName(group.name); setCloseDay(String(group.statement_close_day)); setMutationError(null); }} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-primary">Sửa nhóm</button><button type="button" onClick={() => setDeleteTarget({ kind: "group", id: group.id, name: group.name })} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-danger">Xóa nhóm</button></div></div> : null}</article>;
+          })}</div>}
+        </section>
+      )}
 
-        <div className="mt-lg">{groups.length === 0 ? <p className="text-center font-body text-[17px] text-ink-muted-48">Chưa có nhóm thẻ nào.</p> : groups.map((group) => <article key={group.id} className="mb-lg rounded-lg border border-hairline bg-canvas p-lg"><div className="flex items-start justify-between gap-md"><div><h3 className="font-body text-[21px] font-semibold tracking-[-0.2px] text-ink">{group.name}</h3><p className="mt-xs font-body text-sm text-ink-muted-48">Chốt sao kê ngày {group.statement_close_day}</p></div><div className="flex shrink-0 gap-sm"><button type="button" onClick={() => { setEditingGroupId(group.id); setGroupName(group.name); setCloseDay(String(group.statement_close_day)); setShowGroupForm(true); }} className="min-h-11 rounded-pill border border-primary bg-canvas px-sm font-body text-sm text-primary">Sửa</button><button type="button" onClick={() => { if (window.confirm(`Xóa nhóm “${group.name}”?`)) onDeleteGroup(group.id); }} className="min-h-11 rounded-pill border border-hairline bg-canvas px-sm font-body text-sm text-ink">Xóa</button></div></div><div className="mt-lg border-t border-hairline pt-md"><h4 className="font-body text-sm font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Sao kê</h4>{group.statements.length === 0 ? <p className="mt-sm font-body text-sm text-ink-muted-48">Chưa có sao kê.</p> : group.statements.map((statement) => <div key={statement.id} className="mt-md border-t border-hairline pt-sm first:border-t-0 first:pt-0"><div className="flex flex-wrap items-center justify-between gap-sm"><div><p className="font-body text-[17px] font-semibold text-ink">{formatVND(statement.amount)}₫</p><p className="mt-1 font-body text-xs text-ink-muted-48">{statement.period_start} đến {statement.period_end}</p></div>{statement.status === "paid" ? <span className="font-body text-sm text-ink-muted-48">Đã thanh toán {statement.paid_at}</span> : <div className="flex items-center gap-xs"><input aria-label={`Ngày thanh toán ${statement.id}`} type="date" value={paymentDates[statement.id] ?? ""} onChange={(event) => setPaymentDates((current) => ({ ...current, [statement.id]: event.target.value }))} className="min-h-11 rounded-sm border border-hairline px-xs font-body text-sm" /><button type="button" disabled={payingStatementId === statement.id || !paymentDates[statement.id]} onClick={() => onPay(statement.id, paymentDates[statement.id])} className="min-h-11 rounded-pill border-none bg-primary px-sm font-body text-sm text-on-primary disabled:opacity-50">{payingStatementId === statement.id ? "Đang lưu" : "Thanh toán"}</button></div>}</div>{statement.purchases.map((purchase) => <p key={purchase.id} className="mt-xs font-body text-xs text-ink-muted-48">{purchase.date} · {purchase.note || "Chi tiêu"} · {formatVND(purchase.amount)}₫</p>)}</div>)}</div></article>)}</div>
-      </section>
+      {groupForm ? <form onSubmit={submitGroup} className="fixed inset-x-0 bottom-0 z-[70] rounded-t-2xl border-t border-hairline bg-canvas px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-lg"><h2 className="font-display text-[21px] font-semibold text-ink">{groupForm === "new" ? "Nhóm thẻ mới" : "Sửa nhóm thẻ"}</h2><label className="mt-md block font-body text-[15px] text-ink">Tên nhóm<input value={groupName} onChange={(event) => setGroupName(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label><label className="mt-md block font-body text-[15px] text-ink">Ngày chốt<input value={closeDay} onChange={(event) => setCloseDay(event.target.value)} inputMode="numeric" className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label>{groupForm !== "new" ? <p className="mt-xs font-body text-[13px] text-ink-muted-48">Ngày chốt mới chỉ áp dụng cho các kỳ được tạo sau thay đổi này.</p> : null}<div className="mt-lg flex gap-xs"><button type="button" onClick={() => setGroupForm(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas text-ink">Hủy</button><button type="submit" disabled={pending} className="min-h-11 flex-[2] rounded-md border-0 bg-primary text-on-primary disabled:opacity-60">{pending ? "Đang lưu…" : "Lưu"}</button></div></form> : null}
 
-      <section className="bg-canvas px-5 py-8 sm:px-8"><div className="mx-auto max-w-3xl"><FinanceSection title="Nợ" description="Khoản cho vay và đi vay." accounts={debts} type="debt" onCreate={beginAccountCreate} onEdit={beginAccountEdit} onDelete={deleteAccount} /><FinanceSection title="Tiết kiệm" description="Các khoản tiền dành riêng." accounts={savings} type="savings" onCreate={beginAccountCreate} onEdit={beginAccountEdit} onDelete={deleteAccount} />
-        {accountFormType && <form className="mt-lg rounded-lg border border-hairline bg-canvas-parchment p-lg" onSubmit={submitAccount}><h3 className="font-display text-[21px] font-semibold tracking-[-0.2px] text-ink">{editingAccount ? "Sửa tài khoản" : accountFormType === "debt" ? "Khoản nợ mới" : "Khoản tiết kiệm mới"}</h3><div className="mt-md grid gap-sm sm:grid-cols-2"><label className="font-body text-sm text-ink">Tên<input aria-label="Tên tài khoản" value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder={accountFormType === "debt" ? "Ví dụ: Minh" : "Ví dụ: Quỹ du lịch"} className="mt-xs min-h-11 w-full rounded-sm border border-hairline bg-canvas px-sm font-body text-[17px] text-ink" /></label>{accountFormType === "debt" && !editingAccount && <label className="font-body text-sm text-ink">Loại nợ<select aria-label="Loại nợ" value={debtDirection} onChange={(event) => setDebtDirection(event.target.value as "lend" | "borrow")} className="mt-xs min-h-11 w-full rounded-sm border border-hairline bg-canvas px-sm font-body text-[17px] text-ink"><option value="borrow">Đi vay</option><option value="lend">Cho vay</option></select></label>}<label className="font-body text-sm text-ink sm:col-span-2">Ghi chú<input aria-label="Ghi chú tài khoản" value={accountNote} onChange={(event) => setAccountNote(event.target.value)} placeholder="Không bắt buộc" className="mt-xs min-h-11 w-full rounded-sm border border-hairline bg-canvas px-sm font-body text-[17px] text-ink" /></label></div>{accountError && <p role="alert" className="mt-sm font-body text-sm text-ink">{accountError}</p>}<div className="mt-lg flex gap-sm"><button type="submit" disabled={savingAccount} className="min-h-11 rounded-pill border-none bg-primary px-[22px] font-body text-[17px] text-on-primary disabled:opacity-50">{savingAccount ? "Đang lưu" : "Lưu"}</button><button type="button" onClick={resetAccountForm} className="min-h-11 rounded-pill border border-primary bg-canvas px-[22px] font-body text-[17px] text-primary">Hủy</button></div></form>}
-        {accountError && !accountFormType && <p role="alert" className="mt-md font-body text-sm text-ink">{accountError}</p>}</div></section>
+      {editingAccount ? <form onSubmit={submitAccount} className="fixed inset-x-0 bottom-0 z-[70] rounded-t-2xl border-t border-hairline bg-canvas px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-lg"><h2 className="font-display text-[21px] font-semibold text-ink">Sửa thông tin</h2><label className="mt-md block font-body text-[15px] text-ink">Tên<input value={accountName} onChange={(event) => setAccountName(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label><label className="mt-md block font-body text-[15px] text-ink">Ghi chú<input value={accountNote} onChange={(event) => setAccountNote(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label><div className="mt-lg flex gap-xs"><button type="button" onClick={() => setEditingAccount(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas">Hủy</button><button type="submit" disabled={pending} className="min-h-11 flex-[2] rounded-md border-0 bg-primary text-on-primary disabled:opacity-60">{pending ? "Đang lưu…" : "Lưu"}</button></div></form> : null}
+
+      {paymentTarget ? <div className="fixed inset-x-0 bottom-0 z-[70] rounded-t-2xl border-t border-hairline bg-canvas px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-lg"><h2 className="font-display text-[21px] font-semibold text-ink">Ghi nhận thanh toán</h2><p className="mt-xs font-body text-[15px] text-ink-muted-80">Thao tác này chỉ cập nhật trạng thái sao kê {formatVND(paymentTarget.amount)}₫. Không tạo thêm chi phí hoặc thay đổi ngân sách cũ.</p><label className="mt-md block font-body text-[15px] text-ink">Ngày thanh toán<input type="date" max={today()} value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label><div className="mt-lg flex gap-xs"><button type="button" onClick={() => setPaymentTarget(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas">Hủy</button><button type="button" onClick={confirmPayment} disabled={pending || !paymentDate} className="min-h-11 flex-[2] rounded-md border-0 bg-primary text-on-primary disabled:opacity-60">{pending ? "Đang lưu…" : "Xác nhận"}</button></div></div> : null}
+
+      <ConfirmationSheet open={Boolean(deleteTarget)} title={deleteTarget ? `Xóa “${deleteTarget.name}”?` : "Xóa?"} consequence={deleteTarget?.kind === "group" ? "Chỉ có thể xóa nhóm chưa có giao dịch. Không thể hoàn tác thao tác này." : "Chỉ có thể xóa tài khoản chưa có giao dịch. Không thể hoàn tác thao tác này."} confirmLabel="Xóa" pending={pending} pendingLabel="Đang xóa…" error={deleteTarget ? mutationError : null} onConfirm={confirmDelete} onCancel={() => { setDeleteTarget(null); setMutationError(null); }} />
     </main>
   );
 }
 
-function FinanceSection({ title, description, accounts, type, onCreate, onEdit, onDelete }: { title: string; description: string; accounts: FinanceAccount[]; type: "debt" | "savings"; onCreate: (type: "debt" | "savings") => void; onEdit: (account: FinanceAccount) => void; onDelete: (account: FinanceAccount) => void }) {
-  return <section className="border-t border-hairline py-8 first:border-t-0 first:pt-0"><div className="flex items-end justify-between gap-md"><div><h2 className="font-display text-[28px] font-semibold tracking-[-0.3px] text-ink">{title}</h2><p className="mt-1 font-body text-sm text-ink-muted-48">{description}</p></div><button type="button" onClick={() => onCreate(type)} className="min-h-11 rounded-pill border border-primary bg-canvas px-sm font-body text-sm text-primary">Thêm</button></div>{accounts.length === 0 ? <p className="mt-lg font-body text-sm text-ink-muted-48">Chưa có tài khoản.</p> : <div className="mt-lg space-y-sm">{accounts.map((account) => <article key={account.id} className="rounded-lg border border-hairline bg-canvas-parchment p-md"><div className="flex items-start justify-between gap-sm"><div><h3 className="font-body text-[17px] font-semibold text-ink">{account.name}</h3><p className="mt-1 font-body text-xs text-ink-muted-48">{account.type === "debt" ? account.debt_direction === "lend" ? "Cho vay" : "Đi vay" : "Tiền gửi"}{account.note ? ` · ${account.note}` : ""}</p></div><p className="font-display text-lg font-semibold text-ink">{formatVND(Math.abs(account.balance))}₫</p></div><div className="mt-sm border-t border-hairline pt-xs">{account.transactions.length === 0 ? <p className="font-body text-xs text-ink-muted-48">Chưa có giao dịch.</p> : account.transactions.map((transaction) => <p key={transaction.id} className="mt-1 font-body text-xs text-ink-muted-48">{transaction.date} · {transaction.note || "Giao dịch"} · {transaction.type === "expense" ? "−" : "+"}{formatVND(transaction.amount)}₫</p>)}</div><div className="mt-sm flex gap-sm"><button type="button" onClick={() => onEdit(account)} className="min-h-11 rounded-pill border border-primary bg-canvas px-sm font-body text-sm text-primary">Sửa</button><button type="button" onClick={() => onDelete(account)} className="min-h-11 rounded-pill border border-hairline bg-canvas px-sm font-body text-sm text-ink">Xóa</button></div></article>)}</div>}</section>;
+function LoadingState({ label }: { label: string }) {
+  return <div role="status" className="mt-lg"><p className="font-body text-[15px] text-ink-muted-48">{label}</p><div className="mt-sm h-24 animate-pulse rounded-md bg-divider-soft" /></div>;
+}
+
+function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return <div role="alert" className="mt-lg"><p className="font-body text-[15px] text-danger">{message}</p>{onRetry ? <button type="button" onClick={onRetry} className="mt-sm min-h-11 rounded-sm border border-primary bg-canvas px-md font-body text-[15px] text-primary">Thử lại</button> : null}</div>;
+}
+
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return <p className="mt-lg rounded-md bg-canvas-parchment p-lg font-body text-[15px] leading-[21px] text-ink-muted-80">{children}</p>;
 }

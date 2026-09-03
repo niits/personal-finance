@@ -8,7 +8,7 @@
 | Author | niits |
 | Created | 2026-04-29 |
 | Last Updated | 2026-05-30 |
-| Related | TECHNICAL_DESIGN.md, specs/debt-tracking-tests.md |
+| Related | TECHNICAL_DESIGN.md, intent/transactions-behavior.md |
 
 ---
 
@@ -22,9 +22,8 @@ Three layers of automated testing:
 | 2 | Integration | Vitest + `@cloudflare/vitest-pool-workers` | API routes / schema with real D1 binding |
 | 3 | E2E | Playwright | API + UI flows in a real browser against `dev:cf` |
 
-Per-feature test specifications enumerate the concrete cases:
-
-- `specs/debt-tracking-tests.md` — Debt Tracking (Epic 4) test cases & edge-case matrix.
+Feature tests follow the active behavior intents and the exceptional states documented
+in `personal-finance-iphone13-flows.drawio`.
 
 ---
 
@@ -183,7 +182,7 @@ session cookie.
 
 **Seed levels** (`resetTestData(level)`): `minimal` · `categories` · `budget` ·
 `full` · `debts`. The `debts` level seeds a lend (open, partially repaid), a borrow
-(open), and a settled debt — see `specs/debt-tracking-tests.md` §5.
+(open), and a settled debt, following `intent/transactions-behavior.md`.
 
 **File location:** `tests/e2e/specs/*.spec.ts`.
 

@@ -117,28 +117,29 @@ Page-level layout shells. Receive all data as props. No `useEffect`, no `fetch`,
 |-----------|-------------|
 | `DashboardTemplate` | Home page layout: month stepper, DashboardSummary, TransactionGroup list, TransactionForm trigger, transaction action sheet |
 | `BudgetTemplate` | Budget page: monthly + custom budgets, inline create/adjust/edit forms, adjustment history |
-| `CategoriesTemplate` | Category management: hierarchical tree, AI suggest/recategorize review sheets |
-| `StatisticsTemplate` | Statistics page: month selector, AI insight cards + `VegaChart`s, regenerate flow |
-| `DebtOverviewTemplate` | Debts page (`/debts`): lend/borrow summary tiles, `DebtPartyCard` lists, settled section |
+| `CategoriesTemplate` | Category management: expense/income trees, protected states, add/edit/delete flows |
+| `StatisticsTemplate` | Statistics page: month selector, narrative insights, accessible `VegaChart`s, regenerate flow |
+| `CreditCardsTemplate` | Finance page: Nợ/Tiền gửi/Chi thẻ selector, truthful outcomes, account and statement details |
 
 ### 2.6 Pages (App Router)
 
 Next.js `page.tsx` files. Only responsibility: fetch data for the current month/state, handle loading/error states, render the matching template.
 
-Routes are flat under the `(app)` route group (Epic 2 flattened them from the old `/dashboard/*` prefix; Epic 4 moved categories under `/account` and added `/debts`).
+Routes are flat under the `(app)` route group. Budget and Category management belong to Account; debt, savings, and cards share Finance.
 
 ```
 src/app/(app)/page.tsx                      → DashboardTemplate        (/)
 src/app/(app)/statistics/page.tsx           → StatisticsTemplate       (/statistics)
-src/app/(app)/debts/page.tsx                → DebtOverviewTemplate     (/debts)
-src/app/(app)/debts/[id]/page.tsx           → debt detail (DebtRepaymentItem, LinkTransactionSheet)
-src/app/(app)/budget/page.tsx               → BudgetTemplate           (/budget)
+src/app/(app)/cards/page.tsx                → CreditCardsTemplate      (/cards)
+src/app/(app)/account/budget/page.tsx       → BudgetTemplate           (/account/budget)
 src/app/(app)/account/page.tsx              → account settings         (/account)
 src/app/(app)/account/categories/page.tsx   → CategoriesTemplate       (/account/categories)
 src/app/(app)/categories/page.tsx           → redirect → /account/categories
+src/app/(app)/budget/page.tsx               → redirect → /account/budget
+src/app/(app)/debts/page.tsx                → redirect → /cards
 ```
 
-Bottom-nav tabs: Tổng quan (`/`) · Thống kê (`/statistics`) · Nợ (`/debts`) · Ngân sách (`/budget`) · Tài khoản (`/account`).
+Bottom navigation: Tổng quan (`/`) · Thống kê (`/statistics`) · Tài chính (`/cards`) · Tài khoản (`/account`).
 
 ---
 

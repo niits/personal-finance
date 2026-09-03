@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { expressionInterpreter } from "vega-interpreter";
 import type { TopLevelSpec } from "vega-lite";
 import type { Insight } from "@/lib/statistics";
+import { chartDatumLabel, chartTextSummary, formatChartValue } from "./presentation";
 
 // ─── Design tokens (must stay in sync with DESIGN.md) ────────────────────────
 
@@ -288,43 +289,49 @@ const VegaEmbed = dynamic<VegaEmbedProps>(
 
 // ─── Insight type badge styles ────────────────────────────────────────────────
 
-const INSIGHT_TYPE_STYLE: Record<string, { label: string; color: string; bg: string }> = {
-  analysis:       { label: "Phân tích",  color: "#0066cc", bg: "rgba(0,102,204,0.08)" },
-  recommendation: { label: "Gợi ý",      color: "#1c7c34", bg: "rgba(48,209,88,0.1)"  },
-  alert:          { label: "Cảnh báo",   color: "#b94a05", bg: "rgba(255,69,58,0.08)" },
+const INSIGHT_TYPE_LABEL: Record<string, string> = {
+  analysis: "Điều đáng chú ý",
+  recommendation: "Bạn có thể làm gì",
+  alert: "Cần chú ý",
 };
 
 // ─── Public component ─────────────────────────────────────────────────────────
 
 export type VegaChartProps = {
   insight: Insight;
+  featured?: boolean;
 };
 
-export function VegaChart({ insight }: VegaChartProps) {
+export function VegaChart({ insight, featured = false }: VegaChartProps) {
   const spec = buildVegaLiteSpec(insight);
-  const badge = insight.type ? INSIGHT_TYPE_STYLE[insight.type] ?? null : null;
-  const [vegaError, setVegaError] = useState<string | null>(null);
+  const typeLabel = insight.type ? INSIGHT_TYPE_LABEL[insight.type] ?? null : null;
+  const textSummary = chartTextSummary(insight);
+  const [vegaError, setVegaError] = useState(false);
 
   return (
-    <div style={{ background: "var(--canvas)", borderRadius: 18, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-        <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.374, margin: 0, flex: 1 }}>
-          {insight.title}
+    <article className="border-b border-divider-soft py-6 first:pt-0 last:border-b-0">
+      {typeLabel ? (
+        <p className="mb-2 font-body text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted-48">
+          {typeLabel}
         </p>
-        {badge && (
-          <span className="font-body text-xs font-semibold rounded-sm px-2 py-[3px] shrink-0 mt-px" style={{ color: badge.color, background: badge.bg }}>
-            {badge.label}
-          </span>
-        )}
-      </div>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", lineHeight: 1.5, marginBottom: spec ? 16 : 0 }}>
+      ) : null}
+      {featured ? (
+        <h1 className="m-0 font-display text-[28px] leading-[33px] font-semibold tracking-[-0.02em] text-ink">
+          {insight.title}
+        </h1>
+      ) : (
+        <h2 className="m-0 font-display text-[21px] leading-[26px] font-semibold tracking-[-0.01em] text-ink">
+          {insight.title}
+        </h2>
+      )}
+      <p className="mt-2 mb-0 font-body text-[17px] leading-[25px] text-ink-muted-80">
         {insight.summary}
       </p>
-      {spec && (
-        <div style={{ width: "100%" }}>
+      {spec && !vegaError ? (
+        <figure className="m-0 mt-5" aria-label={textSummary ?? undefined}>
           <VegaEmbed
             spec={spec}
-            onError={(e) => setVegaError(String(e))}
+            onError={() => setVegaError(true)}
             options={{
               actions: false,
               renderer: "canvas",
@@ -334,11 +341,41 @@ export function VegaChart({ insight }: VegaChartProps) {
               timeFormatLocale: VEGA_TIME_FORMAT_LOCALE,
             }}
           />
-          {vegaError && (
-            <pre style={{ fontSize: 12, color: "red", whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 8 }}>{vegaError}</pre>
-          )}
-        </div>
-      )}
-    </div>
+          {textSummary ? (
+            <figcaption className="mt-2 font-body text-[13px] leading-[18px] text-ink-muted-48">
+              {textSummary}
+            </figcaption>
+          ) : null}
+        </figure>
+      ) : null}
+      {vegaError ? (
+        <p role="status" className="mt-4 mb-0 rounded-md bg-canvas-parchment px-4 py-3 font-body text-[15px] leading-[21px] text-ink-muted-80">
+          Biểu đồ hiện chưa hiển thị được. Bạn vẫn có thể đọc nhận xét ở trên.
+        </p>
+      ) : null}
+      {spec && insight.chart_data?.length ? (
+        <details className="mt-3 font-body text-[13px] leading-[18px] text-ink-muted-48">
+          <summary className="flex min-h-11 cursor-pointer items-center text-primary">Xem dữ liệu biểu đồ</summary>
+          <div className="overflow-x-auto pb-1">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-hairline">
+                  <th className="py-2 pr-3 font-semibold text-ink">Mục</th>
+                  <th className="py-2 text-right font-semibold text-ink">Giá trị</th>
+                </tr>
+              </thead>
+              <tbody>
+                {insight.chart_data.map((datum) => (
+                  <tr key={`${datum.name}-${datum.series ?? "value"}-${datum.value}`} className="border-b border-divider-soft last:border-b-0">
+                    <td className="py-2 pr-3 text-ink-muted-80">{chartDatumLabel(datum)}</td>
+                    <td className="py-2 text-right tabular-nums text-ink">{formatChartValue(datum.value, insight.value_unit)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
+    </article>
   );
 }

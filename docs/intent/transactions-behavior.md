@@ -46,7 +46,8 @@
 ## 5. Transaction feed and logging
 
 - The feed is reverse chronological, grouped by date, with month navigation.
-- It supports filtering by month, category, custom budget, and note search.
+- There is no transaction filter. The expected transaction volume is small enough
+  to scan directly within the selected month.
 - New transactions default to an expense, today's date, and a focused amount
   input. The form remembers the last category, custom budgets, and payment
   method.
