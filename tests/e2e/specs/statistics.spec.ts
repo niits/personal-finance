@@ -23,6 +23,7 @@ test.describe("Statistics — page render", () => {
     // Navigate back two months to a month with no seeded data
     await page.getByRole("button", { name: "Tháng trước" }).click();
     await page.getByRole("button", { name: "Tháng trước" }).click();
+    await page.getByRole("button", { name: "Phân tích tháng này" }).click();
     await expect(page.getByRole("heading", { name: "Chưa có giao dịch để phân tích" })).toBeVisible();
     await expect(page.getByText(/Không có giao dịch nào/)).toBeVisible();
   });

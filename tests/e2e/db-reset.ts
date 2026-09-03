@@ -33,6 +33,8 @@ export function wipeUserData(userId: string): void {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = OFF");
   db.transaction(() => {
+    db.prepare(`DELETE FROM statistics_report WHERE user_id = ?`).run(userId);
+    db.prepare(`DELETE FROM ai_suggestion_run WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM "transaction" WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM debt WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM finance_account WHERE user_id = ?`).run(userId);
