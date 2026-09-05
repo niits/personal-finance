@@ -6,7 +6,8 @@ import {
   isOverdue,
 } from "@/lib/debt";
 
-// Cases trace to docs/specs/debt-tracking-tests.md §3 (UNIT-*).
+// Legacy debt cases preserve migration behavior; the target model is documented in
+// docs/product/behavior/transactions.md.
 
 describe("debtOpeningTxType / repaymentTxType (D-05, D-08)", () => {
   it("UNIT-TYPE-1: lend opens as expense, borrow opens as income", () => {
@@ -26,7 +27,7 @@ describe("debtOpeningTxType / repaymentTxType (D-05, D-08)", () => {
   });
 });
 
-describe("computeRemaining (SRS §3.4)", () => {
+describe("computeRemaining (docs/product/behavior/transactions.md)", () => {
   it("UNIT-CALC-1: full principal outstanding when nothing repaid", () => {
     expect(computeRemaining(1_000_000, 0)).toBe(1_000_000);
   });
@@ -64,7 +65,7 @@ describe("computeRemaining (SRS §3.4)", () => {
   });
 });
 
-describe("isOverdue (SRS §3.4)", () => {
+describe("isOverdue (docs/product/behavior/transactions.md)", () => {
   const TODAY = "2026-05-30";
 
   it("UNIT-OVERDUE-1: past due date + open → overdue", () => {

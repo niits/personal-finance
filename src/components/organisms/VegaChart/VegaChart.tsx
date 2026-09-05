@@ -7,7 +7,7 @@ import type { TopLevelSpec } from "vega-lite";
 import type { Insight } from "@/lib/statistics";
 import { chartDatumLabel, chartTextSummary, formatChartValue } from "./presentation";
 
-// ─── Design tokens (must stay in sync with DESIGN.md) ────────────────────────
+// Design values must stay aligned with docs/design/calm-ledger.md.
 
 const PRIMARY = "#0066cc";
 // Storytelling-with-data "focus attention": the highlighted bar is PRIMARY, every

@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-05-02 |
 | Author | niits |
-| Related | TECHNICAL_DESIGN.md §4.3, BRD TXN-06 |
+| Related | [`product/behavior/transactions.md`](../product/behavior/transactions.md) |
 
 ## Context
 

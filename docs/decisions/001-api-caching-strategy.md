@@ -2,10 +2,10 @@
 
 | Field | Value |
 |-------|-------|
-| Status | Accepted |
+| Status | Superseded by ADR 006 |
 | Date | 2026-04-29 |
 | Author | niits |
-| Related | TECHNICAL_DESIGN.md §4, BRD NFR-P04, NFR-P05 |
+| Related | [`ADR 006`](./006-http-revalidation-for-editable-history.md) |
 
 ## Context
 

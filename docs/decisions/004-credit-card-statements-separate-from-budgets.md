@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-08-25 |
 | Author | niits |
-| Related | `docs/intent/credit-card-behavior.md` |
+| Related | [`product/behavior/credit-cards.md`](../product/behavior/credit-cards.md), [`architecture/technical.md`](../architecture/technical.md) |
 
 ## Context
 

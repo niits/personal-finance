@@ -1,84 +1,99 @@
-# Documentation — Personal Finance Tracker
+# Documentation
 
-## Document Registry
+## Contract
 
-### Core
+Every non-ADR, non-incident document describes the latest approved target, including
+behavior not yet implemented. Do not preserve outdated alternatives in product, design,
+architecture, feature, or quality documents.
 
-Stable project-wide standards. Written once, updated only when requirements or architecture change.
+ADRs in [`decisions/`](./decisions/) preserve why decisions were made and may describe
+superseded behavior. Incidents in [`incidents/`](./incidents/) preserve historical
+evidence but are non-normative. All other documents contain only the latest target.
 
-| Document | Type | Status | Description |
-|----------|------|--------|-------------|
-| [BRD.md](./BRD.md) | Business Requirements | Draft | Requirements, data model, business rules, UI specs |
-| [TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md) | Technical Design | Draft | DB schema, API contracts, edge cases, computed values |
-| [COMPONENT_ARCHITECTURE.md](./COMPONENT_ARCHITECTURE.md) | Frontend Architecture | Active | CDD philosophy, component hierarchy, Storybook conventions, refactor roadmap |
-| [CALM_LEDGER_APP_REDESIGN.md](./CALM_LEDGER_APP_REDESIGN.md) | Product UI Design | Active | Outcome-driven composition and CDD contracts for the authenticated app |
-| [TESTING.md](./TESTING.md) | Testing Strategy | Draft | Unit and integration test setup, patterns, coverage targets |
-| [SEMANTIC_LAYER.md](./SEMANTIC_LAYER.md) | Technical Design | Active | Server-side metric layer between D1 and the AI statistics agent (LLMs never do arithmetic) |
+## Authority
 
-### Architecture Decision Records (`adr/`)
+| Question | Authority |
+|---|---|
+| What is the product trying to achieve? | [`product/requirements.md`](./product/requirements.md) |
+| How must transactions, budgets, or cards behave? | [`product/behavior/`](./product/behavior/) |
+| How must the product look and interact globally? | [`design/calm-ledger.md`](./design/calm-ledger.md) |
+| What is the hierarchy and state model of a screen? | [`design/surfaces/`](./design/surfaces/) |
+| How is the target system implemented? | [`architecture/`](./architecture/) |
+| How does AI Organize behave? | [`features/ai-organize.md`](./features/ai-organize.md) |
+| Why was an architectural or product-system choice made? | [`decisions/`](./decisions/) |
+| How is behavior verified? | [`quality/testing.md`](./quality/testing.md) |
+| What happened during an operational failure? | [`incidents/`](./incidents/) |
 
-One file per decision. Accumulates as architectural choices are made. Never deleted — superseded ADRs are marked as such.
+When documents appear to conflict, current product behavior constrains surface design;
+design constrains presentation; architecture implements both. ADRs explain history but
+do not override a current contract. Stop and obtain a product decision when this order
+does not resolve a real semantic conflict.
 
-| Document | Status | Summary |
-|----------|--------|---------|
-| [001-api-caching-strategy.md](./adr/001-api-caching-strategy.md) | Accepted | HTTP `Cache-Control` + SWR in-memory cache for categories and per-month data |
-| [002-platform-stay-cloudflare.md](./adr/002-platform-stay-cloudflare.md) | Accepted | Stay on Cloudflare Workers + D1; Firebase/Vercel migration not justified |
-| [003-no-monthly-view-pagination.md](./adr/003-no-monthly-view-pagination.md) | Accepted | Monthly transaction list loads in full; cursor-based pagination if ever needed |
-| [004-credit-card-statements-separate-from-budgets.md](./adr/004-credit-card-statements-separate-from-budgets.md) | Accepted | Card statements are independent from working-day budget periods |
+## Registry
 
-### Behavior Intents (`intent/`)
+### Product
 
-Confirmed product behavior that takes precedence over older draft requirements.
+| Document | Purpose |
+|---|---|
+| [`product/requirements.md`](./product/requirements.md) | Product purpose, scope, capabilities, constraints, and exclusions |
+| [`product/behavior/transactions.md`](./product/behavior/transactions.md) | Transaction lifecycle, consumption, debt, savings, and account association |
+| [`product/behavior/budgets.md`](./product/behavior/budgets.md) | Working-day periods, effective limits, adjustments, pace, and custom budgets |
+| [`product/behavior/credit-cards.md`](./product/behavior/credit-cards.md) | Card groups, statements, payments, and unpaid-spend semantics |
+| [`product/behavior/categories.md`](./product/behavior/categories.md) | Hierarchy, assignability, protected categories, and deletion rules |
 
-| Document | Status | Description |
-|----------|--------|-------------|
-| [budget-behavior.md](./intent/budget-behavior.md) | Active | Working-day budget periods, consumption-only spending, and custom budgets |
-| [transactions-behavior.md](./intent/transactions-behavior.md) | Active | CRUD transactions, debts, savings, and credit-card interaction |
-| [credit-card-behavior.md](./intent/credit-card-behavior.md) | Active | Card groups, statements, payment status, and dashboard semantics |
+### Design
 
-### Feature Specifications (`specs/`)
+| Document | Purpose |
+|---|---|
+| [`design/calm-ledger.md`](./design/calm-ledger.md) | Visual language, tokens, global interaction, content, and accessibility |
+| [`design/surfaces/app-shell.md`](./design/surfaces/app-shell.md) | Global navigation and shell states |
+| [`design/surfaces/dashboard.md`](./design/surfaces/dashboard.md) | Monthly outcome, pace line, actions, and ledger hierarchy |
+| [`design/surfaces/transactions.md`](./design/surfaces/transactions.md) | Responsive transaction form and edit/delete interactions |
+| [`design/surfaces/statistics.md`](./design/surfaces/statistics.md) | Narrative reports, charts, generation, and freshness states |
+| [`design/surfaces/finance.md`](./design/surfaces/finance.md) | Debt, savings, cards, and finance-account details |
+| [`design/surfaces/account.md`](./design/surfaces/account.md) | Management links, providers, and sign-out |
+| [`design/surfaces/budgets.md`](./design/surfaces/budgets.md) | Monthly/custom budget management hierarchy |
+| [`design/surfaces/categories.md`](./design/surfaces/categories.md) | Category tree management and protected states |
 
-One file per feature or topic. Accumulates as features are designed and built.
+### Architecture And Features
 
-| Document | Status | Description |
-|----------|--------|-------------|
-| [ai-organize.md](./specs/ai-organize.md) | Active | CDD component design for the AI Organize button and review sheet (Epic 3 Part 2) |
-| [personal-finance-iphone13-flows.drawio](./personal-finance-iphone13-flows.drawio) | Interaction Design | Active | Canonical iPhone flows and exceptional states for all product surfaces |
+| Document | Purpose |
+|---|---|
+| [`architecture/technical.md`](./architecture/technical.md) | Runtime, security, routes, persistence, APIs, providers, and caching |
+| [`architecture/components.md`](./architecture/components.md) | Component layers, view models, files, and Storybook contracts |
+| [`architecture/semantic-layer.md`](./architecture/semantic-layer.md) | Deterministic financial metrics and AI arithmetic boundary |
+| [`features/ai-organize.md`](./features/ai-organize.md) | AI Organize flow, selection, apply, and recovery behavior |
+| [`quality/testing.md`](./quality/testing.md) | Unit, Worker integration, Storybook, E2E, and release gates |
 
-### Dev Logs (`dev_logs/`)
+### Decisions
 
-Chronological notes from debugging sessions, design decisions, and implementation work. Not authoritative — decision outcomes are extracted into ADRs and specs above.
+| ADR | Status | Decision |
+|---|---|---|
+| [`001-api-caching-strategy.md`](./decisions/001-api-caching-strategy.md) | Superseded by ADR 006 | Original browser and SWR caching policy |
+| [`002-platform-stay-cloudflare.md`](./decisions/002-platform-stay-cloudflare.md) | Partially superseded by ADR 007 | Stay on Cloudflare Workers and D1 |
+| [`003-no-monthly-view-pagination.md`](./decisions/003-no-monthly-view-pagination.md) | Accepted | Load the full selected month |
+| [`004-credit-card-statements-separate-from-budgets.md`](./decisions/004-credit-card-statements-separate-from-budgets.md) | Accepted | Keep statement payment separate from consumption |
+| [`005-adopt-calm-ledger-redesign.md`](./decisions/005-adopt-calm-ledger-redesign.md) | Accepted | Adopt outcome-driven Calm Ledger composition |
+| [`006-http-revalidation-for-editable-history.md`](./decisions/006-http-revalidation-for-editable-history.md) | Accepted | Use private validator-based revalidation for mutable history |
+| [`007-authentication-and-ai-providers.md`](./decisions/007-authentication-and-ai-providers.md) | Accepted | Support Google and GitHub with OpenAI |
 
-| File | Summary |
-|------|---------|
-| [20260429_auth_debug.md](./dev_logs/20260429_auth_debug.md) | GitHub OAuth broken in local dev — 3 root causes and fixes |
-| [20260516_staging_auth_redirect.md](./dev_logs/20260516_staging_auth_redirect.md) | HTTPS staging auth loop — secure Better Auth cookie not recognized by route guard |
+### Incidents
 
----
+| Document | Purpose |
+|---|---|
+| [`2026-04-29-auth-debug.md`](./incidents/2026-04-29-auth-debug.md) | Local OAuth, D1 adapter, and auth schema failure investigation |
+| [`2026-05-16-staging-auth-redirect.md`](./incidents/2026-05-16-staging-auth-redirect.md) | Secure-cookie route-guard regression investigation |
 
-## Quick Reference
+## Entry Points
 
-### Requirement IDs
+- UI work: design foundation, owning surface, component architecture, and relevant
+  product behavior.
+- API/data/auth/runtime work: technical architecture, relevant behavior, and ADRs.
+- AI/statistics work: semantic layer, AI Organize when applicable, and Statistics
+  surface.
+- Test work: testing strategy plus the contract being verified.
 
-| Prefix | Domain |
-|--------|--------|
-| AUTH-xx | Authentication |
-| TXN-xx | Transaction management |
-| MBGT-xx | Monthly budget |
-| CBGT-xx | Custom budget |
-| BCFG-xx | Budget config |
-| CAT-xx | Category management |
-| CHART-xx | Pace line chart |
-| RPT-xx | Reporting & dashboard |
-| STAT-xx | Statistics & AI insights |
-| DEBT-xx | Debt tracking |
-| CARD-xx | Credit-card statements |
-| BR-xx | Business rules |
-| NFR-xx | Non-functional requirements |
-
-### Flow Index
-
-The editable source for authentication, Dashboard, transactions, Statistics, Finance,
-Account, Budget, and Category flows is
-[`personal-finance-iphone13-flows.drawio`](./personal-finance-iphone13-flows.drawio).
-Confirmed behavior in `intent/` takes precedence when an older diagram label conflicts.
+The retired monolithic BRD, redesign, technical design, component inventory, intent,
+spec, and Draw.io sources were consolidated into current contracts or ADRs.
+They are not retained as compatibility copies because that would recreate conflicting
+authorities.
