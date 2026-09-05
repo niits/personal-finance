@@ -14,7 +14,7 @@
 - **Custom budgets** — open-ended named budgets for trips or projects; one transaction can belong to multiple custom budgets
 - **Hierarchical categories** — up to 3 levels; only leaf nodes are assignable to transactions
 - **AI organization and insights** — reviewable categorization changes and narrative monthly analysis
-- **GitHub OAuth** — authentication via better-auth; each GitHub account is an isolated data silo
+- **Google and GitHub OAuth** — target authentication via better-auth with strict per-user data isolation
 
 ---
 
@@ -41,6 +41,8 @@ BETTER_AUTH_SECRET=...
 BETTER_AUTH_URL=http://localhost:8787
 GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 ```
 
 Apply migrations to the local D1 database:
@@ -91,20 +93,13 @@ Schema rules: only additive changes (`ADD COLUMN`, new tables). Use the expand/c
 ```
 src/
 ├── app/
-│   ├── api/               # API routes
-│   │   ├── transactions/
-│   │   ├── categories/
-│   │   ├── monthly-budgets/
-│   │   ├── custom-budgets/
-│   │   ├── dashboard/
-│   │   ├── pace-line/
-│   │   ├── budget-config/
-│   │   └── ai-suggestion-runs/
+│   ├── api/               # Authenticated API route families
 │   └── (app)/             # Authenticated UI pages
-├── components/            # Shared UI components
-└── lib/                   # Business logic (validators, pace-line calc, auth, db, seed)
+├── components/            # Layered UI components and stories
+├── lib/                   # Domain logic, auth, data, and AI boundaries
+└── workers/               # Scheduled Worker entry points
 migrations/                # D1 schema migrations (applied in order)
-docs/                      # Project documentation
+docs/                      # Canonical current contracts and ADR history
 ```
 
 ---
@@ -113,8 +108,8 @@ docs/                      # Project documentation
 
 | File | Description |
 |------|-------------|
-| [docs/BRD.md](docs/BRD.md) | Business requirements — data model, business rules, UI specs |
-| [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) | Schema, API contracts, edge cases |
-| [docs/TESTING.md](docs/TESTING.md) | Testing strategy — unit and integration setup |
-| [DESIGN.md](DESIGN.md) | Design system — color tokens, typography, spacing (read before writing any UI) |
-| [docs/CALM_LEDGER_APP_REDESIGN.md](docs/CALM_LEDGER_APP_REDESIGN.md) | Authenticated app composition and component contracts |
+| [docs/README.md](docs/README.md) | Documentation registry, authority rules, and task entry points |
+| [docs/product/requirements.md](docs/product/requirements.md) | Latest product scope, capabilities, and exclusions |
+| [docs/design/calm-ledger.md](docs/design/calm-ledger.md) | Visual and interaction system |
+| [docs/architecture/technical.md](docs/architecture/technical.md) | Runtime, data, API, auth, provider, and cache contracts |
+| [docs/quality/testing.md](docs/quality/testing.md) | Unit, integration, Storybook, and E2E strategy |

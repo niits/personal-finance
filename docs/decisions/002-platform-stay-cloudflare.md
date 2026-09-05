@@ -2,10 +2,10 @@
 
 | Field | Value |
 |-------|-------|
-| Status | Accepted |
+| Status | Partially superseded by ADR 007 |
 | Date | 2026-05-06 |
 | Author | niits |
-| Related | TECHNICAL_DESIGN.md §1 |
+| Related | [`architecture/technical.md`](../architecture/technical.md), [`ADR 007`](./007-authentication-and-ai-providers.md) |
 
 ## Context
 
@@ -39,6 +39,9 @@ Firebase's actual strengths — real-time listeners, client-side offline persist
 - Current stack is unchanged: Cloudflare Workers, D1, Kysely ORM, better-auth, `@opennextjs/cloudflare`
 - All SQL migrations, integration tests, and wrangler config remain valid
 - Google Auth and Gemini API changes are tracked as separate small tasks
+
+The platform decision remains accepted. ADR 007 supersedes only the provider-specific
+recommendations above; it does not supersede the Cloudflare Workers and D1 decision.
 
 ## When to Revisit
 
