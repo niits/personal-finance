@@ -46,13 +46,12 @@ export type DashboardTemplateProps = {
   transactions: Transaction[];
   loading: boolean;
   selectedMonth: string;
-  isCurrentMonth: boolean;
+  currentMonth: string;
   deleting: boolean;
   actionTxn: Transaction | null;
   formOpen: boolean;
   editTxn: Transaction | undefined;
-  onPrevMonth: () => void;
-  onNextMonth: () => void;
+  onSelectMonth: (month: string) => void;
   onSetActionTxn: (txn: Transaction | null) => void;
   onOpenForm: (txn?: Transaction) => void;
   onCloseForm: () => void;
@@ -77,14 +76,19 @@ function formatVND(amount: number) {
   return `${vndFormatter.format(amount)}₫`;
 }
 
-function formatPeriodDate(value: string) {
-  const [, month, day] = value.split("-");
-  return `${Number(day)}/${Number(month)}`;
-}
-
 function formatMonth(value: string) {
   const [year, month] = value.split("-");
   return `Tháng ${Number(month)}/${year}`;
+}
+
+function recentMonths(current: string, count = 24): string[] {
+  const [year, month] = current.split("-").map(Number);
+  const months: string[] = [];
+  for (let index = 0; index < count; index++) {
+    const date = new Date(year, month - 1 - index, 1);
+    months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return months;
 }
 
 function formatDateHeader(value: string) {
@@ -140,13 +144,12 @@ export function DashboardTemplate({
   transactions,
   loading,
   selectedMonth,
-  isCurrentMonth,
+  currentMonth,
   deleting,
   actionTxn,
   formOpen,
   editTxn,
-  onPrevMonth,
-  onNextMonth,
+  onSelectMonth,
   onSetActionTxn,
   onOpenForm,
   onCloseForm,
@@ -165,6 +168,8 @@ export function DashboardTemplate({
 }: DashboardTemplateProps) {
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<number | null>(null);
   const organizeBusy = organizeState === "loading" || organizeState === "applying";
+  const isCurrentMonth = selectedMonth === currentMonth;
+  const months = recentMonths(currentMonth);
   const groups = groupByDate(transactions);
   const dates = Object.keys(groups).toSorted((a, b) => b.localeCompare(a));
   const budget = data?.monthly_budget;
@@ -183,102 +188,75 @@ export function DashboardTemplate({
   return (
     <div className="min-h-[calc(100svh-44px-72px)] bg-canvas-parchment pb-lg">
       <div className="mx-auto w-full max-w-[720px]">
-        <header className="border-b border-hairline bg-canvas px-5 pb-md pt-lg">
-          <div className="flex items-center justify-between gap-sm">
-            <button type="button" aria-label="Tháng trước" onClick={onPrevMonth} className="-ml-sm flex size-11 items-center justify-center border-none bg-transparent font-body text-[24px] text-primary">
-              ‹
-            </button>
-            <p className="font-body text-sm font-semibold text-ink">{selectedMonth ? formatMonth(selectedMonth) : "Đang tải"}</p>
-            <button
-              type="button"
-              aria-label="Tháng sau"
-              disabled={isCurrentMonth}
-              onClick={onNextMonth}
-              className="-mr-sm flex size-11 items-center justify-center border-none bg-transparent font-body text-[24px] text-primary disabled:text-ink-muted-48 disabled:opacity-40"
-            >
-              ›
-            </button>
+        <div className="sticky top-0 z-40 border-b border-hairline bg-canvas">
+          <div className="mx-auto w-full max-w-[720px] px-5 pt-xs">
+            <div className="flex min-h-11 items-center justify-between gap-sm">
+              <div className="relative inline-flex items-center">
+                <select
+                  aria-label="Chọn tháng"
+                  value={selectedMonth}
+                  onChange={(event) => onSelectMonth(event.target.value)}
+                  className="min-h-11 appearance-none border-none bg-transparent py-0 pr-md font-display text-[21px] font-semibold text-ink"
+                >
+                  {months.map((month) => (
+                    <option key={month} value={month}>{formatMonth(month)}</option>
+                  ))}
+                </select>
+                <span aria-hidden="true" className="pointer-events-none absolute right-xs font-body text-xs text-ink-muted-48">▾</span>
+              </div>
+              {isCurrentMonth ? (
+                <button
+                  type="button"
+                  onClick={onOrganize}
+                  disabled={organizeState !== "idle"}
+                  aria-label="AI sắp xếp"
+                  aria-busy={organizeBusy}
+                  className="min-h-11 rounded-pill border border-primary bg-transparent px-md font-body text-xs font-semibold text-primary disabled:opacity-50"
+                >
+                  {organizeBusy ? "Đang tổ chức…" : "AI sắp xếp ✦"}
+                </button>
+              ) : null}
+            </div>
           </div>
-          {data ? (
-            <p className="text-center font-body text-xs text-ink-muted-48">
-              {formatPeriodDate(data.period_start)} đến {formatPeriodDate(data.period_end)}
-            </p>
-          ) : null}
-        </header>
-
-        <section aria-labelledby="monthly-outcome" className="bg-canvas px-5 py-lg">
-          {summaryError && !data ? (
-            <RetryMessage message={summaryError} onRetry={onRetrySummary} />
-          ) : (
-            <>
-              {summaryError ? <div className="mb-md"><RetryMessage message={summaryError} onRetry={onRetrySummary} /></div> : null}
-              <p id="monthly-outcome" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Chi kỳ này</p>
-              <p className="mt-xs whitespace-nowrap font-display text-[34px] font-semibold leading-[38px] tracking-[-0.5px] text-ink tabular-nums max-[374px]:text-[28px]">
-                {loading && !data ? "—" : formatVND(data?.total_expense ?? 0)}
-              </p>
-
-              {budget ? (
-                <div className="mt-lg border-t border-hairline pt-md">
-                  <div className="flex items-baseline justify-between gap-sm">
-                    <p className={`font-body text-[17px] font-semibold ${isOverBudget ? "text-danger" : "text-ink"}`}>
-                      {isOverBudget ? "Vượt" : "Còn"} {formatVND(Math.abs(budget.remaining))}
+          <section aria-labelledby="monthly-outcome" className="mx-auto w-full max-w-[720px] px-5 pb-md pt-xs">
+            {summaryError && !data ? (
+              <RetryMessage message={summaryError} onRetry={onRetrySummary} />
+            ) : (
+              <>
+                {summaryError ? <div className="mb-sm"><RetryMessage message={summaryError} onRetry={onRetrySummary} /></div> : null}
+                <p className="whitespace-nowrap font-display text-[34px] font-semibold leading-[38px] tracking-[-0.5px] text-ink tabular-nums max-[374px]:text-[28px]">
+                  {loading && !data ? "—" : formatVND(data?.total_expense ?? 0)}
+                </p>
+                {budget ? (
+                  <>
+                    <p id="monthly-outcome" className="mt-xxs font-body text-sm text-ink-muted-48">
+                      Đã tiêu dùng · hạn mức <span className="font-semibold text-ink">{formatVND(budget.amount)}</span>
                     </p>
-                    <p className="shrink-0 font-body text-xs text-ink-muted-48">Ngân sách {formatVND(budget.amount)}</p>
-                  </div>
-                  <div className="mt-sm h-1 overflow-hidden rounded-pill bg-hairline" aria-label={`Đã dùng ${Math.round(budgetPercent)}% ngân sách`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(budgetPercent)}>
-                    <div className="flex h-full" style={{ width: `${budgetPercent}%` }}>
-                      <div className={`h-full ${isOverBudget ? "bg-danger" : "bg-primary"}`} style={{ flex: Math.max((data?.total_expense ?? 0) - (data?.unpaid_card_spend ?? 0), 0) }} />
-                      {(data?.unpaid_card_spend ?? 0) > 0 ? <div className="h-full bg-warning" style={{ flex: data?.unpaid_card_spend }} /> : null}
+                    <div className="mt-sm h-1 overflow-hidden rounded-pill bg-hairline" role="progressbar" aria-label={`Đã dùng ${Math.round(budgetPercent)}% ngân sách`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(budgetPercent)}>
+                      <div className="flex h-full" style={{ width: `${budgetPercent}%` }}>
+                        <div className={`h-full ${isOverBudget ? "bg-danger" : "bg-primary"}`} style={{ flex: Math.max((data?.total_expense ?? 0) - (data?.unpaid_card_spend ?? 0), 0) }} />
+                        {(data?.unpaid_card_spend ?? 0) > 0 ? <div className="h-full bg-warning" style={{ flex: data?.unpaid_card_spend }} /> : null}
+                      </div>
                     </div>
-                  </div>
-                  <p className={`mt-xs font-body text-sm ${data?.pace_status === "over" ? "text-ink" : "text-ink-muted-80"}`}>
-                    {data?.pace_status === "over" ? "Nhanh hơn kế hoạch" : "Còn trong nhịp"}
+                    {isOverBudget ? (
+                      <p className="mt-xs font-body text-sm font-semibold text-danger">Vượt hạn mức kỳ này</p>
+                    ) : null}
+                  </>
+                ) : data ? (
+                  <p id="monthly-outcome" className="mt-xxs font-body text-sm text-ink-muted-80">
+                    Chưa có ngân sách kỳ này — <a href="/budget" className="font-semibold text-primary">tạo ngay</a>
                   </p>
-                </div>
-              ) : data ? (
-                <div className="mt-lg border-t border-hairline pt-md">
-                  <p className="font-body text-[17px] font-semibold text-ink">Chưa có ngân sách</p>
-                  <p className="mt-xs font-body text-sm text-ink-muted-80">Tạo kỳ ngân sách trước khi ghi chi tiêu tiêu dùng.</p>
-                </div>
-              ) : null}
-
-              {data && data.unpaid_card_spend > 0 ? (
-                <p className="mt-md border-t border-hairline pt-md font-body text-sm text-ink-muted-80">
-                  Dư nợ thẻ tín dụng <span className="font-semibold text-ink">{formatVND(data.unpaid_card_spend)}</span>
-                </p>
-              ) : null}
-
-              {data && data.total_income > 0 ? (
-                <p className="mt-md font-body text-sm text-ink-muted-48">
-                  Thu nhập <span className="font-semibold text-ink">+{formatVND(data.total_income)}</span> · Tiết kiệm <span className="font-semibold text-ink">{data.savings >= 0 ? "+" : "−"}{formatVND(Math.abs(data.savings))}</span>
-                </p>
-              ) : null}
-            </>
-          )}
-        </section>
-
-        <div className="border-b border-hairline bg-canvas px-5 pb-lg">
-          {data && !data.monthly_budget ? (
-            <a href="/budget" className="flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-md py-sm text-center font-body text-[17px] font-semibold text-on-primary no-underline">
-              Tạo ngân sách kỳ này
-            </a>
-          ) : (
-            <button type="button" onClick={() => onOpenForm()} className="min-h-11 w-full rounded-md border-none bg-primary px-md py-sm font-body text-[17px] font-semibold text-on-primary">
-              Ghi giao dịch
-            </button>
-          )}
-          {isCurrentMonth ? (
-            <button
-              type="button"
-              onClick={onOrganize}
-              disabled={organizeState !== "idle"}
-              aria-label="Tổ chức bằng AI"
-              aria-busy={organizeBusy}
-              className="mt-xs min-h-11 w-full border-none bg-transparent font-body text-sm font-semibold text-primary disabled:opacity-50"
-            >
-              {organizeBusy ? "Đang tổ chức…" : "Tổ chức bằng AI ✦"}
-            </button>
-          ) : null}
+                ) : (
+                  <p id="monthly-outcome" className="mt-xxs font-body text-sm text-ink-muted-48">Đang tải tổng quan kỳ này…</p>
+                )}
+                {data && data.unpaid_card_spend > 0 ? (
+                  <p className="mt-sm font-body text-sm text-ink-muted-80">
+                    Dư nợ thẻ tín dụng <span className="font-semibold text-ink">{formatVND(data.unpaid_card_spend)}</span>
+                  </p>
+                ) : null}
+              </>
+            )}
+          </section>
         </div>
 
         <section aria-labelledby="transaction-ledger" className="pt-lg">
@@ -330,6 +308,21 @@ export function DashboardTemplate({
             </div>
           )}
         </section>
+      </div>
+
+      <div className="pointer-events-none fixed inset-0 z-50">
+        <div className="mx-auto flex h-full w-full max-w-[720px] items-end justify-end px-5 pb-[calc(72px+env(safe-area-inset-bottom)+16px)]">
+          <button
+            type="button"
+            onClick={() => onOpenForm()}
+            aria-label="Ghi giao dịch"
+            className="pointer-events-auto flex size-11 items-center justify-center rounded-full border-none bg-primary text-on-primary transition-transform active:scale-95"
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="size-lg stroke-current" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {actionTxn ? (

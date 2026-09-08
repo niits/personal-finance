@@ -146,16 +146,6 @@ export default function DashboardPage() {
     }
   }
 
-  function prevMonth(m: string) {
-    const [y, mo] = m.split("-").map(Number);
-    return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, "0")}`;
-  }
-
-  function nextMonth(m: string) {
-    const [y, mo] = m.split("-").map(Number);
-    return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
-  }
-
   async function handleOrganize() {
     setOrganizeState("loading");
     try {
@@ -199,21 +189,18 @@ export default function DashboardPage() {
     load(m);
   }
 
-  const isCurrentMonth = selectedMonth === currentMonth;
-
   return (
     <DashboardTemplate
       data={data}
       transactions={txns}
       loading={loading}
       selectedMonth={selectedMonth}
-      isCurrentMonth={isCurrentMonth}
+      currentMonth={currentMonth}
       deleting={deleting}
       actionTxn={actionTxn}
       formOpen={formOpen}
       editTxn={editTxn}
-      onPrevMonth={() => navigate(prevMonth(selectedMonth))}
-      onNextMonth={() => !isCurrentMonth && navigate(nextMonth(selectedMonth))}
+      onSelectMonth={navigate}
       onSetActionTxn={(txn) => { setDeleteError(null); setActionTxn(txn); }}
       onOpenForm={(txn) => { setEditTxn(txn); setFormOpen(true); }}
       onCloseForm={() => { setFormOpen(false); setEditTxn(undefined); }}

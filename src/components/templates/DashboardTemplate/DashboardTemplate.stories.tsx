@@ -56,13 +56,12 @@ export const Default: Story = {
     transactions: mockTransactions,
     loading: false,
     selectedMonth: "2025-05",
-    isCurrentMonth: true,
+    currentMonth: "2025-05",
     deleting: false,
     actionTxn: null,
     formOpen: false,
     editTxn: undefined,
-    onPrevMonth: () => {},
-    onNextMonth: () => {},
+    onSelectMonth: () => {},
     onSetActionTxn: () => {},
     onOpenForm: () => {},
     onCloseForm: () => {},
@@ -110,7 +109,7 @@ export const Empty: Story = {
 export const HistoricalMonth: Story = {
   args: {
     ...Default.args,
-    isCurrentMonth: false,
+    currentMonth: "2025-06",
   },
 };
 

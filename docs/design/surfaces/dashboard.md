@@ -11,20 +11,22 @@ I do next?
 
 ## Reading Order
 
-1. Selected budget period.
-2. Consumption spending and remaining or exceeded amount.
-3. Pace explanation and accessible pace-line chart.
-4. Unpaid card spending as a labeled subset of consumption.
-5. Primary `Ghi giao dịch` action.
-6. Current-month AI Organize action.
-7. Full reverse-chronological transaction ledger grouped by date.
+1. Selected budget period through an inline month picker, with the current-month AI
+   Organize action as a compact pill beside it.
+2. Consumption spending for the period, labeled against the monthly budget amount
+   (`hạn mức`).
+3. Segmented progress bar of consumption against the budget. The amber segment is the
+   unpaid-card subset; a labeled `Dư nợ thẻ tín dụng` line states the amount. When
+   consumption exceeds the limit, the bar turns danger red and a textual `Vượt hạn mức`
+   cue accompanies it — color is never the only cue.
+4. Primary floating add-transaction action at the bottom-right, above bottom navigation.
+5. Full reverse-chronological transaction ledger grouped by date.
+
+The pinned header and summary stay visible while the ledger scrolls, on a solid
+surface with a hairline divider (no frosted glass).
 
 The ledger has no filter or search control. A row opens edit/delete actions; it never
 offers a separate finance-account link action.
-
-The pace chart compares cumulative actual consumption with ideal pace and is paired
-with a textual summary. Formulas come from
-[`architecture/semantic-layer.md`](../../architecture/semantic-layer.md).
 
 ## States
 

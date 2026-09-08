@@ -112,6 +112,11 @@ Avoid gradients, glass effects, layered translucent cards, and permanent black b
 - Dense lists use shared surfaces and dividers rather than one card per item.
 - Bottom sheets suit short contextual phone decisions; they trap focus, restore it,
   and account for safe areas and keyboards.
+- A surface may pin its period header and summary above a scrolling ledger using a
+  solid surface and a hairline divider. Frosted glass remains prohibited.
+- A surface's dominant action may be one floating circular action (44px, action blue
+  fill) offset above bottom navigation and safe areas, labeled for assistive
+  technology. More than one floating action per surface is prohibited.
 - Never nest modal surfaces.
 - Charts require a textual summary and accessible data representation.
 
@@ -143,5 +148,5 @@ here before implementing it. Component boundaries are defined in
 ## Deprecated Concepts
 
 Do not use product photography, alternating marketing tiles, equal-weight dashboard
-walls, permanent black navigation, decorative glass or gradients, generic floating
-`+` actions, or authenticated-app marketing hero typography.
+walls, permanent black navigation, decorative glass or gradients, more than one
+floating action per surface, or authenticated-app marketing hero typography.

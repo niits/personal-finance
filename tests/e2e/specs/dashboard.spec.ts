@@ -14,25 +14,16 @@ test.describe("Dashboard — transaction list", () => {
 
   test("shows budget bar when monthly budget exists", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText(/Ngân sách/)).toBeVisible();
-    await expect(page.getByText("Chi kỳ này")).toBeVisible();
-    await expect(page.getByText(/Còn trong nhịp|Nhanh hơn kế hoạch/)).toBeVisible();
+    await expect(page.getByText(/hạn mức/)).toBeVisible();
+    await expect(page.getByRole("progressbar")).toBeVisible();
   });
 
-  test("shows income/savings panel when income exists", async ({ page }) => {
+  test("month picker navigates to a prior month", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("Thu nhập")).toBeVisible();
-    await expect(page.getByText("Tiết kiệm")).toBeVisible();
-  });
-
-  test("previous month button navigates to prior month", async ({ page }) => {
-    await page.goto("/");
-    const monthLabel = page.getByText(/Tháng \d+\/\d+/).first();
-    const currentLabel = await monthLabel.textContent();
-    expect(currentLabel).toBeTruthy();
-    await page.getByRole("button", { name: "Tháng trước" }).click();
-    const newLabel = await monthLabel.textContent();
-    expect(newLabel).not.toBe(currentLabel);
+    const picker = page.getByLabel("Chọn tháng");
+    const current = await picker.inputValue();
+    await picker.selectOption({ index: 1 });
+    await expect(picker).not.toHaveValue(current);
   });
 });
 
@@ -135,13 +126,13 @@ test.describe("Dashboard — AI surface controls", () => {
 
   test("labeled AI organize action is visible for the current month", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "Tổ chức bằng AI" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "AI sắp xếp" })).toBeVisible();
   });
 
   test("AI organize action is hidden for a historical month", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Tháng trước" }).click();
-    await expect(page.getByRole("button", { name: "Tổ chức bằng AI" })).not.toBeVisible();
+    await page.getByLabel("Chọn tháng").selectOption({ index: 1 });
+    await expect(page.getByRole("button", { name: "AI sắp xếp" })).not.toBeVisible();
   });
 });
 
