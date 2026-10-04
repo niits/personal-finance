@@ -49,7 +49,7 @@ export default function DashboardPage() {
         if (attempt > 0) await new Promise<void>((resolve) => setTimeout(resolve, attempt * 500));
         if (signal.aborted) throw new DOMException("Aborted", "AbortError");
         try {
-          const response = await fetch(url, { signal });
+          const response = await fetch(url, { signal, cache: "no-cache" });
           if (response.ok || response.status === 401 || attempt === 2) return response;
         } catch (requestError) {
           if ((requestError as DOMException)?.name === "AbortError" || attempt === 2) throw requestError;
@@ -109,9 +109,8 @@ export default function DashboardPage() {
     return () => window.clearTimeout(pendingLoad);
   }, [load]);
 
-  // Reload when the PWA/tab is brought back to the foreground after being suspended.
-  // HTTP cache (stale-while-revalidate) serves instantly on resume; pass silent=true
-  // so existing data stays visible while revalidation happens in the background.
+  // Revalidate when the PWA or tab returns to the foreground. Keep the existing
+  // data visible while the latest response is requested.
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== "visible") return;

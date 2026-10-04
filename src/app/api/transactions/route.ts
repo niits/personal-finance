@@ -15,6 +15,7 @@ import {
 import { sql } from "kysely";
 import { markStatsDirty } from "@/lib/statistics";
 import { statementPeriodForDate } from "@/lib/credit-cards";
+import { privateJsonResponse } from "@/lib/private-revalidation";
 
 type TxnRow = {
   id: number;
@@ -212,19 +213,14 @@ export async function GET(request: NextRequest) {
 
   const summary = await summaryQuery.executeTakeFirst();
 
-  const isPastMonth = month !== currentBudgetMonth();
-  const cacheHeader = isPastMonth
-    ? "private, max-age=86400, must-revalidate"
-    : "private, max-age=30, stale-while-revalidate=300";
-
-  return Response.json({
+  return privateJsonResponse(request, userId, {
     transactions: results.map((r) => formatTransaction(r, cbMap)),
     summary: {
       total_expense: summary?.total_expense ?? 0,
       total_income: summary?.total_income ?? 0,
       savings: (summary?.total_income ?? 0) - (summary?.total_expense ?? 0),
     },
-  }, { headers: { "Cache-Control": cacheHeader } });
+  });
 }
 
 export async function POST(request: NextRequest) {
