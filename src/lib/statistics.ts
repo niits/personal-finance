@@ -9,6 +9,7 @@ import { getBudgetPeriod, currentDate } from "@/lib/validators";
 import { createAnalyticsService } from "@/lib/analytics/service";
 import { METRIC_NAMES, METRIC_CATALOG, DIMENSION_NAMES, TIME_GRAINS } from "@/lib/analytics/metrics";
 import { getBudgetMonthForDate, currentBudgetMonth } from "@/lib/validators";
+import { reportEndDate } from "@/lib/statistics-period";
 
 // Hoisted to module scope: Intl constructors allocate per-call, so reuse one instance.
 const _vndFormat = new Intl.NumberFormat("vi-VN");
@@ -75,12 +76,7 @@ export async function generateStatisticsReport(
   })();
 
   const today = currentDate();
-  const yesterday = (() => {
-    const d = new Date(today + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() - 1);
-    return d.toISOString().substring(0, 10);
-  })();
-  const effectiveEnd = periodEnd < today ? periodEnd : yesterday;
+  const effectiveEnd = reportEndDate(periodEnd, today);
   const now = Math.floor(Date.now() / 1000);
 
   if (effectiveEnd < periodStart) {
