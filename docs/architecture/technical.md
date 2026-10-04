@@ -71,6 +71,9 @@ contract. Migration changes use expand/contract deployment and preserve user dat
 ## API Conventions
 
 - Dates use `YYYY-MM-DD`; month labels use `YYYY-MM`.
+- Transaction create and edit requests send the device's IANA time zone in
+  `X-Client-Time-Zone` so future-date validation uses the same calendar day as
+  the form. Requests without the header use `Asia/Ho_Chi_Minh`.
 - Monetary values are positive integer VND amounts.
 - Validation failures use `422`; missing sessions use `401`; ownership-safe missing
   resources use `404`; uniqueness or state conflicts use `409`.

@@ -6,7 +6,7 @@ import {
   parseAmount,
   parseDate,
   getBudgetMonthForDate,
-  currentDate,
+  isFutureDateInTimeZone,
   isLeafCategory,
 } from "@/lib/validators";
 import type { Kysely } from "kysely";
@@ -136,7 +136,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   const newDate = b.date !== undefined ? parseDate(b.date) : existing.date;
   if (!newDate) return Errors.validation("Ngày không hợp lệ. Dùng định dạng YYYY-MM-DD");
-  if (newDate > currentDate()) return Errors.validation("Không thể chọn ngày trong tương lai");
+  const isFuture = isFutureDateInTimeZone(newDate, request.headers.get("X-Client-Time-Zone") ?? "Asia/Ho_Chi_Minh");
+  if (isFuture === null) return Errors.validation("Múi giờ của thiết bị không hợp lệ.");
+  if (isFuture) return Errors.validation("Không thể chọn ngày trong tương lai");
 
   const newCategoryId =
     b.category_id !== undefined ? (b.category_id as number) : existing.category_id;
