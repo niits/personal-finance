@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Active target |
-| Updated | 2026-09-05 |
+| Updated | 2026-10-05 |
 | Decision | [`ADR 004`](../../decisions/004-credit-card-statements-separate-from-budgets.md) |
 
 ## Card Groups And Purchases
@@ -13,6 +13,9 @@
   date determines monthly-budget inclusion.
 - A purchase belongs to at most one card group. Cash and card payment are mutually
   exclusive.
+- The transaction form always presents the payment source for a consumption expense.
+  When no card group exists, the user can create one in the form and select it without
+  losing the transaction draft.
 
 ## Statements
 

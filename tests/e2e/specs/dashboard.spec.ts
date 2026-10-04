@@ -72,6 +72,34 @@ test.describe("Dashboard — add transaction", () => {
     await expect(page.getByRole("button", { name: /Giao dịch kiểm tra, chi 120\.000₫/ })).toBeVisible();
   });
 
+  test("creates and selects a card payment source without losing the expense draft", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Ghi giao dịch" }).click();
+    await page.locator("input[inputmode='numeric']").first().fill("120000");
+    await page.getByRole("button", { name: "Ăn uống" }).last().click();
+    await page.getByRole("textbox", { name: "Ghi chú" }).fill("Giao dịch bằng thẻ kiểm tra");
+
+    const paymentSource = page.getByRole("combobox", { name: "Thanh toán" });
+    await expect(paymentSource).toBeVisible();
+    await expect(paymentSource).toHaveValue("");
+    await page.getByRole("button", { name: "Thêm nhóm thẻ" }).click();
+    await page.getByRole("textbox", { name: "Tên nhóm thẻ" }).fill("Thẻ chi tiêu");
+    await page.getByRole("spinbutton", { name: "Ngày chốt sao kê hằng tháng" }).fill("15");
+    await page.getByRole("button", { name: "Tạo nhóm thẻ" }).click();
+
+    await expect(paymentSource).toHaveValue(/.+/);
+    const groupId = await paymentSource.inputValue();
+    await expect(page.getByRole("textbox", { name: "Ghi chú" })).toHaveValue("Giao dịch bằng thẻ kiểm tra");
+    await page.getByRole("button", { name: "Lưu", exact: true }).click();
+    await expect(page.getByRole("button", { name: /Giao dịch bằng thẻ kiểm tra, chi 120\.000₫/ })).toBeVisible();
+
+    const response = await page.request.get("/api/transactions");
+    expect(response.ok()).toBeTruthy();
+    const data = await response.json() as { transactions: { note: string | null; credit_card_group_id: string | null }[] };
+    expect(data.transactions.find((transaction) => transaction.note === "Giao dịch bằng thẻ kiểm tra")?.credit_card_group_id).toBe(groupId);
+  });
+
   test("shows validation error when amount is missing", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Ghi giao dịch" }).click();

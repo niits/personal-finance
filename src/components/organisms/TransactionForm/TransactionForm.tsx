@@ -392,6 +392,10 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const [selectedCbIds, setSelectedCbIds] = useState<number[]>(() => editTx?.custom_budgets.map((c) => c.id) ?? []);
   const [financeAccountId, setFinanceAccountId] = useState<string | null>(editTx?.finance_account_id ?? null);
   const [creditCardGroupId, setCreditCardGroupId] = useState<string | null>(editTx?.credit_card_group_id ?? null);
+  const [addingCardGroup, setAddingCardGroup] = useState(false);
+  const [newCardGroupName, setNewCardGroupName] = useState("");
+  const [newCardCloseDay, setNewCardCloseDay] = useState("15");
+  const [creatingCardGroup, setCreatingCardGroup] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [debtLink, setDebtLink] = useState<DebtLinkState>({ kind: "none" });
@@ -404,6 +408,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
   const amountRef = useRef<HTMLInputElement>(null);
   const isCreatingAccountRef = useRef(false);
+  const isCreatingCardGroupRef = useRef(false);
   const isSubmittingRef = useRef(false);
 
   // Enter/exit is driven by CSS keyframes (see globals.css). `mounted` keeps the
@@ -428,7 +433,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     open && !isRepayment ? "/api/custom-budgets?active_only=true" : null, fetcher,
   );
   const { data: accountData } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment ? "/api/finance-accounts" : null, fetcher);
-  const { data: cardData } = useSWR<{ groups: CardGroup[] }>(open && !isRepayment ? "/api/credit-card-groups" : null, fetcher);
+  const { data: cardData, mutate: mutateCards } = useSWR<{ groups: CardGroup[] }>(open && !isRepayment ? "/api/credit-card-groups" : null, fetcher);
 
   const allCats = catData?.categories ?? [];
   const cats = allCats.filter((c) => c.type === type);
@@ -455,6 +460,9 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     setSelectedCbIds([]);
     setFinanceAccountId(null);
     setCreditCardGroupId(null);
+    setAddingCardGroup(false);
+    setNewCardGroupName("");
+    setNewCardCloseDay("15");
     setNewAccountName("");
     setDebtLink({ kind: "none" });
     setEditLinkedAmountStr("");
@@ -489,6 +497,43 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     } finally {
       isCreatingAccountRef.current = false;
       setCreatingAccount(false);
+    }
+  }
+
+  async function createCardGroup() {
+    if (isCreatingCardGroupRef.current) return;
+    const name = newCardGroupName.trim();
+    const statementCloseDay = Number(newCardCloseDay);
+    if (!name || !Number.isInteger(statementCloseDay) || statementCloseDay < 1 || statementCloseDay > 31) {
+      setError("Vui lòng nhập tên nhóm thẻ và ngày chốt sao kê từ 1 đến 31.");
+      return;
+    }
+
+    isCreatingCardGroupRef.current = true;
+    setCreatingCardGroup(true);
+    setError("");
+    try {
+      const response = await fetch("/api/credit-card-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, statement_close_day: statementCloseDay }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        setError(body.error ?? "Không thể tạo nhóm thẻ. Vui lòng thử lại.");
+        return;
+      }
+      const { group } = await response.json() as { group: CardGroup };
+      await mutateCards((current) => ({ groups: [...(current?.groups ?? []), { ...group, statements: [] }] }), false);
+      setCreditCardGroupId(group.id);
+      setAddingCardGroup(false);
+      setNewCardGroupName("");
+      setNewCardCloseDay("15");
+    } catch {
+      setError("Không thể kết nối. Kiểm tra mạng và thử lại.");
+    } finally {
+      isCreatingCardGroupRef.current = false;
+      setCreatingCardGroup(false);
     }
   }
 
@@ -813,13 +858,27 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             </div>
           )}
 
-          {!isDebtMode && !isSystemCategory && type === "expense" && cardGroups.length > 0 && (
+          {!isDebtMode && !isSystemCategory && type === "expense" && (
             <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
               <label htmlFor="credit-card" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Thanh toán</label>
               <select id="credit-card" value={creditCardGroupId ?? ""} onChange={(e) => setCreditCardGroupId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
                 <option value="">Tiền mặt</option>
                 {cardGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
               </select>
+              {addingCardGroup ? (
+                <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                  <label htmlFor="new-card-group-name" className="font-body text-sm text-ink">Tên nhóm thẻ</label>
+                  <input id="new-card-group-name" value={newCardGroupName} onChange={(event) => setNewCardGroupName(event.target.value)} placeholder="Ví dụ: Thẻ chi tiêu" style={inputStyle} />
+                  <label htmlFor="new-card-close-day" className="font-body text-sm text-ink">Ngày chốt sao kê hằng tháng</label>
+                  <input id="new-card-close-day" type="number" inputMode="numeric" min={1} max={31} value={newCardCloseDay} onChange={(event) => setNewCardCloseDay(event.target.value)} style={inputStyle} />
+                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                    <button type="button" onClick={createCardGroup} disabled={creatingCardGroup || !newCardGroupName.trim()} className="min-h-11 rounded-pill border-none bg-primary px-4 font-body text-sm text-on-primary disabled:opacity-50">{creatingCardGroup ? "Đang tạo…" : "Tạo nhóm thẻ"}</button>
+                    <button type="button" onClick={() => { setAddingCardGroup(false); setError(""); }} disabled={creatingCardGroup} className="min-h-11 rounded-pill border border-hairline bg-canvas-parchment px-4 font-body text-sm text-ink disabled:opacity-50">Hủy</button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setAddingCardGroup(true)} className="mt-2 min-h-11 bg-transparent p-0 font-body text-sm text-primary">Thêm nhóm thẻ</button>
+              )}
             </div>
           )}
 
