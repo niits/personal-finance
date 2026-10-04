@@ -5,6 +5,7 @@ import { Errors } from "@/lib/errors";
 import { parseMonth, currentBudgetMonth, getBudgetPeriod, getBudgetPeriodInclusive } from "@/lib/validators";
 import { idealBudgetAtDay } from "@/lib/pace-line";
 import { sql } from "kysely";
+import { privateJsonResponse } from "@/lib/private-revalidation";
 
 export async function GET(request: NextRequest) {
   const session = await requireSession(request);
@@ -96,6 +97,7 @@ export async function GET(request: NextRequest) {
     .where("t.date", useStoredDates ? "<=" : "<", useStoredDates ? periodEnd : periodEndExclusive)
     .where("t.type", "=", "expense")
     .where("c.budget_behavior", "=", "consumption")
+    .where("t.credit_card_group_id", "is not", null)
     .where(sql<boolean>`NOT EXISTS (
       SELECT 1 FROM credit_card_statement AS s
       WHERE s.user_id = ${userId} AND s.group_id = t.credit_card_group_id AND s.status = 'paid'
@@ -117,17 +119,7 @@ export async function GET(request: NextRequest) {
     paceStatus = budgetExpense > ideal ? "over" : "under";
   }
 
-  // must-revalidate ensures the browser always sends the session cookie to
-  // revalidate with the server even for cached past-month data — preventing
-  // stale authenticated responses from being shown after sign-out.
-  // stale-while-revalidate lets the browser serve cached data instantly on PWA resume
-  // (iOS network stack isn't ready immediately after suspension), while still
-  // revalidating in the background. Past months are stable so cache for 24h.
-  const cacheHeader = isCurrentBudgetMonth
-    ? "private, max-age=30, stale-while-revalidate=300"
-    : "private, max-age=86400, must-revalidate";
-
-  return Response.json({
+  return privateJsonResponse(request, userId, {
     month,
     period_start: periodStart,
     period_end: periodEnd,
@@ -141,5 +133,5 @@ export async function GET(request: NextRequest) {
     days_remaining: daysRemaining,
     pace_status: paceStatus,
     daily_expenses: dailyExpenses,
-  }, { headers: { "Cache-Control": cacheHeader } });
+  });
 }

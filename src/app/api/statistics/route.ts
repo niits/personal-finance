@@ -5,6 +5,7 @@ import { Errors } from "@/lib/errors";
 import { parseMonth, currentBudgetMonth } from "@/lib/validators";
 import { generateStatisticsReport } from "@/lib/statistics";
 import type { Insight, AgentEvent } from "@/lib/statistics";
+import { privateJsonResponse } from "@/lib/private-revalidation";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     if (!session) return Errors.unauthorized();
 
     const periodKey = parseMonth(request.nextUrl.searchParams.get("period_key"));
-    if (!periodKey) return Errors.validation("period_key phải có dạng YYYY-MM");
+    if (!periodKey) return Errors.validation("Tháng phân tích phải có định dạng YYYY-MM.");
 
     const db = await getKysely();
     const row = await db
@@ -25,12 +26,14 @@ export async function GET(request: NextRequest) {
 
     const isCurrentPeriod = periodKey === currentBudgetMonth();
 
-    if (!row) return Response.json({ found: false, period_key: periodKey, is_current_period: isCurrentPeriod }, { status: 404 });
+    if (!row) return Response.json(
+      { found: false, period_key: periodKey, is_current_period: isCurrentPeriod },
+      { status: 404, headers: { "Cache-Control": "private, no-cache" } },
+    );
 
     const insights = JSON.parse(row.insights) as Insight[];
 
-    return Response.json(
-      {
+    return privateJsonResponse(request, session.user.id, {
         found: true,
         period_key: periodKey,
         period_type: "monthly",
@@ -38,11 +41,7 @@ export async function GET(request: NextRequest) {
         is_dirty: row.is_dirty === 1,
         is_current_period: isCurrentPeriod,
         generated_at: row.generated_at,
-      },
-      // Cache headers stay short for current-period reports; the client also forces
-      // a daily refresh via POST when generated_at falls on a previous day.
-      { headers: { "Cache-Control": "private, max-age=60" } },
-    );
+    });
   } catch (e) {
     return Errors.internal(e);
   }
@@ -56,7 +55,7 @@ export async function POST(request: NextRequest) {
   if (!session) return Errors.unauthorized();
 
   const periodKey = parseMonth(request.nextUrl.searchParams.get("period_key"));
-  if (!periodKey) return Errors.validation("period_key phải có dạng YYYY-MM");
+  if (!periodKey) return Errors.validation("Tháng phân tích phải có định dạng YYYY-MM.");
 
   if (periodKey > currentBudgetMonth()) {
     return Errors.validation("Không thể tạo thống kê cho tháng tương lai");

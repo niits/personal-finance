@@ -4,14 +4,26 @@ import { STORAGE_STATE } from "../global-setup";
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("Sign-in page — layout", () => {
-  test("renders GitHub SSO button and disabled coming-soon auth methods", async ({ page }) => {
+  test("renders GitHub SSO button and temporarily unavailable auth methods", async ({ page }) => {
     await page.goto("/sign-in");
     await expect(page.getByRole("button", { name: /GitHub/i })).toBeVisible();
     await expect(page.getByText("Google đang tạm dừng")).toBeVisible();
-    await expect(page.getByText("Email & mật khẩu đang tạm dừng")).toBeVisible();
-    await expect(page.getByText("Sắp có lại")).toHaveCount(2);
+    await expect(page.getByText("Email và mật khẩu đang tạm dừng")).toBeVisible();
+    await expect(page.getByText("Tạm dừng", { exact: true })).toHaveCount(2);
     await expect(page.locator("input[type='email']")).toHaveCount(0);
     await expect(page.locator("input[type='password']")).toHaveCount(0);
+  });
+
+  test("explains OAuth cancellation and offers a retry", async ({ page }) => {
+    await page.goto("/sign-in?error=access_denied");
+    await expect(page.getByRole("alert").filter({ hasText: "đã hủy" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Thử lại với GitHub" })).toBeVisible();
+  });
+
+  test("explains OAuth failure and offers a retry", async ({ page }) => {
+    await page.goto("/sign-in?error=oauth_error");
+    await expect(page.getByRole("alert").filter({ hasText: "Không thể đăng nhập" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Thử lại với GitHub" })).toBeVisible();
   });
 });
 

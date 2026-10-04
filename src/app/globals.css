@@ -18,6 +18,7 @@
   --surface-pearl: #fafafc;
   --danger: #ff3b30;
   --success: #34c759;
+  --warning: #c77800;
   --on-dark: #ffffff;
   --on-primary: #ffffff;
   --body-muted: #cccccc;
@@ -66,6 +67,7 @@
   --color-surface-pearl: var(--surface-pearl);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-on-dark: var(--on-dark);
   --color-on-primary: var(--on-primary);
   --color-body-muted: var(--body-muted);

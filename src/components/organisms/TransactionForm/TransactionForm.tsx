@@ -279,7 +279,7 @@ function DebtLinkSection({
                 type="text"
                 inputMode="numeric"
                 aria-label="Số tiền nợ"
-                placeholder="Số tiền nợ (để trống = toàn bộ)"
+                placeholder="Để trống nếu bằng toàn bộ số tiền giao dịch"
                 value={state.linked_amount_str}
                 onChange={(e) => {
                   const raw = e.target.value.replace(/[^\d]/g, "");
@@ -316,7 +316,7 @@ function DebtLinkSection({
                           type="text"
                           inputMode="numeric"
                           aria-label="Số tiền trả nợ"
-                          placeholder="Số tiền trả (để trống = toàn bộ)"
+                          placeholder="Để trống nếu trả toàn bộ số tiền còn lại"
                           value={state.linked_amount_str}
                           onChange={(e) => {
                             const raw = e.target.value.replace(/[^\d]/g, "");
@@ -507,7 +507,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: mode.debt.id }),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Lỗi"); return; }
+        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
         onSaved(); handleClose(); return;
       }
 
@@ -517,7 +517,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
         if (unlinkMode) {
           // Unlink: remove debt context, require category
-          if (!categoryId) { setError("Chọn danh mục"); return; }
+          if (!categoryId) { setError("Vui lòng chọn danh mục giao dịch."); return; }
           body.category_id = categoryId;
           const unlinkRes = await fetch(`/api/transactions/${editTx.id}/link`, { method: "DELETE" });
           if (!unlinkRes.ok) {
@@ -531,7 +531,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           body.linked_amount = rawLa ? parseInt(rawLa, 10) : null;
         } else {
           // Normal edit — no debt
-          if (!categoryId) { setError("Chọn danh mục"); return; }
+          if (!categoryId) { setError("Vui lòng chọn danh mục giao dịch."); return; }
           body.category_id = categoryId;
           if (type === "expense") body.custom_budget_ids = selectedCbIds;
           if (isSystemCategory) body.finance_account_id = financeAccountId;
@@ -543,13 +543,13 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           method: "PATCH", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Lỗi"); return; }
+        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
         onSaved(); handleClose(); return;
       }
 
       // ── Create mode ───────────────────────────────────────────────────────
       if (debtLink.kind === "new-debt") {
-        if (!debtLink.party.trim()) { setError("Nhập tên người"); return; }
+        if (!debtLink.party.trim()) { setError("Vui lòng nhập tên người liên quan đến khoản nợ."); return; }
         const debtType = type === "expense" ? "lend" : "borrow";
         const rawLa = debtLink.linked_amount_str.replace(/[^\d]/g, "");
         const linkedAmt = rawLa ? parseInt(rawLa, 10) : null;
@@ -562,7 +562,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             linked_amount: linkedAmt,
           }),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Lỗi"); return; }
+        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
         onSaved(); handleClose(); return;
       }
 
@@ -573,12 +573,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: debtLink.debtId, linked_amount: linkedAmt }),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Lỗi"); return; }
+        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
         onSaved(); handleClose(); return;
       }
 
       // Normal transaction
-      if (!categoryId) { setError("Chọn danh mục"); return; }
+      if (!categoryId) { setError("Vui lòng chọn danh mục giao dịch."); return; }
       const body: Record<string, unknown> = {
         amount, type, date, note: note || null, emoji: emoji || null, category_id: categoryId,
       };
@@ -591,7 +591,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Lỗi"); return; }
+      if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
       onSaved(); handleClose();
     } finally {
       isSubmittingRef.current = false;
@@ -651,7 +651,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               saving ? "text-ink-muted-48 cursor-not-allowed" : "text-primary cursor-pointer"
             }`}
           >
-            {saving ? "…" : "Lưu"}
+            {saving ? "Đang lưu…" : "Lưu"}
           </button>
         </div>
 
@@ -681,7 +681,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                   <span style={{ fontSize: 16 }}>💸</span>
                   <span style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
                     {editTx.debt_party} · {editTx.debt_type === "lend" ? "Cho vay" : "Đi vay"}
-                    {editTx.is_opening_tx && <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginLeft: 6 }}>(Gốc)</span>}
+                    {editTx.is_opening_tx && <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginLeft: 6 }}>(Giao dịch tạo khoản nợ)</span>}
                   </span>
                 </div>
                 <button type="button"
@@ -771,7 +771,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           {/* Custom budgets — expense only, hidden for debt */}
           {!isDebtMode && type === "expense" && customBudgets.length > 0 && (
             <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>Gán vào quỹ</p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>Ngân sách riêng</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {customBudgets.map((cb) => {
                   const on = selectedCbIdSet.has(cb.id);
@@ -804,7 +804,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               </select>
               <div className="mt-2 flex gap-2">
                 <input aria-label="Tên tài khoản mới" value={newAccountName} onChange={(event) => setNewAccountName(event.target.value)} placeholder="Tạo tài khoản mới" style={inputStyle} />
-                <button type="button" onClick={createAccount} disabled={creatingAccount || !newAccountName.trim()} className="rounded-pill border-none bg-primary px-3 font-body text-sm text-on-primary disabled:opacity-50">{creatingAccount ? "…" : "Tạo"}</button>
+                <button type="button" onClick={createAccount} disabled={creatingAccount || !newAccountName.trim()} className="rounded-pill border-none bg-primary px-3 font-body text-sm text-on-primary disabled:opacity-50">{creatingAccount ? "Đang tạo…" : "Tạo"}</button>
               </div>
             </div>
           )}
@@ -823,7 +823,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
             <EmojiPicker value={emoji} onChange={setEmoji} />
             <input
-              type="text" placeholder="Ghi chú (tuỳ chọn)" aria-label="Ghi chú"
+              type="text" placeholder="Ghi chú (tùy chọn)" aria-label="Ghi chú"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               style={{

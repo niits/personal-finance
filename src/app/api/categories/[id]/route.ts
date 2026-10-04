@@ -26,7 +26,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   if (existing.system_kind) return Errors.validation("Danh mục hệ thống không thể chỉnh sửa");
 
   const body = await request.json().catch(() => null);
-  if (!body) return Errors.validation("Request body không hợp lệ");
+  if (!body) return Errors.validation("Dữ liệu danh mục không hợp lệ. Vui lòng kiểm tra và thử lại.");
 
   const { name, sort_order, emoji } = body as { name?: unknown; sort_order?: unknown; emoji?: unknown };
   const updates: Record<string, unknown> = {};
@@ -41,7 +41,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   if (sort_order !== undefined) {
     if (typeof sort_order !== "number" || !Number.isInteger(sort_order))
-      return Errors.validation("sort_order phải là số nguyên");
+      return Errors.validation("Thứ tự danh mục phải là số nguyên.");
     updates.sort_order = sort_order;
   }
 

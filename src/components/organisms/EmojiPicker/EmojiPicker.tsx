@@ -8,7 +8,7 @@ const EMOJI_GROUPS: { label: string; emoji: string[] }[] = [
   { label: "Di chuyển", emoji: ["🚗", "🏍️", "🚌", "✈️", "🚂", "🚲", "🛵", "🚕", "⛽", "🚇", "🛺", "🚀", "🛻", "🚁", "🛥️", "🚑", "🚜", "🛴"] },
   { label: "Mua sắm", emoji: ["🛍️", "👗", "👟", "👠", "💄", "🧴", "📱", "💻", "🎮", "📷", "🧸", "🪭", "🔑", "🧲", "🪜", "🔦", "🪒", "🧹", "🧺", "🪣"] },
   { label: "Nhà cửa", emoji: ["🏠", "🏡", "💡", "🛒", "🪴", "🧹", "🛁", "🪑", "🛏️", "🔌", "🚿", "🧺", "🪟", "🚪", "🧯", "🪣", "🏗️", "🛋️"] },
-  { label: "Sức khoẻ", emoji: ["💊", "🏥", "🧘", "🏋️", "🏃", "🩺", "💉", "🦷", "🧬", "❤️‍🩹", "🩹", "🫀", "🩻", "🧠", "🫁", "🧖", "⚕️", "🩼"] },
+  { label: "Sức khỏe", emoji: ["💊", "🏥", "🧘", "🏋️", "🏃", "🩺", "💉", "🦷", "🧬", "❤️‍🩹", "🩹", "🫀", "🩻", "🧠", "🫁", "🧖", "⚕️", "🩼"] },
   { label: "Giải trí", emoji: ["🎬", "🎵", "🎭", "📚", "🎯", "🏆", "🎲", "🎨", "🎤", "🎸", "🎃", "🎡", "🎹", "🎻", "🎺", "🏊", "🤸", "🎳"] },
   { label: "Giáo dục", emoji: ["📚", "📝", "✏️", "🎓", "📐", "📏", "🖊️", "📋", "🔬", "🔭", "🖥️", "📖", "🏫", "🧮", "📌", "🗂️", "📎", "🖨️"] },
   { label: "Du lịch", emoji: ["✈️", "🧳", "🏖️", "🏕️", "🗺️", "🏔️", "🌊", "🗼", "🎒", "🌍", "🏛️", "🎠", "⛺", "🚢", "🏝️", "🌅", "🎑", "🗾"] },
@@ -23,7 +23,7 @@ const KEYWORD_SUGGESTIONS: { pattern: RegExp; emoji: string[] }[] = [
   { pattern: /bia|rượu|nhậu|bar|cocktail/i, emoji: ["🍺", "🍷", "🥂", "🍻", "🍾"] },
   { pattern: /lương|thưởng|thu nhập|salary|income/i, emoji: ["💰", "💵", "💳", "📈", "🤑"] },
   { pattern: /tiết kiệm|savings|tích lũy/i, emoji: ["🏦", "💹", "🪙", "📊", "💼"] },
-  { pattern: /đầu tư|investment|chứng khoán|crypto/i, emoji: ["📈", "💹", "📊", "🏦", "💱"] },
+  { pattern: /đầu tư|investment|chứng khóan|crypto/i, emoji: ["📈", "💹", "📊", "🏦", "💱"] },
   { pattern: /xăng|nhiên liệu|gas|fuel/i, emoji: ["⛽", "🚗", "🏍️", "🛻"] },
   { pattern: /xe|ôtô|taxi|grab|gojek|xe ôm/i, emoji: ["🚗", "🚕", "🏍️", "🛵", "🚲"] },
   { pattern: /bay|máy bay|vé|chuyến/i, emoji: ["✈️", "🧳", "🌍", "🗺️"] },
@@ -124,7 +124,7 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
             <div style={{ padding: "0 10px 6px" }}>
               <button type="button" onClick={() => { onChange(null); setOpen(false); }}
                 style={{ background: "none", border: "none", color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer", padding: "2px 4px" }}>
-                Xoá emoji
+                Xóa emoji
               </button>
             </div>
           )}

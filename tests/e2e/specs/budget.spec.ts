@@ -36,7 +36,7 @@ test.describe("Budget — monthly budget creation", () => {
   test("shows create form when no monthly budget exists", async ({ page }) => {
     await page.goto("/budget");
     await expect(page.getByText("Chưa đặt ngân sách")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("textbox")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Ngân sách tháng" })).toBeVisible();
   });
 
   test("creates monthly budget with a preset amount", async ({ page }) => {

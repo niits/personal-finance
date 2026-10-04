@@ -59,8 +59,7 @@ ${JSON.stringify(missing.map((c) => ({ id: c.id, name: c.name, type: c.type })))
     });
   } catch (err) {
     console.error("AI fill-emoji error:", err);
-    const message = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: message, code: "AI_ERROR" }, { status: 502 });
+    return Response.json({ error: "Không thể gợi ý emoji cho danh mục. Vui lòng thử lại.", code: "AI_ERROR" }, { status: 502 });
   }
 
   const missingIds = new Set(missing.map((c) => c.id));

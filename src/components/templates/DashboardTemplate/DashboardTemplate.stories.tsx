@@ -3,6 +3,7 @@ import { DashboardTemplate } from "./DashboardTemplate";
 
 const meta: Meta<typeof DashboardTemplate> = {
   component: DashboardTemplate,
+  tags: ["autodocs"],
   parameters: { layout: "fullscreen", viewport: { defaultViewport: "iphone14Pro" } },
 };
 export default meta;
@@ -55,13 +56,12 @@ export const Default: Story = {
     transactions: mockTransactions,
     loading: false,
     selectedMonth: "2025-05",
-    isCurrentMonth: true,
+    currentMonth: "2025-05",
     deleting: false,
     actionTxn: null,
     formOpen: false,
     editTxn: undefined,
-    onPrevMonth: () => {},
-    onNextMonth: () => {},
+    onSelectMonth: () => {},
     onSetActionTxn: () => {},
     onOpenForm: () => {},
     onCloseForm: () => {},
@@ -72,6 +72,84 @@ export const Default: Story = {
     onOrganize: () => {},
     onOrganizeApply: () => {},
     onOrganizeClose: () => {},
+  },
+};
+
+export const CardHeavyWithinBudget: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 7_000_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: 3_000_000 },
+    },
+    transactions: [],
+  },
+};
+
+export const OnlyCardSpending: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 5_000_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: 5_000_000 },
+    },
+    transactions: [],
+  },
+};
+
+export const ExactlyAtBudget: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 10_000_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: 0 },
+    },
+    transactions: [],
+  },
+};
+
+export const OverBudget: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 15_000_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: -5_000_000 },
+    },
+    transactions: [],
+  },
+};
+
+export const SlightlyOverBudget: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 10_001_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: -1_000 },
+    },
+    transactions: [],
+  },
+};
+
+export const NoSpending: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 0,
+      unpaid_card_spend: 0,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: 10_000_000 },
+    },
+    transactions: [],
   },
 };
 
@@ -103,5 +181,35 @@ export const Empty: Story = {
   args: {
     ...Default.args,
     transactions: [],
+  },
+};
+
+export const HistoricalMonth: Story = {
+  args: {
+    ...Default.args,
+    currentMonth: "2025-06",
+  },
+};
+
+export const SummaryFailedWithLedger: Story = {
+  args: {
+    ...Default.args,
+    data: null,
+    summaryError: "Không tải được tổng quan kỳ này.",
+  },
+};
+
+export const LedgerFailedWithSummary: Story = {
+  args: {
+    ...Default.args,
+    transactions: [],
+    ledgerError: "Không tải được sổ giao dịch.",
+  },
+};
+
+export const TransactionActions: Story = {
+  args: {
+    ...Default.args,
+    actionTxn: mockTransactions[0],
   },
 };

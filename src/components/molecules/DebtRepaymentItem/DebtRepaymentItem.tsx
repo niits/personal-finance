@@ -18,7 +18,7 @@ export function DebtRepaymentItem({ amount, date, note, direction }: DebtRepayme
     }}>
       <div>
         <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", fontWeight: 400 }}>
-          {note ?? (direction === "income" ? "Trả nợ nhận được" : "Trả nợ")}
+          {note ?? (direction === "income" ? "Đã nhận tiền trả nợ" : "Đã trả nợ")}
         </div>
         <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 1 }}>
           {date}

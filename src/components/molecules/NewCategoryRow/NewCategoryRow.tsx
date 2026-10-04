@@ -55,7 +55,7 @@ export function NewCategoryRow({ tempId, name, type, exampleNotes, checked, onCh
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
           }}>
-            vd: {exampleNotes.join(", ")}
+            Ví dụ: {exampleNotes.join(", ")}
           </p>
         )}
       </div>

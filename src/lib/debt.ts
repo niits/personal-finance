@@ -43,13 +43,14 @@ export function repaymentTxType(debtType: "lend" | "borrow"): "expense" | "incom
   return debtType === "lend" ? "income" : "expense";
 }
 
-// Remaining balance (SRS §3.4). May be negative when overpaid (D-09) or when the
-// debt has no opening transaction (opening_amount = 0).
+// Remaining balance (docs/product/behavior/transactions.md). May be negative when
+// overpaid or when the debt has no opening transaction (opening_amount = 0).
 export function computeRemaining(openingAmount: number, totalRepaid: number): number {
   return openingAmount - totalRepaid;
 }
 
-// Overdue when a due date has passed and the debt is still open (SRS §3.4).
+// Overdue when a due date has passed and the debt is still open
+// (docs/product/behavior/transactions.md).
 // Strict `<` — a debt due exactly today is not yet overdue.
 export function isOverdue(
   dueDate: string | null,

@@ -26,7 +26,7 @@ test.describe("Navigation — categories route move", () => {
 
   test("/account/categories renders categories page", async ({ page }) => {
     await page.goto("/account/categories");
-    await expect(page.getByRole("button", { name: "+ Thêm" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Thêm", exact: true })).toBeVisible();
   });
 });
 

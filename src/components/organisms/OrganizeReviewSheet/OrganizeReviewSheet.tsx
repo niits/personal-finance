@@ -67,7 +67,7 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
         <div style={{ padding: "12px 16px 8px", flexShrink: 0 }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--hairline)", margin: "0 auto 12px" }} />
           <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.4 }}>
-            Xem lại thay đổi AI ✦
+            Xem lại đề xuất phân loại ✦
           </p>
         </div>
 
@@ -76,7 +76,7 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
           {!hasAnything ? (
             <div style={{ padding: "32px 16px", textAlign: "center" }}>
               <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
-                Không có thay đổi nào để đề xuất.
+                Không có đề xuất phân loại mới.
               </p>
             </div>
           ) : (
@@ -144,7 +144,7 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
 
               {(preview?.emoji_reassignments.length ?? 0) > 0 && (
                 <section>
-                  <OrganizeSectionHeader title="Đổi emoji giao dịch" count={preview!.emoji_reassignments.length} />
+                  <OrganizeSectionHeader title="Thay emoji giao dịch" count={preview!.emoji_reassignments.length} />
                   {preview!.emoji_reassignments.map((r) => (
                     <TransactionEmojiRow
                       key={r.transaction_id}

@@ -39,7 +39,8 @@ Quy tắc:
 3. Không gợi ý nếu danh mục hiện tại đã phù hợp
 4. reason ngắn gọn, 1 câu tiếng Việt
 5. Trả về danh sách rỗng nếu mọi danh mục đã phù hợp
-6. Phản hồi theo định dạng JSON`;
+6. Lý do phải là câu tiếng Việt trang trọng, rõ nghĩa; không dùng tiếng lóng, từ viết tắt hoặc cách diễn đạt văn hoa
+7. Phản hồi theo định dạng JSON`;
 
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
@@ -114,7 +115,7 @@ Gợi ý đổi danh mục cho các giao dịch có danh mục chưa phù hợp.
     });
   } catch (err) {
     console.error("AI recategorize error:", err);
-    return Response.json({ error: "Không thể phân tích lúc này. Thử lại sau.", code: "AI_ERROR" }, { status: 502 });
+    return Response.json({ error: "Không thể phân loại giao dịch lúc này. Vui lòng thử lại.", code: "AI_ERROR" }, { status: 502 });
   }
 
   const suggestions: RecategorizeSuggestion[] = (output.recategorizations ?? [])

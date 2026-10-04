@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   if (!session) return Errors.unauthorized();
 
   const body = await request.json().catch(() => null);
-  if (!body) return Errors.validation("Request body không hợp lệ");
+  if (!body) return Errors.validation("Dữ liệu danh mục không hợp lệ. Vui lòng kiểm tra và thử lại.");
 
   const { name, parent_id, type, emoji } = body as {
     name?: unknown;
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
   if (parent_id !== undefined && parent_id !== null) {
     if (typeof parent_id !== "number")
-      return Errors.validation("parent_id phải là số nguyên");
+      return Errors.validation("Danh mục cấp trên không hợp lệ.");
 
     const parent = await db
       .selectFrom("category")
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     resolvedType = parent.type;
   } else {
     if (type !== "income" && type !== "expense")
-      return Errors.validation("type phải là 'income' hoặc 'expense'");
+      return Errors.validation("Vui lòng chọn danh mục thu nhập hoặc chi tiêu.");
     resolvedType = type;
   }
 

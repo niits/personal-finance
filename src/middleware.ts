@@ -5,13 +5,21 @@ import { getSessionCookie } from "better-auth/cookies";
 const AUTH_PAGES = ["/sign-in", "/forgot-password", "/reset-password"];
 
 // Protected app routes: redirect to /sign-in if unauthenticated
-const APP_ROUTES = ["/", "/budget", "/categories", "/statistics", "/account"];
+const APP_ROUTES = [
+  "/",
+  "/budget",
+  "/categories",
+  "/statistics",
+  "/cards",
+  "/debts",
+  "/account",
+];
 
 function isAuthPage(pathname: string): boolean {
   return AUTH_PAGES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
-function isAppRoute(pathname: string): boolean {
+export function isAppRoute(pathname: string): boolean {
   return APP_ROUTES.some((p) =>
     p === "/" ? pathname === "/" : pathname === p || pathname.startsWith(p + "/"),
   );

@@ -125,14 +125,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   if (!existing) return Errors.notFound("Giao dịch không tồn tại");
 
   const body = await request.json().catch(() => null);
-  if (!body) return Errors.validation("Request body không hợp lệ");
+  if (!body) return Errors.validation("Dữ liệu giao dịch không hợp lệ. Vui lòng kiểm tra và thử lại.");
 
   const b = body as Record<string, unknown>;
 
   // Resolve final values (use existing if not provided)
   const newType = (b.type as "expense" | "income" | undefined) ?? existing.type;
   if (newType !== "expense" && newType !== "income")
-    return Errors.validation("Loại giao dịch phải là 'expense' hoặc 'income'");
+    return Errors.validation("Vui lòng chọn chi tiêu hoặc thu nhập.");
 
   const newDate = b.date !== undefined ? parseDate(b.date) : existing.date;
   if (!newDate) return Errors.validation("Ngày không hợp lệ. Dùng định dạng YYYY-MM-DD");
@@ -167,7 +167,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   const isConsumption = category?.budget_behavior === "consumption";
   if (newCustomBudgetIds && newCustomBudgetIds.length > 0 && (!isConsumption || newType !== "expense"))
-    return Errors.validation("Chỉ chi tiêu có thể gán vào Custom Budget");
+    return Errors.validation("Chỉ có thể liên kết giao dịch chi tiêu với ngân sách riêng.");
 
   let newMonthlyBudgetId: number | null = null;
   if (isConsumption && newType === "expense") {
@@ -181,7 +181,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     if (!budget) {
       return Response.json(
         {
-          error: `Chưa có budget tháng ${month}. Vui lòng tạo budget trước.`,
+          error: `Chưa có ngân sách cho tháng ${month}. Vui lòng tạo ngân sách tháng trước khi lưu giao dịch.`,
           code: "MONTHLY_BUDGET_MISSING",
           details: { month },
         },
@@ -248,7 +248,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
             .where("type", "=", repayDir)
             .executeTakeFirst();
           if ((repayCount?.n ?? 0) > 0)
-            return Errors.validation("Không thể huỷ liên kết khoản nợ đã có lịch sử trả nợ");
+            return Errors.validation("Không thể hủy liên kết khoản nợ đã có lịch sử trả nợ");
         }
       }
       debtIdUpdate = null;
@@ -263,7 +263,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
       if (!debt) return Errors.notFound("Khoản nợ không tồn tại");
       debtIdUpdate = newDebtId;
     } else {
-      return Errors.validation("link_debt_id phải là string hoặc null");
+      return Errors.validation("Thông tin liên kết khoản nợ không hợp lệ.");
     }
   }
 

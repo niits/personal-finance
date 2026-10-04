@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
@@ -17,8 +16,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#0066cc",
   viewportFit: "cover",
 };
@@ -29,7 +26,6 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
-        <Navbar />
         {children}
         <ServiceWorkerRegister />
       </body>

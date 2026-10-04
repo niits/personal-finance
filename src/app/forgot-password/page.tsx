@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
             lineHeight: 1.6,
             margin: "0 0 20px",
           }}>
-            Chúng tôi sẽ mở lại sau khi hoàn tất đợt ổn định hệ thống sắp tới.
+            Hiện không thể khôi phục mật khẩu bằng email. Vui lòng sử dụng phương thức đăng nhập khác.
           </p>
           <Link href="/sign-in" style={{
             fontFamily: "var(--font-body)",

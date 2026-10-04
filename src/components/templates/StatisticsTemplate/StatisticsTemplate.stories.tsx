@@ -3,6 +3,7 @@ import { StatisticsTemplate } from "./StatisticsTemplate";
 
 const meta: Meta<typeof StatisticsTemplate> = {
   component: StatisticsTemplate,
+  tags: ["autodocs"],
   parameters: { layout: "fullscreen", viewport: { defaultViewport: "iphone14Pro" } },
 };
 export default meta;
@@ -69,11 +70,43 @@ export const Generating: Story = {
   },
 };
 
+export const NoReport: Story = {
+  args: {
+    ...Ready.args,
+    status: "no-report",
+    report: null,
+  },
+};
+
+export const DirtyReportRefreshing: Story = {
+  args: {
+    ...Ready.args,
+    report: { ...mockReport, is_dirty: true },
+    refreshing: true,
+  },
+};
+
+export const DirtyReportRefreshFailed: Story = {
+  args: {
+    ...Ready.args,
+    report: { ...mockReport, is_dirty: true },
+    regenError: {
+      status: 500,
+      error: "Internal Server Error",
+      details: { message: "Private model timeout", stack: "private stack" },
+    },
+  },
+};
+
 export const Error: Story = {
   args: {
     ...Ready.args,
     status: "error",
     report: null,
-    error: { status: 500, error: "Internal Server Error", details: { message: "AI model timeout" } },
+    error: {
+      status: 500,
+      error: "Internal Server Error",
+      details: { message: "Private model timeout", stack: "private stack", cause: { secret: true } },
+    },
   },
 };

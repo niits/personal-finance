@@ -14,7 +14,7 @@ const SEED_CATEGORIES: {
     sortOrder: 0,
     children: [
       { name: "Ăn ngoài", sortOrder: 0 },
-      { name: "Đi chợ / siêu thị", sortOrder: 1 },
+      { name: "Đi chợ và siêu thị", sortOrder: 1 },
       { name: "Đồ uống", sortOrder: 2 },
     ],
   },
@@ -39,7 +39,7 @@ const SEED_CATEGORIES: {
     ],
   },
   {
-    name: "Sức khoẻ",
+    name: "Sức khỏe",
     type: "expense",
     sortOrder: 3,
     children: [
@@ -52,18 +52,18 @@ const SEED_CATEGORIES: {
     type: "expense",
     sortOrder: 4,
     children: [
-      { name: "Phim / sự kiện", sortOrder: 0 },
+      { name: "Phim và sự kiện", sortOrder: 0 },
       { name: "Game", sortOrder: 1 },
       { name: "Du lịch", sortOrder: 2 },
     ],
   },
   {
-    name: "Hoá đơn & dịch vụ",
+    name: "Hóa đơn và dịch vụ",
     type: "expense",
     sortOrder: 5,
     children: [
       { name: "Điện nước", sortOrder: 0 },
-      { name: "Internet / điện thoại", sortOrder: 1 },
+      { name: "Internet và điện thoại", sortOrder: 1 },
       { name: "Thuê nhà", sortOrder: 2 },
     ],
   },

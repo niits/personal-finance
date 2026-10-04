@@ -1,14 +1,36 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { BottomNavigation } from "@/components/organisms/BottomNavigation";
+
+const iconClassName = "size-lg stroke-current";
 
 const tabs = [
-  { href: "/", label: "Tổng quan", icon: "◎" },
-  { href: "/statistics", label: "Thống kê", icon: "◑" },
-  { href: "/cards", label: "Tài chính", icon: "◈" },
-  { href: "/account", label: "Tài khoản", icon: "◯" },
+  {
+    href: "/",
+    label: "Tổng quan",
+    matches: ["/"],
+    icon: <svg viewBox="0 0 24 24" fill="none" className={iconClassName}><path d="M4 11.5 12 5l8 6.5V20H4v-8.5Z" strokeWidth="1.8" strokeLinejoin="round" /><path d="M9.5 20v-5h5v5" strokeWidth="1.8" /></svg>,
+  },
+  {
+    href: "/statistics",
+    label: "Thống kê",
+    matches: ["/statistics"],
+    icon: <svg viewBox="0 0 24 24" fill="none" className={iconClassName}><path d="M5 19V9m7 10V5m7 14v-7" strokeWidth="1.8" strokeLinecap="round" /></svg>,
+  },
+  {
+    href: "/cards",
+    label: "Tài chính",
+    matches: ["/cards", "/debts"],
+    icon: <svg viewBox="0 0 24 24" fill="none" className={iconClassName}><path d="M4 7.5h16v10H4z" strokeWidth="1.8" strokeLinejoin="round" /><path d="M7 14h4" strokeWidth="1.8" strokeLinecap="round" /></svg>,
+  },
+  {
+    href: "/account",
+    label: "Tài khoản",
+    matches: ["/account"],
+    icon: <svg viewBox="0 0 24 24" fill="none" className={iconClassName}><circle cx="12" cy="8" r="3" strokeWidth="1.8" /><path d="M5.5 19c.8-3.1 3-4.7 6.5-4.7s5.7 1.6 6.5 4.7" strokeWidth="1.8" strokeLinecap="round" /></svg>,
+  },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -23,39 +45,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("auth:expired", handle);
   }, [router]);
 
-  return (
-    <div style={{ minHeight: "100svh", background: "var(--canvas-parchment)", paddingTop: 44 }}>
-      <main style={{ paddingBottom: 72 }}>
-        {children}
-      </main>
+  const destinations = tabs.map((tab) => ({
+    ...tab,
+    active: tab.matches.some((route) =>
+      route === "/" ? pathname === "/" : pathname === route || pathname.startsWith(`${route}/`),
+    ),
+  }));
 
-      {/* Bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 h-[72px] flex items-start pt-2 z-50 border-t border-hairline bg-white/[0.92] backdrop-saturate-[1.8] backdrop-blur-[8px]">
-        {tabs.map((tab) => {
-          const active = tab.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(tab.href);
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`flex-1 flex flex-col items-center gap-[3px] no-underline transition-colors ${
-                active ? "text-primary" : "text-ink-muted-48"
-              }`}
-            >
-              <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>
-              <span style={{
-                fontFamily: "var(--font-body)",
-                fontSize: 12,
-                fontWeight: active ? 600 : 400,
-                letterSpacing: -0.12,
-              }}>
-                {tab.label}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
+  return (
+    <div className="min-h-svh bg-canvas-parchment">
+      <main className="pb-[calc(72px+env(safe-area-inset-bottom))]">{children}</main>
+      <BottomNavigation destinations={destinations} />
     </div>
   );
 }
