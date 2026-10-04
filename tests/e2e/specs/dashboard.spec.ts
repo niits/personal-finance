@@ -37,7 +37,7 @@ test.describe("Dashboard — action sheet", () => {
     await page.goto("/");
     await page.getByText("Bún bò buổi trưa").first().click();
     await expect(page.getByRole("button", { name: "Sửa" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Xoá" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Xóa", exact: true })).toBeVisible();
   });
 
   test("edit flow pre-fills form with existing transaction data", async ({ page }) => {
@@ -92,11 +92,11 @@ test.describe("Dashboard — delete transaction", () => {
   test("requires named confirmation before deleting a transaction", async ({ page }) => {
     await page.goto("/");
     await page.getByText("Bún bò buổi trưa").first().click();
-    await page.getByRole("button", { name: "Xoá" }).click();
-    await expect(page.getByRole("heading", { name: "Xoá “Bún bò buổi trưa”?" })).toBeVisible();
-    await expect(page.getByText(/không thể hoàn tác/)).toBeVisible();
+    await page.getByRole("button", { name: "Xóa", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Xóa “Bún bò buổi trưa”?" })).toBeVisible();
+    await expect(page.getByText(/Không thể hoàn tác thao tác này\./)).toBeVisible();
     await expect(page.getByText("Bún bò buổi trưa").first()).toBeVisible();
-    await page.getByRole("button", { name: "Xác nhận xoá" }).click();
+    await page.getByRole("button", { name: "Xác nhận xóa" }).click();
     await expect(page.getByText("Bún bò buổi trưa").first()).not.toBeVisible();
   });
 
@@ -111,11 +111,11 @@ test.describe("Dashboard — delete transaction", () => {
 
     await page.goto("/");
     await page.getByText("Bún bò buổi trưa").first().click();
-    await page.getByRole("button", { name: "Xoá" }).click();
-    await page.getByRole("button", { name: "Xác nhận xoá" }).click();
+    await page.getByRole("button", { name: "Xóa", exact: true }).click();
+    await page.getByRole("button", { name: "Xác nhận xóa" }).click();
 
-    await expect(page.getByRole("alert").filter({ hasText: "Không thể xoá giao dịch" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Xác nhận xoá" })).toBeEnabled();
+    await expect(page.getByRole("alert").filter({ hasText: "Không thể xóa giao dịch" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Xác nhận xóa" })).toBeEnabled();
   });
 });
 
