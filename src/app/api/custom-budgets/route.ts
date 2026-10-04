@@ -36,17 +36,15 @@ async function withStats(
       .execute()]);
 
   const statsMap = new Map(results.map((r) => [r.custom_budget_id, r]));
-  const adjustmentsMap = new Map<number, typeof adjustments>();
+  const adjustmentsByBudget: Record<number, typeof adjustments> = {};
   for (const adjustment of adjustments) {
-    const current = adjustmentsMap.get(adjustment.custom_budget_id) ?? [];
-    current.push(adjustment);
-    adjustmentsMap.set(adjustment.custom_budget_id, current);
+    (adjustmentsByBudget[adjustment.custom_budget_id] ??= []).push(adjustment);
   }
   return budgets.map((b) => ({
     ...b,
     spent: statsMap.get(b.id)?.spent ?? 0,
     linked_transaction_count: statsMap.get(b.id)?.linked_transaction_count ?? 0,
-    adjustments: adjustmentsMap.get(b.id) ?? [],
+    adjustments: adjustmentsByBudget[b.id] ?? [],
   }));
 }
 
