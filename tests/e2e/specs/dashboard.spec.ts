@@ -57,6 +57,7 @@ test.describe("Dashboard — add transaction", () => {
 
   test("opens form via the labeled transaction action and creates an expense", async ({ page }) => {
     await page.goto("/");
+    await expect(page.locator('section[aria-labelledby="monthly-outcome"]').getByText("85.000₫")).toBeVisible();
     await page.getByRole("button", { name: "Ghi giao dịch" }).click();
     await expect(page.getByText("Chi tiêu").first()).toBeVisible();
 
@@ -64,8 +65,11 @@ test.describe("Dashboard — add transaction", () => {
     const catBtn = page.getByRole("button", { name: "Ăn uống" }).last();
     await catBtn.scrollIntoViewIfNeeded();
     await catBtn.click();
+    await page.getByRole("textbox", { name: "Ghi chú" }).fill("Giao dịch kiểm tra");
     await page.getByRole("button", { name: "Lưu", exact: true }).click();
     await expect(page.locator("input[inputmode='numeric']")).not.toBeVisible();
+    await expect(page.locator('section[aria-labelledby="monthly-outcome"]').getByText("205.000₫")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Giao dịch kiểm tra, chi 120\.000₫/ })).toBeVisible();
   });
 
   test("shows validation error when amount is missing", async ({ page }) => {

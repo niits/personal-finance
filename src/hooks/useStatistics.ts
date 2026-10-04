@@ -116,7 +116,7 @@ export function useStatistics(): UseStatisticsReturn {
 
     let res: Response;
     try {
-      res = await fetch(`/api/statistics?period_key=${month}`);
+      res = await fetch(`/api/statistics?period_key=${month}`, { cache: "no-cache" });
     } catch {
       if (activeMonth.current !== month) return;
       failedAction.current = "load";
