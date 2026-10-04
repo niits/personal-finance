@@ -290,9 +290,9 @@ const VegaEmbed = dynamic<VegaEmbedProps>(
 // ─── Insight type badge styles ────────────────────────────────────────────────
 
 const INSIGHT_TYPE_LABEL: Record<string, string> = {
-  analysis: "Điều đáng chú ý",
-  recommendation: "Bạn có thể làm gì",
-  alert: "Cần chú ý",
+  analysis: "Phân tích",
+  recommendation: "Đề xuất",
+  alert: "Cảnh báo",
 };
 
 // ─── Public component ─────────────────────────────────────────────────────────

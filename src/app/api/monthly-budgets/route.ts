@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   if (!session) return Errors.unauthorized();
 
   const body = await request.json().catch(() => null);
-  if (!body) return Errors.validation("Request body không hợp lệ");
+  if (!body) return Errors.validation("Dữ liệu ngân sách không hợp lệ. Vui lòng kiểm tra và thử lại.");
 
   const b = body as Record<string, unknown>;
   const month = parseMonth(b.month);

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     if (!session) return Errors.unauthorized();
 
     const periodKey = parseMonth(request.nextUrl.searchParams.get("period_key"));
-    if (!periodKey) return Errors.validation("period_key phải có dạng YYYY-MM");
+    if (!periodKey) return Errors.validation("Tháng phân tích phải có định dạng YYYY-MM.");
 
     const db = await getKysely();
     const row = await db
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   if (!session) return Errors.unauthorized();
 
   const periodKey = parseMonth(request.nextUrl.searchParams.get("period_key"));
-  if (!periodKey) return Errors.validation("period_key phải có dạng YYYY-MM");
+  if (!periodKey) return Errors.validation("Tháng phân tích phải có định dạng YYYY-MM.");
 
   if (periodKey > currentBudgetMonth()) {
     return Errors.validation("Không thể tạo thống kê cho tháng tương lai");

@@ -85,7 +85,7 @@ describe("POST /api/categories", () => {
   });
 
   it("creates a level-3 category under level-2", async () => {
-    const l1Id = await seedCategory(userId, "Sức khoẻ L1", null, 1);
+    const l1Id = await seedCategory(userId, "Sức khỏe L1", null, 1);
     const l2Id = await seedCategory(userId, "Thuốc L2", l1Id, 2);
 
     const res = await SELF.fetch("http://localhost/api/categories", {

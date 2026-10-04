@@ -95,11 +95,11 @@ function NoReportState({ monthLabel, showCurrent, onGenerate, onNextMonth }: {
     <CenteredState>
       <h1 className="m-0 font-display text-[21px] leading-[26px] font-semibold text-ink">Chưa có bản phân tích</h1>
       <p className="mx-auto mt-2 mb-6 max-w-[34ch] font-body text-[17px] leading-[25px] text-ink-muted-80">
-        Khi bạn sẵn sàng, chúng tôi sẽ xem lại thu chi trong {monthLabel.toLowerCase()} và nêu những điều đáng chú ý.
+        Tạo bản phân tích để xem các thay đổi về thu nhập và chi tiêu trong {monthLabel.toLowerCase()}.
       </p>
       <div className="mx-auto flex max-w-[320px] flex-col gap-2">
-        <Button label="Phân tích tháng này" fullWidth onClick={onGenerate} />
-        {showCurrent ? <Button label="Xem tháng hiện tại" variant="ghost" fullWidth onClick={onNextMonth} /> : null}
+        <Button label="Tạo bản phân tích" fullWidth onClick={onGenerate} />
+        {showCurrent ? <Button label="Xem tháng sau" variant="ghost" fullWidth onClick={onNextMonth} /> : null}
       </div>
     </CenteredState>
   );
@@ -116,7 +116,7 @@ function EmptyState({ monthLabel, showCurrent, onNextMonth }: {
       <p className="mx-auto mt-2 mb-6 max-w-[34ch] font-body text-[17px] leading-[25px] text-ink-muted-80">
         Không có giao dịch nào trong {monthLabel.toLowerCase()}.
       </p>
-      {showCurrent ? <Button label="Xem tháng hiện tại" variant="secondary" onClick={onNextMonth} /> : null}
+      {showCurrent ? <Button label="Xem tháng sau" variant="secondary" onClick={onNextMonth} /> : null}
     </CenteredState>
   );
 }
@@ -125,7 +125,7 @@ function GeneratingState({ steps }: { steps: AgentStep[] }) {
   return (
     <CenteredState>
       <div className="mx-auto mb-5 size-9 animate-spin rounded-full border-[3px] border-hairline border-t-primary motion-reduce:animate-none" aria-hidden="true" />
-      <h1 className="m-0 font-display text-[21px] leading-[26px] font-semibold text-ink">Đang phân tích tháng này</h1>
+      <h1 className="m-0 font-display text-[21px] leading-[26px] font-semibold text-ink">Đang tạo bản phân tích</h1>
       <p aria-live="polite" className="mt-2 mb-0 font-body text-[17px] leading-[25px] text-ink-muted-80">
         {generationProgress(steps)}
       </p>
@@ -161,7 +161,7 @@ function ReportStatus({ report, refreshing, regenError, onRegenerate, onDismiss 
           <div className="min-w-0 flex-1">
             <p className="m-0 font-body text-[15px] leading-[21px] font-semibold text-ink">Chưa cập nhật được bản phân tích</p>
             <p className="mt-1 mb-0 font-body text-[13px] leading-[18px] text-ink-muted-48">
-              Bản hiện tại vẫn ở đây. Bạn có thể thử cập nhật lại.
+              Bản phân tích hiện tại vẫn có thể xem. Vui lòng thử cập nhật lại.
             </p>
           </div>
           <button type="button" onClick={onDismiss} aria-label="Đóng thông báo" className="flex size-11 shrink-0 cursor-pointer items-center justify-center border-none bg-transparent text-[20px] text-ink-muted-48">×</button>
@@ -169,9 +169,9 @@ function ReportStatus({ report, refreshing, regenError, onRegenerate, onDismiss 
       ) : (
         <p aria-live="polite" className="m-0 font-body text-[13px] leading-[18px] text-ink-muted-48">
           {refreshing && changed ? "Dữ liệu đã thay đổi. Đang cập nhật bản phân tích…" : null}
-          {refreshing && !changed ? "Đang cập nhật bản phân tích. Nội dung cũ vẫn được giữ để bạn đọc…" : null}
+          {refreshing && !changed ? "Đang cập nhật bản phân tích. Nội dung hiện tại vẫn có thể xem." : null}
           {!refreshing && changed ? "Dữ liệu đã thay đổi. Bản phân tích này cần được cập nhật." : null}
-          {!refreshing && !changed ? `Cập nhật ${formatReportTime(report.generated_at)}` : null}
+          {!refreshing && !changed ? `Phân tích lúc ${formatReportTime(report.generated_at)}` : null}
         </p>
       )}
       {!refreshing ? (

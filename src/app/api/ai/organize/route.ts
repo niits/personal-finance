@@ -46,6 +46,7 @@ Nhiệm vụ: Phân tích toàn bộ dữ liệu và trả về 4 loại gợi �
 4. emoji_reassignments: Dựa trên GHI CHÚ của giao dịch, gán emoji riêng phù hợp hơn cho giao dịch đó. Emoji này KHÔNG nhất thiết kế thừa từ danh mục — ưu tiên nội dung ghi chú (ví dụ ghi chú "cà phê" → ☕, "mua thuốc" → 💊). Chỉ gợi ý khi emoji mới khác và phù hợp hơn emoji hiện tại của giao dịch.
 
 Quy tắc:
+- Tên danh mục và lý do phải dùng tiếng Việt trang trọng, thông dụng, rõ nghĩa. Tránh từ viết tắt, tiếng lóng và cách diễn đạt văn hoa.
 - parent_category_id phải là ID thực từ danh sách, hoặc null
 - temp_id dùng định dạng "new:0", "new:1", ...
 - suggested_category_id có thể là số (ID hiện có) hoặc chuỗi temp_id (danh mục mới)
@@ -97,7 +98,7 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
     result = object;
   } catch (err) {
     console.error("[ai/organize] AI error:", err);
-    return Response.json({ error: "AI_ERROR" }, { status: 502 });
+    return Response.json({ error: "Không thể tạo đề xuất phân loại. Vui lòng thử lại.", code: "AI_ERROR" }, { status: 502 });
   } finally {
     ctx.waitUntil(trace.flush());
   }

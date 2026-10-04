@@ -24,10 +24,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     .where("id", "=", budgetId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
-  if (!existing) return Errors.notFound("Custom budget không tồn tại");
+  if (!existing) return Errors.notFound("Không tìm thấy ngân sách riêng.");
 
   const body = await request.json().catch(() => null);
-  if (!body) return Errors.validation("Request body không hợp lệ");
+  if (!body) return Errors.validation("Dữ liệu ngân sách riêng không hợp lệ. Vui lòng kiểm tra và thử lại.");
 
   const b = body as Record<string, unknown>;
   const updates: Record<string, unknown> = {};
@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
 
   if (b.is_active !== undefined) {
     if (b.is_active !== 0 && b.is_active !== 1)
-      return Errors.validation("is_active phải là 0 hoặc 1");
+      return Errors.validation("Trạng thái ngân sách riêng không hợp lệ.");
     updates.is_active = b.is_active;
   }
 
@@ -87,7 +87,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
     .where("id", "=", budgetId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
-  if (!existing) return Errors.notFound("Custom budget không tồn tại");
+  if (!existing) return Errors.notFound("Không tìm thấy ngân sách riêng.");
 
   const linked = await db
     .selectFrom("transaction_custom_budget")
@@ -97,7 +97,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
   const affectedCount = Number(linked.count);
   if (affectedCount > 0) {
     return Errors.conflict(
-      `Không thể xoá vì ngân sách đang liên kết với ${affectedCount} giao dịch`,
+      `Không thể xóa ngân sách vì đang liên kết với ${affectedCount} giao dịch. Vui lòng bỏ liên kết trong từng giao dịch trước.`,
       "CUSTOM_BUDGET_LINKED",
       { affected_count: affectedCount },
     );
@@ -120,7 +120,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
       .where("custom_budget_id", "=", budgetId)
       .executeTakeFirstOrThrow();
     return Errors.conflict(
-      `Không thể xoá vì ngân sách đang liên kết với ${Number(currentLinked.count)} giao dịch`,
+      `Không thể xóa ngân sách vì đang liên kết với ${Number(currentLinked.count)} giao dịch. Vui lòng bỏ liên kết trong từng giao dịch trước.`,
       "CUSTOM_BUDGET_LINKED",
       { affected_count: Number(currentLinked.count) },
     );

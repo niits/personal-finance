@@ -134,13 +134,13 @@ export default function DashboardPage() {
     try {
       const response = await fetch(`/api/transactions/${txn.id}`, { method: "DELETE" });
       if (!response.ok) {
-        setDeleteError("Không thể xoá giao dịch. Vui lòng thử lại.");
+        setDeleteError("Không thể xóa giao dịch. Vui lòng thử lại.");
         return;
       }
       setActionTxn(null);
       load(selectedMonth, true);
     } catch {
-      setDeleteError("Không thể xoá giao dịch. Kiểm tra kết nối và thử lại.");
+      setDeleteError("Không thể xóa giao dịch. Kiểm tra kết nối và thử lại.");
     } finally {
       setDeleting(false);
     }

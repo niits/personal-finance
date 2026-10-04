@@ -23,18 +23,18 @@ test.describe("Statistics — page render", () => {
     // Navigate back two months to a month with no seeded data
     await page.getByRole("button", { name: "Tháng trước" }).click();
     await page.getByRole("button", { name: "Tháng trước" }).click();
-    await page.getByRole("button", { name: "Phân tích tháng này" }).click();
+    await page.getByRole("button", { name: "Tạo bản phân tích" }).click();
     await expect(page.getByRole("heading", { name: "Chưa có giao dịch để phân tích" })).toBeVisible();
     await expect(page.getByText(/Không có giao dịch nào/)).toBeVisible();
   });
 
-  test("Xem tháng hiện tại navigates forward one month", async ({ page }) => {
+  test("Xem tháng sau navigates forward one month", async ({ page }) => {
     await page.goto("/statistics");
     // Go back one month — button appears because we're no longer on current month
     await page.getByRole("button", { name: "Tháng trước" }).click();
-    await expect(page.getByRole("button", { name: "Xem tháng hiện tại" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Xem tháng sau" })).toBeVisible();
     // Clicking advances to current month — button disappears (upper bound reached)
-    await page.getByText("Xem tháng hiện tại").click();
-    await expect(page.getByText("Xem tháng hiện tại")).not.toBeVisible();
+    await page.getByText("Xem tháng sau").click();
+    await expect(page.getByText("Xem tháng sau")).not.toBeVisible();
   });
 });

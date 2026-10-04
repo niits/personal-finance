@@ -242,7 +242,7 @@ export default function AccountPage() {
             <ListRow
               icon={<span style={{ fontSize: 18 }}>⊟</span>}
               label="Ngân sách"
-              value="Quản lý ngân sách tháng"
+              value="Quản lý ngân sách tháng và ngân sách riêng"
               action={<span style={{ color: "var(--ink-muted-48)", fontSize: 18 }}>›</span>}
               isLast
             />
@@ -309,10 +309,10 @@ export default function AccountPage() {
               accountLoadError || githubLinked === null ? null : githubLinked ? (
                 <button type="button"
                   disabled
-                  title="Tạm thời không thể bỏ liên kết GitHub trong lúc các phương thức khác đang bị tắt."
+                  title="Không thể bỏ liên kết GitHub vì các phương thức đăng nhập khác hiện không khả dụng."
                   style={{ ...unlinkBtnStyle, opacity: 0.35, cursor: "not-allowed" }}
                 >
-                  Tạm khóa
+                  Chưa thể bỏ liên kết
                 </button>
               ) : (
                 <button type="button" onClick={handleLinkGitHub} style={actionBtnStyle}>
@@ -331,10 +331,10 @@ export default function AccountPage() {
                   ? "Đang tải…"
                   : googleLinked
                     ? "Đã liên kết"
-                    : "Tạm dừng"
+                    : "Chưa liên kết"
             }
             action={
-              <span style={disabledPillStyle}>Sắp có lại</span>
+              <span style={disabledPillStyle}>Tạm dừng</span>
             }
             isLast
           />
@@ -365,11 +365,11 @@ export default function AccountPage() {
                   color: "var(--ink-muted-48)",
                   lineHeight: 1.43,
                 }}>
-                  Đăng nhập, đăng ký, đặt mật khẩu và đặt lại mật khẩu sẽ có lại trong thời gian tới.
-                  {hasPassword ? " Mật khẩu hiện có của bạn cũng đang tạm thời không sử dụng được." : ""}
+                  Hiện không thể đăng nhập, đăng ký, đặt hoặc đặt lại mật khẩu bằng email.
+                  {hasPassword ? " Bạn cũng không thể sử dụng mật khẩu hiện có để đăng nhập." : ""}
                 </div>
               </div>
-              <span style={disabledPillStyle}>Sắp có lại</span>
+              <span style={disabledPillStyle}>Tạm dừng</span>
             </div>
           </div>
         </SectionGroup>

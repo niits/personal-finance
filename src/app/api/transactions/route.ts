@@ -232,14 +232,14 @@ export async function POST(request: NextRequest) {
   if (!session) return Errors.unauthorized();
 
   const body = await request.json().catch(() => null);
-  if (!body) return Errors.validation("Request body không hợp lệ");
+  if (!body) return Errors.validation("Dữ liệu giao dịch không hợp lệ. Vui lòng kiểm tra và thử lại.");
 
   const b = body as Record<string, unknown>;
   const amount = parseAmount(b.amount);
   if (!amount) return Errors.validation("Số tiền phải là số nguyên lớn hơn 0");
 
   if (b.type !== "expense" && b.type !== "income")
-    return Errors.validation("Loại giao dịch phải là 'expense' hoặc 'income'");
+    return Errors.validation("Vui lòng chọn chi tiêu hoặc thu nhập.");
 
   const date = parseDate(b.date);
   if (!date) return Errors.validation("Ngày không hợp lệ. Dùng định dạng YYYY-MM-DD");
@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
       .executeTakeFirst();
     if (!debt) return Errors.notFound("Debt not found");
     if (debt.status === "settled")
-      return Errors.validation("Khoản nợ này đã tất toán");
+      return Errors.validation("Khoản nợ này đã được thanh toán hết.");
 
     const linkedAmount = (typeof b.linked_amount === "number" && Number.isInteger(b.linked_amount) && b.linked_amount > 0)
       ? b.linked_amount : null;
@@ -285,7 +285,7 @@ export async function POST(request: NextRequest) {
 
   // ── Normal transaction path ───────────────────────────────────────────────
   const categoryId = typeof b.category_id === "number" ? b.category_id : null;
-  if (!categoryId) return Errors.validation("category_id là bắt buộc");
+  if (!categoryId) return Errors.validation("Vui lòng chọn danh mục giao dịch.");
 
   const customBudgetIds: number[] =
     b.type === "expense" && Array.isArray(b.custom_budget_ids)
@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
       : [];
 
   if (b.type === "income" && Array.isArray(b.custom_budget_ids) && b.custom_budget_ids.length > 0)
-    return Errors.validation("Giao dịch thu nhập không thể gán vào Custom Budget");
+    return Errors.validation("Không thể liên kết giao dịch thu nhập với ngân sách riêng.");
 
   // Validate category belongs to user and is leaf
   const cat = await db
@@ -311,7 +311,7 @@ export async function POST(request: NextRequest) {
   const isConsumption = cat.budget_behavior === "consumption";
   const financeAccountId = typeof b.finance_account_id === "string" ? b.finance_account_id : null;
   if (!isConsumption) {
-    if (customBudgetIds.length > 0) return Errors.validation("Giao dịch nợ hoặc tiết kiệm không thể gán vào quỹ");
+    if (customBudgetIds.length > 0) return Errors.validation("Không thể liên kết giao dịch nợ hoặc tiết kiệm với ngân sách riêng.");
     if (!financeAccountId) return Errors.validation("Giao dịch nợ hoặc tiết kiệm cần chọn tài khoản");
     const account = await db.selectFrom("finance_account").select(["id", "type"])
       .where("id", "=", financeAccountId).where("user_id", "=", userId).executeTakeFirst();
@@ -344,7 +344,7 @@ export async function POST(request: NextRequest) {
       .executeTakeFirst();
     if (!budget) {
       return Response.json(
-        { error: `Chưa có budget tháng ${month}. Vui lòng tạo budget trước.`, code: "MONTHLY_BUDGET_MISSING", details: { month } },
+        { error: `Chưa có ngân sách cho tháng ${month}. Vui lòng tạo ngân sách tháng trước khi lưu giao dịch.`, code: "MONTHLY_BUDGET_MISSING", details: { month } },
         { status: 400 },
       );
     }

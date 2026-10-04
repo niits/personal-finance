@@ -32,7 +32,7 @@ test.describe("Tài chính", () => {
 
     await page.getByRole("tab", { name: "Tiền gửi" }).click();
     await expect(page.getByText("Quỹ dự phòng", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Quỹ dự phòng.*2\.000\.000₫.*Đang để dành/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Quỹ dự phòng.*2\.000\.000₫.*Số dư tiền gửi/ })).toBeVisible();
   });
 
   test("offers contextual account management without creating from Finance", async ({ page }) => {

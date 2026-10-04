@@ -279,7 +279,7 @@ export function CategoriesTemplate({
       <header className="mt-xs flex items-end justify-between gap-md border-b border-hairline pb-lg">
         <div className="min-w-0">
           <h1 className="font-display text-[28px] font-semibold leading-[33px] tracking-[-0.28px] text-ink">Danh mục</h1>
-          <p className="mt-xs font-body text-[15px] leading-[21px] text-ink-muted-48">Sắp xếp cách bạn theo dõi tiền vào và tiền ra.</p>
+          <p className="mt-xs font-body text-[15px] leading-[21px] text-ink-muted-48">Quản lý danh mục thu nhập và chi tiêu.</p>
         </div>
         <button
           type="button"
@@ -354,7 +354,7 @@ export function CategoriesTemplate({
       ) : categories.length === 0 ? (
         <section className="py-xxl text-center" aria-labelledby="empty-title">
           <h2 id="empty-title" className="font-display text-[21px] font-semibold text-ink">Bắt đầu với danh mục của bạn</h2>
-          <p className="mx-auto mt-xs max-w-sm font-body text-[15px] leading-[21px] text-ink-muted-48">Tạo riêng từng danh mục hoặc dùng bộ mẫu để bắt đầu nhanh.</p>
+          <p className="mx-auto mt-xs max-w-sm font-body text-[15px] leading-[21px] text-ink-muted-48">Tạo từng danh mục hoặc thêm các danh mục mẫu.</p>
           {seedError ? <p role="alert" className="mx-auto mt-sm max-w-sm font-body text-[14px] leading-[20px] text-danger">{seedError}</p> : null}
           <button type="button" onClick={onSeed} disabled={seedState === "loading"} className="mt-lg min-h-11 rounded-pill border-0 bg-primary px-lg font-body text-[15px] font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60">
             {seedState === "loading" ? "Đang tạo danh mục mẫu…" : seedState === "error" ? "Thử tạo lại" : "Tạo danh mục mẫu"}

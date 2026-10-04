@@ -44,7 +44,8 @@ Quy tắc:
 6. Gom nhóm theo hành vi chi tiêu, không theo tên thương hiệu
 7. Chỉ gợi ý khi có ít nhất 3 giao dịch tương tự
 8. Trả về danh sách rỗng nếu không tìm thấy gợi ý phù hợp
-9. Phản hồi theo định dạng JSON`;
+9. Tên danh mục phải là tiếng Việt thông dụng, rõ nghĩa; không dùng tiếng lóng, từ viết tắt hoặc cách diễn đạt văn hoa
+10. Phản hồi theo định dạng JSON`;
 
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
@@ -119,8 +120,7 @@ Gợi ý các danh mục mới nên thêm để tổ chức tốt hơn.`;
   } catch (err) {
     console.error("AI suggest error:", err);
     await db.prepare("DELETE FROM ai_suggestion_run WHERE id = ?").bind(runId).run();
-    const message = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: message, code: "AI_ERROR" }, { status: 502 });
+    return Response.json({ error: "Không thể đề xuất danh mục. Vui lòng thử lại.", code: "AI_ERROR" }, { status: 502 });
   }
 
   const catMap = new Map(categories.map((c) => [c.id, c.name]));

@@ -82,7 +82,7 @@ export default function BudgetPage() {
   }
 
   async function handleCreateMonthlyBudget(amount: number, objective: string | null): Promise<{ error?: string }> {
-    if (!month) return { error: "Không có tháng" };
+    if (!month) return { error: "Chưa chọn tháng ngân sách." };
     const r = await request("/api/monthly-budgets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -90,7 +90,7 @@ export default function BudgetPage() {
     });
     if (!r) return { error: "Không thể kết nối. Kiểm tra mạng và thử lại." };
     const d = await r.json() as BudgetPageData & { error?: string };
-    if (!r.ok) return { error: d.error ?? "Lỗi" };
+    if (!r.ok) return { error: d.error ?? "Không thể tạo ngân sách. Vui lòng thử lại." };
     setBudget(d.monthly_budget ?? null);
     setDashboard((current) => current ? {
       ...current,
@@ -102,7 +102,7 @@ export default function BudgetPage() {
   }
 
   async function handleCreateAdjustment(delta: number, note: string | null): Promise<{ error?: string }> {
-    if (!budget) return { error: "Không có ngân sách" };
+    if (!budget) return { error: "Chưa có ngân sách cho tháng này." };
     const r = await request(`/api/monthly-budgets/${budget.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -110,7 +110,7 @@ export default function BudgetPage() {
     });
     if (!r) return { error: "Không thể kết nối. Kiểm tra mạng và thử lại." };
     const d = await r.json() as { monthly_budget?: MonthlyBudget; error?: string };
-    if (!r.ok) return { error: d.error ?? "Lỗi" };
+    if (!r.ok) return { error: d.error ?? "Không thể điều chỉnh ngân sách. Vui lòng thử lại." };
     setBudget(d.monthly_budget ?? null);
     setDashboard((current) => current?.monthly_budget && d.monthly_budget ? {
       ...current,
@@ -125,7 +125,7 @@ export default function BudgetPage() {
   }
 
   async function handleUpdateMonthlyObjective(objective: string | null): Promise<{ error?: string }> {
-    if (!budget) return { error: "Không có ngân sách" };
+    if (!budget) return { error: "Chưa có ngân sách cho tháng này." };
     const r = await request(`/api/monthly-budgets/${budget.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -146,7 +146,7 @@ export default function BudgetPage() {
     });
     if (!r) return { error: "Không thể kết nối. Kiểm tra mạng và thử lại." };
     const d = await r.json() as { custom_budget?: CustomBudget; error?: string };
-    if (!r.ok) return { error: d.error ?? "Lỗi" };
+    if (!r.ok) return { error: d.error ?? "Không thể tạo ngân sách riêng. Vui lòng thử lại." };
     if (d.custom_budget) setCustomBudgets((prev) => [d.custom_budget!, ...prev]);
     return {};
   }
@@ -185,7 +185,7 @@ export default function BudgetPage() {
     const r = await request(`/api/custom-budgets/${id}`, { method: "DELETE" });
     if (!r) return { error: "Không thể kết nối. Kiểm tra mạng và thử lại." };
     const d = await r.json() as { error?: string; details?: { affected_count?: number } };
-    if (!r.ok) return { error: d.error ?? "Không thể xoá ngân sách", affectedCount: d.details?.affected_count };
+    if (!r.ok) return { error: d.error ?? "Không thể xóa ngân sách", affectedCount: d.details?.affected_count };
     setCustomBudgets((prev) => prev.filter((c) => c.id !== id));
     return {};
   }

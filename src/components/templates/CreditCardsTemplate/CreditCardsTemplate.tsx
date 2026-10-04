@@ -62,16 +62,16 @@ function signedAmount(type: "income" | "expense", amount: number) {
 function accountMeaning(account: FinanceAccount) {
   if (account.type === "savings") {
     return account.balance > 0
-      ? { label: "Đã rút vượt", amount: account.balance }
-      : { label: "Đang để dành", amount: -account.balance };
+      ? { label: "Rút vượt tiền đã gửi", amount: account.balance }
+      : { label: "Số dư tiền gửi", amount: -account.balance };
   }
   if (account.debt_direction === "lend") {
     return account.balance > 0
-      ? { label: "Đã nhận dư", amount: account.balance }
+      ? { label: "Nhận vượt tiền đã cho vay", amount: account.balance }
       : { label: "Còn được nhận", amount: -account.balance };
   }
   return account.balance < 0
-    ? { label: "Đã trả dư", amount: -account.balance }
+    ? { label: "Trả vượt tiền đã vay", amount: -account.balance }
     : { label: "Còn phải trả", amount: account.balance };
 }
 
@@ -111,7 +111,7 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
     event.preventDefault();
     const day = Number(closeDay);
     if (!groupName.trim() || !Number.isInteger(day) || day < 1 || day > 31) {
-      setMutationError("Nhập tên nhóm và ngày chốt từ 1 đến 31.");
+      setMutationError("Vui lòng nhập tên nhóm thẻ và ngày chốt sao kê từ 1 đến 31.");
       return;
     }
     setPending(true); setMutationError(null);
@@ -175,9 +175,9 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
         ) : mode === "debt" ? (
           <><p className="font-body text-[13px] text-ink-muted-48">Còn phải trả</p><p className="mt-xxs font-display text-[34px] font-semibold leading-[38px] text-ink">{formatVND(debtTotals.payable)}₫</p>{debtTotals.receivable > 0 ? <p className="mt-xs font-body text-[15px] text-ink-muted-80">Còn được nhận {formatVND(debtTotals.receivable)}₫</p> : null}</>
         ) : mode === "savings" ? (
-          <><p className="font-body text-[13px] text-ink-muted-48">{savingsTotal < 0 ? "Đã rút vượt" : "Đang để dành"}</p><p className="mt-xxs font-display text-[34px] font-semibold leading-[38px] text-ink">{formatVND(Math.abs(savingsTotal))}₫</p></>
+          <><p className="font-body text-[13px] text-ink-muted-48">{savingsTotal < 0 ? "Rút vượt tiền đã gửi" : "Số dư tiền gửi"}</p><p className="mt-xxs font-display text-[34px] font-semibold leading-[38px] text-ink">{formatVND(Math.abs(savingsTotal))}₫</p></>
         ) : (
-          <><p className="font-body text-[13px] text-ink-muted-48">Chưa thanh toán</p><p className="mt-xxs font-display text-[34px] font-semibold leading-[38px] text-ink">{formatVND(unpaidTotal)}₫</p><p className="mt-xs font-body text-[15px] text-ink-muted-80">Đã được tính trong chi tiêu.</p></>
+          <><p className="font-body text-[13px] text-ink-muted-48">Chi tiêu thẻ chưa thanh toán</p><p className="mt-xxs font-display text-[34px] font-semibold leading-[38px] text-ink">{formatVND(unpaidTotal)}₫</p><p className="mt-xs font-body text-[15px] text-ink-muted-80">Số tiền này đã được tính vào chi tiêu.</p></>
         )}
       </section>
 
@@ -196,7 +196,7 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
                     <span className="shrink-0 text-right"><span className="block font-display text-[17px] font-semibold text-ink">{formatVND(meaning.amount)}₫</span><span className="block font-body text-[13px] text-ink-muted-48">{meaning.label}</span></span>
                   </button>
                   {expanded ? <div className="mt-md border-t border-divider-soft pt-md">
-                    <p className="font-body text-[13px] font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Lịch sử dòng tiền</p>
+                    <p className="font-body text-[13px] font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Lịch sử giao dịch</p>
                     {account.transactions.length === 0 ? <p className="mt-sm font-body text-[15px] text-ink-muted-48">Tài khoản đã tạo nhưng chưa có giao dịch.</p> : account.transactions.map((transaction) => <div key={transaction.id} className="flex justify-between gap-sm border-b border-divider-soft py-sm last:border-0"><span className="min-w-0"><span className="block break-words font-body text-[15px] text-ink">{transaction.note || "Giao dịch"}</span><span className="font-body text-[13px] text-ink-muted-48">{transaction.date}</span></span><span className={`shrink-0 font-body text-[15px] font-semibold ${transaction.type === "expense" ? "text-danger" : "text-success"}`}>{signedAmount(transaction.type, transaction.amount)}</span></div>)}
                     <div className="mt-md flex gap-xs"><button type="button" onClick={() => { setEditingAccount(account); setAccountName(account.name); setAccountNote(account.note ?? ""); setMutationError(null); }} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-primary">Sửa thông tin</button><button type="button" onClick={() => setDeleteTarget({ kind: "account", id: account.id, name: account.name })} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-danger">Xóa</button></div>
                   </div> : null}

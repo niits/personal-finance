@@ -126,11 +126,11 @@ function SignInContent() {
           <ComingSoonCard
             icon={<GoogleIcon />}
             title="Google đang tạm dừng"
-            description="Đăng nhập và liên kết Google sẽ quay lại sau khi hệ thống ổn định hơn."
+            description="Hiện không thể đăng nhập hoặc liên kết tài khoản bằng Google."
           />
           <ComingSoonCard
-            title="Email & mật khẩu đang tạm dừng"
-            description="Đăng ký, đăng nhập và khôi phục mật khẩu bằng email sẽ có lại trong thời gian tới."
+            title="Email và mật khẩu đang tạm dừng"
+            description="Hiện không thể đăng ký, đăng nhập hoặc khôi phục mật khẩu bằng email."
           />
         </div>
       </div>
@@ -190,7 +190,7 @@ function ComingSoonCard({
           ) : null}
           <span>{title}</span>
         </div>
-        <span style={badgeStyle}>Sắp có lại</span>
+        <span style={badgeStyle}>Tạm dừng</span>
       </div>
       <p style={{
         margin: 0,

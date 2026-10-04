@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   if (!Number.isInteger(runId)) return Errors.notFound();
 
   const body = await request.json().catch(() => null) as { status?: string } | null;
-  if (body?.status !== "available") return Errors.validation("Chỉ hỗ trợ chuyển sang 'available'");
+  if (body?.status !== "available") return Errors.validation("Trạng thái đề xuất không hợp lệ.");
 
   const db = await getDB();
   const { meta } = await db
@@ -25,7 +25,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     .bind(runId, session.user.id)
     .run();
 
-  if (meta.changes === 0) return Errors.notFound("Phiên gợi ý không tồn tại hoặc không ở trạng thái pending");
+  if (meta.changes === 0) return Errors.notFound("Không tìm thấy đề xuất đang chờ xử lý.");
 
   return Response.json({ ok: true });
 }

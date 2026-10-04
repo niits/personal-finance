@@ -156,7 +156,7 @@ export function BudgetTemplate({
   }
 
   async function createCustom() {
-    if (!cbName.trim()) { setCbErr("Nhập tên"); return; }
+    if (!cbName.trim()) { setCbErr("Vui lòng nhập tên ngân sách riêng."); return; }
     const amount = parseVND(cbAmountStr);
     if (!amount) { setCbErr("Số tiền không hợp lệ"); return; }
     setCbSaving(true); setCbErr("");
@@ -167,7 +167,7 @@ export function BudgetTemplate({
 
   async function updateCustom() {
     if (!editingCbId) return;
-    if (!editName.trim()) { setEditErr("Nhập tên"); return; }
+    if (!editName.trim()) { setEditErr("Vui lòng nhập tên ngân sách riêng."); return; }
     const amount = parseVND(editAmountStr);
     if (!amount) { setEditErr("Số tiền không hợp lệ"); return; }
     setEditSaving(true); setEditErr("");
@@ -288,13 +288,13 @@ export function BudgetTemplate({
                 </p>
                 {objectiveOpen ? (
                   <div className="mt-4 border-t border-hairline pt-4">
-                    <label htmlFor="monthly-objective-edit" className="mb-1 block font-body text-[13px] text-ink-muted-80">Mục tiêu tháng (tuỳ chọn)</label>
+                    <label htmlFor="monthly-objective-edit" className="mb-1 block font-body text-[13px] text-ink-muted-80">Mục tiêu tháng (tùy chọn)</label>
                     <input id="monthly-objective-edit" type="text" maxLength={500} value={objectiveText}
                       onChange={(event) => { setObjectiveText(event.target.value); setObjectiveErr(""); }}
                       className="mb-2 min-h-11 w-full rounded-md border border-hairline bg-canvas-parchment px-[14px] font-body text-[17px] text-ink outline-none" />
                     {objectiveErr ? <p className="mb-2 font-body text-[14px] text-danger">{objectiveErr}</p> : null}
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => setObjectiveOpen(false)} className="min-h-11 flex-1 rounded-full border border-hairline bg-transparent font-body text-[14px] text-ink-muted-80">Huỷ</button>
+                      <button type="button" onClick={() => setObjectiveOpen(false)} className="min-h-11 flex-1 rounded-full border border-hairline bg-transparent font-body text-[14px] text-ink-muted-80">Hủy</button>
                       <button type="button" onClick={updateObjective} disabled={objectiveSaving} className="min-h-11 flex-[2] rounded-full border-none bg-primary font-body text-[14px] text-white disabled:opacity-70">
                         {objectiveSaving ? "Đang lưu…" : "Lưu mục tiêu"}
                       </button>
@@ -347,7 +347,7 @@ export function BudgetTemplate({
                   </button>
                 ))}
               </div>
-              <label htmlFor="monthly-objective-create" className="mb-1 block font-body text-[13px] text-ink-muted-80">Mục tiêu tháng (tuỳ chọn)</label>
+              <label htmlFor="monthly-objective-create" className="mb-1 block font-body text-[13px] text-ink-muted-80">Mục tiêu tháng (tùy chọn)</label>
               <input id="monthly-objective-create" type="text" maxLength={500} placeholder="Ví dụ: Hạn chế ăn ngoài" value={createObjective}
                 onChange={(event) => setCreateObjective(event.target.value)}
                 className="mb-3 min-h-11 w-full rounded-md border border-hairline bg-canvas-parchment px-[14px] font-body text-[17px] text-ink outline-none" />
@@ -408,7 +408,7 @@ export function BudgetTemplate({
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" onClick={() => { setAdjOpen(false); setAdjDeltaStr(""); setAdjNote(""); setAdjErr(""); }}
                   className="flex-1 p-[11px] rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
-                  Huỷ
+                  Hủy
                 </button>
                 <button type="button" onClick={adjust} disabled={adjSaving || !adjDeltaStr || !adjNote.trim()}
                   className={`flex-[2] p-[11px] rounded-full border-none font-body text-[14px] transition-[background,opacity] ${adjDeltaStr && adjNote.trim() ? "cursor-pointer bg-primary text-white" : "cursor-default bg-hairline text-ink-muted-48"}`}>
@@ -440,12 +440,12 @@ export function BudgetTemplate({
               <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>
                 Ngân sách riêng mới
               </p>
-              <input type="text" placeholder="Tên (vd: Du lịch, Mua laptop…)" aria-label="Tên ngân sách riêng" value={cbName}
+              <input type="text" placeholder="Ví dụ: Du lịch, mua máy tính" aria-label="Tên ngân sách riêng" value={cbName}
                 onChange={(e) => { setCbName(e.target.value); setCbErr(""); }}
                 className="w-full px-[14px] py-[11px] rounded-md border border-hairline font-body text-[15px] text-ink bg-canvas-parchment outline-none mb-2"
               />
               <div style={{ position: "relative", marginBottom: 8 }}>
-                <input type="text" inputMode="numeric" placeholder="Mục tiêu" aria-label="Mục tiêu"
+                <input type="text" inputMode="numeric" placeholder="Số tiền mục tiêu" aria-label="Số tiền mục tiêu"
                   value={cbAmountStr}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^\d]/g, "");
@@ -461,7 +461,7 @@ export function BudgetTemplate({
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" onClick={() => { setCbOpen(false); setCbName(""); setCbAmountStr(""); setCbErr(""); }}
                   className="flex-1 p-2.5 rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
-                  Huỷ
+                  Hủy
                 </button>
                 <button type="button" onClick={createCustom} disabled={cbSaving}
                   className="flex-[2] p-2.5 rounded-full border-none bg-primary text-white font-body text-[14px] cursor-pointer">
@@ -481,7 +481,7 @@ export function BudgetTemplate({
                 Chưa có ngân sách riêng
               </p>
               <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 4, lineHeight: 1.5 }}>
-                Tạo quỹ riêng cho từng mục tiêu: du lịch, mua sắm, khẩn cấp…
+                Tạo ngân sách riêng cho các khoản chi như du lịch hoặc mua sắm.
               </p>
             </div>
           ) : (
@@ -508,7 +508,7 @@ export function BudgetTemplate({
                           className="w-full px-[14px] py-[11px] rounded-md border border-hairline font-body text-[15px] text-ink bg-canvas-parchment outline-none mb-2"
                         />
                         <div style={{ position: "relative", marginBottom: 8 }}>
-                          <input type="text" inputMode="numeric" placeholder="Mục tiêu" aria-label="Mục tiêu"
+                          <input type="text" inputMode="numeric" placeholder="Số tiền mục tiêu" aria-label="Số tiền mục tiêu"
                             value={editAmountStr}
                             onChange={(e) => {
                               const raw = e.target.value.replace(/[^\d]/g, "");
@@ -524,7 +524,7 @@ export function BudgetTemplate({
                         <div style={{ display: "flex", gap: 8 }}>
                           <button type="button" onClick={() => setEditingCbId(null)}
                             className="flex-1 p-2.5 rounded-full border border-hairline bg-transparent text-ink-muted-48 font-body text-[14px] cursor-pointer">
-                            Huỷ
+                            Hủy
                           </button>
                           <button type="button" onClick={updateCustom} disabled={editSaving}
                             className={`flex-[2] p-2.5 rounded-full border-none bg-primary text-white font-body text-[14px] ${editSaving ? "cursor-not-allowed opacity-70" : "cursor-pointer opacity-100"}`}>
@@ -535,10 +535,10 @@ export function BudgetTemplate({
                     ) : isDeleteBlocked ? (
                       <div>
                         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>
-                          Chưa thể xoá &ldquo;{cb.name}&rdquo;
+                          Chưa thể xóa &ldquo;{cb.name}&rdquo;
                         </p>
                         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)", marginBottom: 16, lineHeight: 1.5 }}>
-                          {blockedDelete.error ?? `Ngân sách này đang liên kết với ${blockedDelete.count} giao dịch. Gỡ các liên kết trước khi xoá.`}
+                          {blockedDelete.error ?? `Ngân sách này đang liên kết với ${blockedDelete.count} giao dịch. Hãy bỏ liên kết trong từng giao dịch trước khi xóa.`}
                         </p>
                         <button type="button" onClick={() => setBlockedDelete(null)}
                           className="min-h-11 rounded-full border border-hairline bg-transparent px-5 text-ink-muted-80 font-body text-[14px] cursor-pointer">
@@ -569,7 +569,7 @@ export function BudgetTemplate({
                             </button>
                             <button type="button"
                               onClick={() => requestDelete(cb)}
-                              aria-label={`Xoá ngân sách ${cb.name}`}
+                              aria-label={`Xóa ngân sách ${cb.name}`}
                               className="cursor-pointer rounded-full border border-danger bg-transparent px-2 py-1 font-body text-xs text-danger">
                               ✕
                             </button>
@@ -594,9 +594,9 @@ export function BudgetTemplate({
       </div>
       <ConfirmationSheet
         open={Boolean(deleteCandidate)}
-        title={deleteCandidate ? `Xoá “${deleteCandidate.name}”?` : "Xoá ngân sách?"}
-        consequence="Ngân sách riêng sẽ bị xoá vĩnh viễn. Không thể hoàn tác thao tác này."
-        confirmLabel="Xác nhận xoá"
+        title={deleteCandidate ? `Xóa “${deleteCandidate.name}”?` : "Xóa ngân sách?"}
+        consequence="Ngân sách riêng sẽ bị xóa vĩnh viễn. Không thể hoàn tác thao tác này."
+        confirmLabel="Xác nhận xóa"
         onConfirm={confirmDelete}
         onCancel={() => setDeleteCandidate(null)}
       />

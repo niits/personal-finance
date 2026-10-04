@@ -22,10 +22,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
     .where("id", "=", budgetId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
-  if (!budget) return Errors.notFound("Budget không tồn tại");
+  if (!budget) return Errors.notFound("Không tìm thấy ngân sách tháng này.");
 
   const body = await request.json().catch(() => null);
-  if (!body) return Errors.validation("Request body không hợp lệ");
+  if (!body) return Errors.validation("Dữ liệu ngân sách không hợp lệ. Vui lòng kiểm tra và thử lại.");
 
   const b = body as Record<string, unknown>;
   const delta = b.delta;
@@ -37,17 +37,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   const hasDelta = delta !== undefined;
 
   if (!hasDelta && !hasObjective)
-    return Errors.validation("Cần cung cấp ít nhất một trong: delta, objective");
+    return Errors.validation("Vui lòng nhập số tiền điều chỉnh hoặc mục tiêu tháng.");
 
   if (hasDelta) {
     if (typeof delta !== "number" || !Number.isInteger(delta))
-      return Errors.validation("delta phải là số nguyên");
-    if (delta === 0) return Errors.validation("Delta phải khác 0");
+      return Errors.validation("Số tiền điều chỉnh phải là số nguyên.");
+    if (delta === 0) return Errors.validation("Số tiền điều chỉnh phải khác 0.");
 
     const newAmount = budget.amount + (delta as number);
     if (newAmount <= 0)
       return Errors.validation(
-        `Số tiền budget sau điều chỉnh phải lớn hơn 0. Hiện tại: ${budget.amount} ₫, delta: ${delta} ₫`,
+        `Hạn mức sau điều chỉnh phải lớn hơn 0 ₫. Hạn mức hiện tại: ${budget.amount} ₫; số tiền điều chỉnh: ${delta} ₫.`,
       );
   }
 

@@ -218,11 +218,11 @@ export function DashboardTemplate({
                   type="button"
                   onClick={onOrganize}
                   disabled={organizeState !== "idle"}
-                  aria-label="AI sắp xếp"
+                  aria-label="AI phân loại giao dịch"
                   aria-busy={organizeBusy}
                   className="min-h-11 rounded-pill border border-primary bg-transparent px-md font-body text-xs font-semibold text-primary disabled:opacity-50"
                 >
-                  {organizeBusy ? "Đang tổ chức…" : "AI sắp xếp ✦"}
+                  {organizeBusy ? "Đang phân loại…" : "AI phân loại ✦"}
                 </button>
               ) : null}
             </div>
@@ -247,7 +247,7 @@ export function DashboardTemplate({
                 {budget ? (
                   <>
                     <p id="monthly-outcome" className="mt-xxs font-body text-sm text-ink-muted-48">
-                      Đã tiêu dùng · hạn mức <span className="font-semibold text-ink">{formatVND(budget.amount)}</span>
+                      Đã chi · hạn mức <span className="font-semibold text-ink">{formatVND(budget.amount)}</span>
                     </p>
                     <div className="mt-sm h-1 overflow-hidden rounded-pill bg-hairline" role="progressbar" aria-label={isOverBudget ? `Đã tiêu gấp ${overBudgetMultiple} lần hạn mức` : `Đã dùng ${Math.round(budgetPercent)}% ngân sách`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(budgetPercent)}>
                       {isOverBudget ? (
@@ -265,7 +265,7 @@ export function DashboardTemplate({
                   </>
                 ) : data ? (
                   <p id="monthly-outcome" className="mt-xxs font-body text-sm text-ink-muted-80">
-                    Chưa có ngân sách kỳ này — <a href="/budget" className="font-semibold text-primary">tạo ngay</a>
+                    Chưa có ngân sách kỳ này. <a href="/budget" className="font-semibold text-primary">Tạo ngân sách</a>
                   </p>
                 ) : (
                   <p id="monthly-outcome" className="mt-xxs font-body text-sm text-ink-muted-48">Đang tải tổng quan kỳ này…</p>
@@ -355,14 +355,14 @@ export function DashboardTemplate({
             </div>
             {confirmingDelete ? (
               <div className="px-5 pb-md">
-                <h2 id="transaction-action-title" className="font-display text-[21px] font-semibold text-ink">Xoá “{transactionName(actionTxn)}”?</h2>
+                <h2 id="transaction-action-title" className="font-display text-[21px] font-semibold text-ink">Xóa “{transactionName(actionTxn)}”?</h2>
                 <p className="mt-xs font-display text-[17px] font-semibold text-ink tabular-nums">{actionTxn.type === "expense" ? "−" : "+"}{formatVND(actionTxn.amount)}</p>
-                <p className="mt-sm font-body text-sm text-ink-muted-80">Giao dịch sẽ bị xoá khỏi sổ và các tổng liên quan. Thao tác này không thể hoàn tác.</p>
+                <p className="mt-sm font-body text-sm text-ink-muted-80">Giao dịch sẽ bị xóa và các số liệu liên quan sẽ được cập nhật. Không thể hoàn tác thao tác này.</p>
                 {deleteError ? <p role="alert" className="mt-sm font-body text-sm font-semibold text-danger">{deleteError}</p> : null}
                 <div className="mt-lg flex gap-sm max-[374px]:flex-col">
-                  <button type="button" onClick={() => setDeleteConfirmationId(null)} disabled={deleting} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas font-body text-[17px] font-semibold text-ink disabled:opacity-50">Huỷ</button>
-                  <button type="button" onClick={() => onDelete(actionTxn)} disabled={deleting} aria-label="Xác nhận xoá" className="min-h-11 flex-1 rounded-md border-none bg-danger font-body text-[17px] font-semibold text-on-primary disabled:opacity-60">
-                    {deleting ? "Đang xoá…" : "Xác nhận xoá"}
+                  <button type="button" onClick={() => setDeleteConfirmationId(null)} disabled={deleting} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas font-body text-[17px] font-semibold text-ink disabled:opacity-50">Hủy</button>
+                  <button type="button" onClick={() => onDelete(actionTxn)} disabled={deleting} aria-label="Xác nhận xóa" className="min-h-11 flex-1 rounded-md border-none bg-danger font-body text-[17px] font-semibold text-on-primary disabled:opacity-60">
+                    {deleting ? "Đang xóa…" : "Xác nhận xóa"}
                   </button>
                 </div>
               </div>
@@ -375,7 +375,7 @@ export function DashboardTemplate({
                 </p>
                 <div className="mt-lg flex flex-col gap-sm">
                   <button type="button" onClick={() => { onOpenForm(actionTxn); closeActionSheet(); }} className="min-h-11 w-full rounded-md border-none bg-primary font-body text-[17px] font-semibold text-on-primary">Sửa giao dịch</button>
-                  <button type="button" onClick={() => setDeleteConfirmationId(actionTxn.id)} className="min-h-11 w-full rounded-md border border-hairline bg-canvas font-body text-[17px] font-semibold text-ink">Xoá</button>
+                  <button type="button" onClick={() => setDeleteConfirmationId(actionTxn.id)} className="min-h-11 w-full rounded-md border border-hairline bg-canvas font-body text-[17px] font-semibold text-ink">Xóa</button>
                 </div>
               </div>
             )}

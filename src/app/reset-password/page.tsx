@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
             color: "var(--ink-muted-48)",
             lineHeight: 1.6,
           }}>
-            Vui lòng quay lại sau. Chúng tôi sẽ mở lại tính năng này trong thời gian tới.
+            Hiện không thể đặt lại mật khẩu bằng email. Vui lòng sử dụng phương thức đăng nhập khác.
           </p>
           <Link href="/sign-in" style={{
             fontFamily: "var(--font-body)",

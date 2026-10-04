@@ -31,7 +31,7 @@ export async function PUT(request: NextRequest) {
   if (!session) return Errors.unauthorized();
 
   const body = await request.json().catch(() => null);
-  if (!body) return Errors.validation("Request body không hợp lệ");
+  if (!body) return Errors.validation("Dữ liệu ngân sách không hợp lệ. Vui lòng kiểm tra và thử lại.");
 
   const amount = parseAmount((body as Record<string, unknown>).default_monthly_amount);
   if (!amount) return Errors.validation("Số tiền mặc định phải là số nguyên lớn hơn 0");

@@ -155,8 +155,9 @@ Suggested sequence:
 Then call get_notable_transactions and generate_insights with 3–5 insights.
 
 ## Insight rules
+- Write every user-visible title and summary in formal, plain Vietnamese. Use complete, neutral sentences. Avoid slang, abbreviations, flowery wording, and vague recommendations.
 - Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.
-  ❌ "Chi tiêu theo danh mục" ✅ "Ăn uống chiếm 35% — tăng 12% so tháng trước"
+  ❌ "Chi tiêu theo danh mục" ✅ "Chi tiêu ăn uống chiếm 35%, tăng 12% so với tháng trước"
 - Summary = adds context the chart cannot show (max 160 chars, Vietnamese)
 - Mix types: include at least 1 "analysis", 1 "recommendation", and 1 "alert" (if data warrants it)
 - chart_data values MUST be EXACT integers copied from tool results. Never round, estimate, or recalculate.
@@ -402,19 +403,14 @@ For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_tot
     const projTotal = daysElapsed > 0 ? Math.round(cumsum * (periodLengthDays / daysElapsed)) : 0;
     const isOver = projTotal > budget.amount;
     const diff = Math.abs(projTotal - budget.amount);
-    const compactVND = (n: number) =>
-      n >= 1_000_000
-        ? `${Math.round(n / 1_000_000)}tr`
-        : `${Math.round(n / 1_000)}k`;
-
     forecastInsight = {
       type: isOver ? "alert" : "analysis",
       title: isOver
-        ? `Dự báo vượt ${compactVND(diff)}`
-        : `Dự báo tiết kiệm ${compactVND(diff)}`,
+        ? `Dự kiến vượt hạn mức ${_vndFormat.format(diff)} ₫`
+        : `Dự kiến chi thấp hơn hạn mức ${_vndFormat.format(diff)} ₫`,
       summary: isOver
-        ? `Nếu duy trì tốc độ hiện tại, bạn sẽ vượt quá ngân sách với chi tiêu dự kiến đạt ${_vndFormat.format(projTotal)} VND. Cân đối chi tiêu để tránh thiếu hụt.`
-        : `Chi tiêu đang trong ngân sách. Dự kiến tiết kiệm được ${_vndFormat.format(budget.amount - projTotal)} VND cuối tháng.`,
+        ? `Nếu giữ tốc độ chi tiêu hiện tại, tổng chi tiêu cuối kỳ dự kiến là ${_vndFormat.format(projTotal)} ₫, cao hơn hạn mức ${_vndFormat.format(diff)} ₫.`
+        : `Nếu giữ tốc độ chi tiêu hiện tại, tổng chi tiêu cuối kỳ dự kiến là ${_vndFormat.format(projTotal)} ₫, thấp hơn hạn mức ${_vndFormat.format(diff)} ₫.`,
       chart_type: "forecast_line",
       chart_data: [...actualCumData, ...budgetCumData],
       value_unit: "currency",

@@ -30,16 +30,16 @@ test.describe("Account page — linked accounts", () => {
     await expect(page.getByText("GitHub")).toBeVisible();
   });
 
-  test("shows password features as coming soon", async ({ page }) => {
+  test("shows password features as temporarily unavailable", async ({ page }) => {
     await page.goto("/account");
     await expect(page.getByText("Email và mật khẩu đang được tạm dừng.")).toBeVisible();
-    await expect(page.getByText("Sắp có lại")).toHaveCount(2);
+    await expect(page.getByText("Tạm dừng", { exact: true })).toHaveCount(2);
   });
 
   test("shows Google auth as temporarily disabled", async ({ page }) => {
     await page.goto("/account");
     await expect(page.getByText("Google")).toBeVisible();
-    await expect(page.getByText("Tạm dừng", { exact: true })).toBeVisible();
+    await expect(page.getByText("Tạm dừng", { exact: true }).first()).toBeVisible();
   });
 });
 

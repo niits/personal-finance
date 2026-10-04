@@ -37,14 +37,14 @@ export function DebtPartyCard({ debt, onTap }: DebtPartyCardProps) {
 
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           {isSettled ? (
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--success)" }}>Tất toán ✓</div>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--success)" }}>Đã thanh toán hết ✓</div>
           ) : (
             <>
               <div style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
                 {formatVND(debt.remaining)}₫
               </div>
               <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 1 }}>
-                còn lại / {formatVND(debt.opening_amount)}₫
+                {isLend ? "Còn được nhận" : "Còn phải trả"} · Ban đầu {formatVND(debt.opening_amount)}₫
               </div>
             </>
           )}
@@ -61,7 +61,7 @@ export function DebtPartyCard({ debt, onTap }: DebtPartyCardProps) {
 
       {debt.due_date && !isSettled && !debt.is_overdue && (
         <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-muted-48)", marginTop: 8 }}>
-          Hạn: {debt.due_date.split("-").reverse().join("/")}
+          Hạn trả: {debt.due_date.split("-").reverse().join("/")}
         </div>
       )}
     </button>

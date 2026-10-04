@@ -8,13 +8,13 @@ describe("statistics presentation", () => {
       { type: "tool_result", tool: "query_metrics", rows: 42, callId: "1", durationMs: 320 },
     ]);
 
-    expect(progress).toBe("Đang tìm những thay đổi đáng chú ý…");
+    expect(progress).toBe("Đang so sánh các khoản thu nhập và chi tiêu…");
     expect(progress).not.toMatch(/query_metrics|private tool label|42|320/);
   });
 
   it("never returns a server message, stack, or cause", () => {
     expect(safeStatisticsError(500)).toBe(
-      "Chưa thể hoàn tất phân tích lúc này. Dữ liệu giao dịch của bạn vẫn được giữ nguyên.",
+      "Không thể hoàn tất bản phân tích. Dữ liệu giao dịch vẫn được giữ nguyên. Vui lòng thử lại.",
     );
   });
 

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   const monthParam = request.nextUrl.searchParams.get("month");
   const month = parseMonth(monthParam);
-  if (!month) return Errors.validation("Thiếu hoặc sai định dạng tham số month (YYYY-MM)");
+  if (!month) return Errors.validation("Tháng ngân sách phải có định dạng YYYY-MM.");
 
   const db = await getKysely();
   const userId = session.user.id;

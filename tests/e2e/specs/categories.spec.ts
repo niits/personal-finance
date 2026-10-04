@@ -47,9 +47,9 @@ test.describe("Categories — create", () => {
     await page.goto("/account/categories");
     await page.getByRole("button", { name: "Thêm", exact: true }).click();
 
-    await page.getByRole("textbox", { name: "Tên danh mục" }).fill("Sức khoẻ");
+    await page.getByRole("textbox", { name: "Tên danh mục" }).fill("Sức khỏe");
     await page.getByRole("button", { name: "Lưu" }).click();
 
-    await expect(page.getByText("Sức khoẻ").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Sức khỏe").first()).toBeVisible({ timeout: 5000 });
   });
 });
