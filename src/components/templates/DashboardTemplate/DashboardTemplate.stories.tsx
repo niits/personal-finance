@@ -75,6 +75,84 @@ export const Default: Story = {
   },
 };
 
+export const CardHeavyWithinBudget: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 7_000_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: 3_000_000 },
+    },
+    transactions: [],
+  },
+};
+
+export const OnlyCardSpending: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 5_000_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: 5_000_000 },
+    },
+    transactions: [],
+  },
+};
+
+export const ExactlyAtBudget: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 10_000_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: 0 },
+    },
+    transactions: [],
+  },
+};
+
+export const OverBudget: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 15_000_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: -5_000_000 },
+    },
+    transactions: [],
+  },
+};
+
+export const SlightlyOverBudget: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 10_001_000,
+      unpaid_card_spend: 5_000_000,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: -1_000 },
+    },
+    transactions: [],
+  },
+};
+
+export const NoSpending: Story = {
+  args: {
+    ...Default.args,
+    data: {
+      ...mockData,
+      total_expense: 0,
+      unpaid_card_spend: 0,
+      monthly_budget: { id: 1, amount: 10_000_000, remaining: 10_000_000 },
+    },
+    transactions: [],
+  },
+};
+
 export const Organizing: Story = {
   args: {
     ...Default.args,

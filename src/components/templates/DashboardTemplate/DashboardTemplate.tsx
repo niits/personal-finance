@@ -70,6 +70,7 @@ export type DashboardTemplateProps = {
 };
 
 const vndFormatter = new Intl.NumberFormat("vi-VN");
+const budgetMultipleFormatter = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 function formatVND(amount: number) {
@@ -173,10 +174,18 @@ export function DashboardTemplate({
   const groups = groupByDate(transactions);
   const dates = Object.keys(groups).toSorted((a, b) => b.localeCompare(a));
   const budget = data?.monthly_budget;
-  const isOverBudget = Boolean(budget && budget.remaining < 0);
+  const isOverBudget = Boolean(data && budget && data.total_expense > budget.amount);
   const budgetPercent = data && budget
     ? Math.min(Math.max((data.total_expense / budget.amount) * 100, 0), 100)
     : 0;
+  const cardShare = data && data.total_expense > 0
+    ? Math.min(Math.max(data.unpaid_card_spend / data.total_expense, 0), 1)
+    : 0;
+  const overBudgetMultiple = data && budget && isOverBudget
+    ? budgetMultipleFormatter.format(
+        Math.ceil((data.total_expense / budget.amount) * 100) / 100,
+      )
+    : null;
   const confirmingDelete = Boolean(actionTxn && deleteConfirmationId === actionTxn.id);
 
   function closeActionSheet() {
@@ -224,19 +233,31 @@ export function DashboardTemplate({
             ) : (
               <>
                 {summaryError ? <div className="mb-sm"><RetryMessage message={summaryError} onRetry={onRetrySummary} /></div> : null}
-                <p className="whitespace-nowrap font-display text-[34px] font-semibold leading-[38px] tracking-[-0.5px] text-ink tabular-nums max-[374px]:text-[28px]">
-                  {loading && !data ? "—" : formatVND(data?.total_expense ?? 0)}
-                </p>
+                <div className="flex flex-wrap items-baseline gap-x-sm gap-y-xxs">
+                  <p className="whitespace-nowrap font-display text-[34px] font-semibold leading-[38px] tracking-[-0.5px] text-ink tabular-nums max-[374px]:text-[28px]">
+                    {loading && !data ? "—" : formatVND(data?.total_expense ?? 0)}
+                  </p>
+                  {overBudgetMultiple ? (
+                    <span aria-label={`Đã tiêu gấp ${overBudgetMultiple} lần hạn mức`} className="whitespace-nowrap font-body text-sm font-semibold text-danger tabular-nums">
+                      <span className="sm:hidden">×{overBudgetMultiple}</span>
+                      <span className="hidden sm:inline">Gấp {overBudgetMultiple} lần hạn mức</span>
+                    </span>
+                  ) : null}
+                </div>
                 {budget ? (
                   <>
                     <p id="monthly-outcome" className="mt-xxs font-body text-sm text-ink-muted-48">
                       Đã tiêu dùng · hạn mức <span className="font-semibold text-ink">{formatVND(budget.amount)}</span>
                     </p>
-                    <div className="mt-sm h-1 overflow-hidden rounded-pill bg-hairline" role="progressbar" aria-label={`Đã dùng ${Math.round(budgetPercent)}% ngân sách`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(budgetPercent)}>
-                      <div className="flex h-full" style={{ width: `${budgetPercent}%` }}>
-                        <div className={`h-full ${isOverBudget ? "bg-danger" : "bg-primary"}`} style={{ flex: Math.max((data?.total_expense ?? 0) - (data?.unpaid_card_spend ?? 0), 0) }} />
-                        {(data?.unpaid_card_spend ?? 0) > 0 ? <div className="h-full bg-warning" style={{ flex: data?.unpaid_card_spend }} /> : null}
-                      </div>
+                    <div className="mt-sm h-1 overflow-hidden rounded-pill bg-hairline" role="progressbar" aria-label={isOverBudget ? `Đã tiêu gấp ${overBudgetMultiple} lần hạn mức` : `Đã dùng ${Math.round(budgetPercent)}% ngân sách`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(budgetPercent)}>
+                      {isOverBudget ? (
+                        <div className="h-full w-full bg-danger" />
+                      ) : (
+                        <div className="flex h-full" style={{ width: `${budgetPercent}%` }}>
+                          <div className="h-full bg-primary" style={{ width: `${(1 - cardShare) * 100}%` }} />
+                          {cardShare > 0 ? <div className="h-full bg-warning" style={{ width: `${cardShare * 100}%` }} /> : null}
+                        </div>
+                      )}
                     </div>
                     {isOverBudget ? (
                       <p className="mt-xs font-body text-sm font-semibold text-danger">Vượt hạn mức kỳ này</p>
