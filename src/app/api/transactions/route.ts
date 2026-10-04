@@ -59,13 +59,11 @@ function getRootCategoryName(row: TxnRow): string | null {
 }
 
 function buildCbMap(cbRows: CbRow[]): Map<number, { id: number; name: string }[]> {
-  const map = new Map<number, { id: number; name: string }[]>();
+  const groups: Record<number, { id: number; name: string }[]> = {};
   for (const row of cbRows) {
-    const list = map.get(row.transaction_id) ?? [];
-    list.push({ id: row.id, name: row.name });
-    map.set(row.transaction_id, list);
+    (groups[row.transaction_id] ??= []).push({ id: row.id, name: row.name });
   }
-  return map;
+  return new Map(Object.entries(groups).map(([id, rows]) => [Number(id), rows]));
 }
 
 function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: string }[]>) {
@@ -409,7 +407,7 @@ export async function POST(request: NextRequest) {
     .where("t.id", "=", txnId)
     .executeTakeFirst()) as TxnRow;
 
-  const cbMap = new Map<number, { id: number; name: string }[]>();
+  let cbMap = new Map<number, { id: number; name: string }[]>();
   if (customBudgetIds.length > 0) {
     const cbRows = (await db
       .selectFrom("transaction_custom_budget as tcb")
@@ -417,7 +415,7 @@ export async function POST(request: NextRequest) {
       .select(["tcb.transaction_id", "cb.id", "cb.name"])
       .where("tcb.transaction_id", "=", txnId)
       .execute()) as CbRow[];
-    cbMap.set(txnId, cbRows.map((r) => ({ id: r.id, name: r.name })));
+    cbMap = new Map([[txnId, cbRows.map((r) => ({ id: r.id, name: r.name }))]]);
   }
 
   await markStatsDirty(userId, date).catch(() => {});
