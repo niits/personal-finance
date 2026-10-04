@@ -34,6 +34,28 @@ export function currentDate(): string {
   return new Date().toISOString().substring(0, 10);
 }
 
+function currentDateInTimeZone(timeZone: string, now: Date): string | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+    const year = parts.find((part) => part.type === "year")?.value;
+    const month = parts.find((part) => part.type === "month")?.value;
+    const day = parts.find((part) => part.type === "day")?.value;
+    return year && month && day ? `${year}-${month}-${day}` : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isFutureDateInTimeZone(date: string, timeZone: string, now = new Date()): boolean | null {
+  const today = currentDateInTimeZone(timeZone, now);
+  return today === null ? null : date > today;
+}
+
 // Returns the last working day (Mon-Fri, non-holiday per VN public calendar) of the given month.
 function lastWorkingDay(year: number, month: number): string {
   const d = new Date(Date.UTC(year, month, 0)); // last calendar day of month

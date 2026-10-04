@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAmount, parseDate, parseMonth, getMonthFromDate } from "@/lib/validators";
+import { parseAmount, parseDate, parseMonth, getMonthFromDate, isFutureDateInTimeZone } from "@/lib/validators";
 
 describe("parseAmount", () => {
   it("accepts positive integers", () => expect(parseAmount(50000)).toBe(50000));
@@ -36,5 +36,22 @@ describe("getMonthFromDate", () => {
 
   it("works for first day of month", () => {
     expect(getMonthFromDate("2026-01-01")).toBe("2026-01");
+  });
+});
+
+describe("isFutureDateInTimeZone", () => {
+  const justAfterMidnightInSingapore = new Date("2026-10-04T16:14:00Z");
+
+  it("accepts the local calendar day shortly after midnight", () => {
+    expect(isFutureDateInTimeZone("2026-10-05", "Asia/Singapore", justAfterMidnightInSingapore)).toBe(false);
+    expect(isFutureDateInTimeZone("2026-10-05", "UTC", justAfterMidnightInSingapore)).toBe(true);
+  });
+
+  it("keeps the following local day in the future", () => {
+    expect(isFutureDateInTimeZone("2026-10-06", "Asia/Singapore", justAfterMidnightInSingapore)).toBe(true);
+  });
+
+  it("rejects an invalid time zone", () => {
+    expect(isFutureDateInTimeZone("2026-10-05", "Not/A_Time_Zone", justAfterMidnightInSingapore)).toBeNull();
   });
 });

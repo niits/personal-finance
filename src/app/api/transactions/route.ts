@@ -9,7 +9,7 @@ import {
   getBudgetMonthForDate,
   getBudgetPeriod,
   currentBudgetMonth,
-  currentDate,
+  isFutureDateInTimeZone,
   isLeafCategory,
 } from "@/lib/validators";
 import { sql } from "kysely";
@@ -237,7 +237,9 @@ export async function POST(request: NextRequest) {
 
   const date = parseDate(b.date);
   if (!date) return Errors.validation("Ngày không hợp lệ. Dùng định dạng YYYY-MM-DD");
-  if (date > currentDate()) return Errors.validation("Không thể chọn ngày trong tương lai");
+  const isFuture = isFutureDateInTimeZone(date, request.headers.get("X-Client-Time-Zone") ?? "Asia/Ho_Chi_Minh");
+  if (isFuture === null) return Errors.validation("Múi giờ của thiết bị không hợp lệ.");
+  if (isFuture) return Errors.validation("Không thể chọn ngày trong tương lai");
 
   const db = await getKysely();
   const userId = session.user.id;

@@ -9,7 +9,7 @@
 
 - A transaction has a positive integer VND amount, `income` or `expense` direction,
   date, and the context required by its kind.
-- Future dates are rejected. Current and historical transactions may be created,
+- Future dates are rejected relative to the user's device time zone. Current and historical transactions may be created,
   edited, moved between periods, or deleted directly.
 - The feed loads the full selected month, groups entries by date, and orders them
   newest first. It has no filter or search contract.

@@ -500,11 +500,15 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     isSubmittingRef.current = true;
     setSaving(true); setError("");
     try {
+      const transactionHeaders = {
+        "Content-Type": "application/json",
+        "X-Client-Time-Zone": Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
       // ── Repayment mode ────────────────────────────────────────────────────
       if (isRepayment) {
         const r = await fetch("/api/transactions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: transactionHeaders,
           body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: mode.debt.id }),
         });
         if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
@@ -540,7 +544,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         // debt edit: amount/note/date/linked_amount
 
         const r = await fetch(`/api/transactions/${editTx.id}`, {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
+          method: "PATCH", headers: transactionHeaders,
           body: JSON.stringify(body),
         });
         if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
@@ -570,7 +574,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         const rawLa = debtLink.linked_amount_str.replace(/[^\d]/g, "");
         const linkedAmt = rawLa ? parseInt(rawLa, 10) : null;
         const r = await fetch("/api/transactions", {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST", headers: transactionHeaders,
           body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: debtLink.debtId, linked_amount: linkedAmt }),
         });
         if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
@@ -588,7 +592,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         if (creditCardGroupId) body.credit_card_group_id = creditCardGroupId;
       }
       const r = await fetch("/api/transactions", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: transactionHeaders,
         body: JSON.stringify(body),
       });
       if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
