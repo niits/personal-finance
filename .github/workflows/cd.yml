@@ -57,6 +57,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --env ${{ inputs.environment }}
+          environment: ${{ inputs.environment }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           secrets: ${{ inputs.wrangler-secrets }}
         env:
