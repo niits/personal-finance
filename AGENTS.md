@@ -25,3 +25,17 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Follow the component layers and story requirements in `docs/architecture/components.md`. New components require a co-located CSF3 story.
 - Use the `frontend-design` skill within the Calm Ledger direction; it must not introduce a feature-specific aesthetic.
 - Use design tokens rather than hardcoded visual values and validate UI at 375px.
+
+## Language
+
+Formal register is mandatory in both languages, for chat replies and every written artifact (code, comments,
+docstrings, tests, commits, docs, ADRs, notebooks, Finding.message, export labels).
+
+- Formal English: complete, neutral sentences; no slang, contractions (don't → do not), emoji, or
+  exclamation marks.
+- Formal Vietnamese (văn phong kỹ thuật/hành chính): full diacritics; complete sentences; no teencode or chat
+  abbreviations (ko, dc, k, vs, ok); no colloquial particles (nhé, nha, á, nè, luôn);
+  no informal pronouns (mình, tớ, cậu, bro). Use tôi for the agent; address the user as bạn or omit
+  the subject.
+- Tables, bullets, and identifiers may stay terse but never colloquial.
+- Rewrite existing informal text only when asked or when already editing that passage.

@@ -21,10 +21,13 @@ export default function DashboardPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [organizeState, setOrganizeState] = useState<"idle" | "loading" | "review" | "applying">("idle");
   const [organizePreview, setOrganizePreview] = useState<OrganizePreview | null>(null);
+  const [organizeApplyError, setOrganizeApplyError] = useState<string | null>(null);
+  const [organizeApplyBlocked, setOrganizeApplyBlocked] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [ledgerError, setLedgerError] = useState<string | null>(null);
   const { replace } = useRouter();
   const abortRef = useRef<AbortController | null>(null);
+  const organizeApplyingRef = useRef(false);
 
   // silent=true: reload in background without showing spinner (visibilitychange / post-mutation)
   const load = useCallback(async (month?: string, silent = false) => {
@@ -146,6 +149,8 @@ export default function DashboardPage() {
   }
 
   async function handleOrganize() {
+    setOrganizeApplyError(null);
+    setOrganizeApplyBlocked(false);
     setOrganizeState("loading");
     try {
       const r = await fetch("/api/ai/organize", { method: "POST" });
@@ -159,6 +164,9 @@ export default function DashboardPage() {
   }
 
   async function handleOrganizeApply(selection: OrganizeSelection) {
+    if (organizeApplyingRef.current || organizeApplyBlocked) return;
+    organizeApplyingRef.current = true;
+    setOrganizeApplyError(null);
     setOrganizeState("applying");
     try {
       const r = await fetch("/api/ai/organize/apply", {
@@ -171,14 +179,24 @@ export default function DashboardPage() {
         setOrganizePreview(null);
         load(selectedMonth, true);
       } else {
+        const blocked = r.status === 409;
+        setOrganizeApplyBlocked(blocked);
+        setOrganizeApplyError(blocked
+          ? "Dữ liệu đã thay đổi. Vui lòng đóng bảng này và tạo đề xuất mới."
+          : "Không thể áp dụng đề xuất. Vui lòng thử lại.");
         setOrganizeState("review");
       }
     } catch {
+      setOrganizeApplyError("Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.");
       setOrganizeState("review");
+    } finally {
+      organizeApplyingRef.current = false;
     }
   }
 
   function handleOrganizeClose() {
+    setOrganizeApplyError(null);
+    setOrganizeApplyBlocked(false);
     setOrganizeState("idle");
     setOrganizePreview(null);
   }
@@ -207,6 +225,8 @@ export default function DashboardPage() {
       onDelete={handleDelete}
       organizeState={organizeState}
       organizePreview={organizePreview}
+      organizeApplyError={organizeApplyError}
+      organizeApplyBlocked={organizeApplyBlocked}
       onOrganize={handleOrganize}
       onOrganizeApply={handleOrganizeApply}
       onOrganizeClose={handleOrganizeClose}

@@ -59,6 +59,8 @@ export type DashboardTemplateProps = {
   onDelete: (txn: Transaction) => void;
   organizeState: "idle" | "loading" | "review" | "applying";
   organizePreview: OrganizePreview | null;
+  organizeApplyError?: string | null;
+  organizeApplyBlocked?: boolean;
   onOrganize: () => void;
   onOrganizeApply: (selection: OrganizeSelection) => void;
   onOrganizeClose: () => void;
@@ -158,6 +160,8 @@ export function DashboardTemplate({
   onDelete,
   organizeState,
   organizePreview,
+  organizeApplyError = null,
+  organizeApplyBlocked = false,
   onOrganize,
   onOrganizeApply,
   onOrganizeClose,
@@ -413,6 +417,8 @@ export function DashboardTemplate({
       <OrganizeReviewSheet
         open={organizeState === "review" || organizeState === "applying"}
         preview={organizePreview}
+        error={organizeApplyError}
+        applyBlocked={organizeApplyBlocked}
         applying={organizeState === "applying"}
         onApply={onOrganizeApply}
         onClose={onOrganizeClose}

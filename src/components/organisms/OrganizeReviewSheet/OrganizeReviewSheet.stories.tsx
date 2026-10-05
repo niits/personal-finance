@@ -8,13 +8,13 @@ type Story = StoryObj<typeof OrganizeReviewSheet>;
 
 const mockPreview: OrganizePreview = {
   new_categories: [
-    { temp_id: "new:0", name: "Ăn uống", type: "expense", parent_category_id: null, example_notes: ["cơm trưa", "cà phê"] },
-    { temp_id: "new:1", name: "Giải trí", type: "expense", parent_category_id: null, example_notes: ["Netflix"] },
+    { temp_id: "new:0", name: "Ăn uống", emoji: "🍜", type: "expense", parent_category_id: null, parent_category_name: null, example_notes: ["cơm trưa", "cà phê"] },
+    { temp_id: "new:1", name: "Giải trí", emoji: "🎬", type: "expense", parent_category_id: null, parent_category_name: null, example_notes: ["Netflix"] },
   ],
   emoji_assignments: [
-    { category_id: 1, emoji: "🍜" },
-    { category_id: 2, emoji: "🎬" },
-    { category_id: 3, emoji: "🚗" },
+    { category_id: 1, category_name: "Ăn uống", current_emoji: null, emoji: "🍜" },
+    { category_id: 2, category_name: "Giải trí", current_emoji: null, emoji: "🎬" },
+    { category_id: 3, category_name: "Di chuyển", current_emoji: null, emoji: "🚗" },
   ],
   recategorizations: [
     {
@@ -22,6 +22,7 @@ const mockPreview: OrganizePreview = {
       note: "grab đi làm",
       current_category_id: 1,
       current_category_name: "Khác",
+      current_updated_at: 1,
       suggested_category_id: 3,
       suggested_category_name: "Di chuyển",
       reason: "Grab là dịch vụ vận chuyển",
@@ -31,14 +32,15 @@ const mockPreview: OrganizePreview = {
       note: "Netflix tháng 5",
       current_category_id: 1,
       current_category_name: "Khác",
+      current_updated_at: 1,
       suggested_category_id: "new:1",
       suggested_category_name: "Giải trí",
       reason: "Dịch vụ streaming giải trí",
     },
   ],
   emoji_reassignments: [
-    { transaction_id: 20, note: "cà phê sáng với khách", current_emoji: "🍜", emoji: "☕", reason: "Ghi chú nói về cà phê" },
-    { transaction_id: 21, note: "mua thuốc cảm", current_emoji: null, emoji: "💊", reason: "Ghi chú liên quan đến thuốc" },
+    { transaction_id: 20, note: "cà phê sáng với khách", current_emoji: "🍜", current_updated_at: 1, emoji: "☕", reason: "Ghi chú nói về cà phê" },
+    { transaction_id: 21, note: "mua thuốc cảm", current_emoji: null, current_updated_at: 1, emoji: "💊", reason: "Ghi chú liên quan đến thuốc" },
   ],
 };
 
@@ -78,6 +80,18 @@ export const Empty: Story = {
 
 export const Applying: Story = {
   args: { open: true, preview: mockPreview, applying: true, onApply: () => {}, onClose: () => {} },
+};
+
+export const StaleProposal: Story = {
+  args: {
+    open: true,
+    preview: mockPreview,
+    applying: false,
+    applyBlocked: true,
+    error: "Dữ liệu đã thay đổi. Vui lòng đóng bảng này và tạo đề xuất mới.",
+    onApply: () => {},
+    onClose: () => {},
+  },
 };
 
 export const Closed: Story = {

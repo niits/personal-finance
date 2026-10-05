@@ -17,16 +17,25 @@ classification, and transaction emoji without making unreviewed financial change
   window boundary is defined in
   [`architecture/technical.md`](../architecture/technical.md).
 - Preview never writes data.
+- Category emoji suggestions cover every existing user category without an emoji,
+  including when there are no noted transactions.
+- Newly suggested categories include an emoji in the preview and are created with
+  that emoji.
 - The feature is not a replacement for single-transaction editing.
 
 ## Flow
 
 1. The user starts analysis and receives plain-language progress.
-2. The server returns proposed new categories, emoji changes, and recategorizations.
-3. A review surface groups proposals and allows independent selection.
+2. The server reads the relevant data again after AI generation and returns a proposal
+   only when the complete patch passes the same validation used by Apply.
+3. A review surface groups proposals and allows independent selection, including
+   emoji assignments for existing categories.
 4. Dependencies remain valid: selecting a move to a proposed category also selects
    that category; deselecting the category deselects dependent moves.
 5. Apply revalidates the complete selection and commits it atomically.
+   Database assertions guard changes between validation and commit. If relevant data
+   changed since preview, Apply rejects the selection without partial writes and the
+   user generates a new proposal.
 6. The client shows returned counts and revalidates affected categories, transactions,
    Dashboard, budgets, and statistics state.
 
