@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Active target |
-| Updated | 2026-09-05 |
+| Updated | 2026-10-05 |
 
 ## Purpose
 
@@ -22,6 +22,25 @@ classification, and transaction emoji without making unreviewed financial change
 - Newly suggested categories include an emoji in the preview and are created with
   that emoji.
 - The feature is not a replacement for single-transaction editing.
+
+## Proposal Policy
+
+- Preserve reasonable classifications, category structure, names, and emoji. An empty
+  proposal is valid when no clear correction is supported by the supplied data.
+- Prefer existing categories, including an appropriate broader category. At least
+  three similar noted transactions are necessary but insufficient for a new category;
+  there must also be a distinct unmet classification need and at least three proposed
+  moves to that new category.
+- Consolidate duplicate meaning through transaction moves to one existing category.
+  Duplicate categories must share type, parent, budget behavior, and usage meaning.
+  Similar names in different branches and parent-child relationships do not establish
+  duplication.
+- Retain the eligible category with the most transactions; break ties by the smallest
+  category ID. Do not rename or recreate the retained category.
+- Consolidation covers only transactions supplied to the analysis. The proposal does
+  not delete duplicate category records or move transactions outside that window.
+- Preserve ambiguous classifications and reasonable inherited emoji. Suggest a
+  transaction emoji only when it is missing or clearly incorrect.
 
 ## Flow
 
