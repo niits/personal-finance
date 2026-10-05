@@ -432,6 +432,7 @@ export default function AccountPage() {
 const actionBtnStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
+  minHeight: 44,
   gap: 6,
   background: "none",
   border: "none",
@@ -440,18 +441,19 @@ const actionBtnStyle: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 400,
   cursor: "pointer",
-  padding: "4px 0",
+  padding: "8px 0",
   flexShrink: 0,
 };
 
 const unlinkBtnStyle: React.CSSProperties = {
+  minHeight: 44,
   background: "none",
   border: "none",
   color: "var(--danger)",
   fontFamily: "var(--font-body)",
   fontSize: 14,
   fontWeight: 400,
-  padding: "4px 0",
+  padding: "8px 0",
   flexShrink: 0,
 };
 
@@ -471,6 +473,7 @@ const disabledPillStyle: React.CSSProperties = {
 };
 
 const exportBtnStyle: React.CSSProperties = {
+  minHeight: 44,
   padding: "10px 16px",
   borderRadius: "var(--radius-md)",
   border: "1px solid var(--hairline)",

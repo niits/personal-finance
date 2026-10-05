@@ -155,7 +155,7 @@ function ReportStatus({ report, refreshing, regenError, onRegenerate, onDismiss 
   const changed = report.is_dirty;
 
   return (
-    <div className="mb-6 border-y border-divider-soft py-3">
+    <div className="mb-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       {regenError ? (
         <div role="status" className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -175,7 +175,7 @@ function ReportStatus({ report, refreshing, regenError, onRegenerate, onDismiss 
         </p>
       )}
       {!refreshing ? (
-        <button type="button" onClick={onRegenerate} className="mt-2 min-h-11 cursor-pointer border-none bg-transparent p-0 font-body text-[15px] font-semibold text-primary">
+        <button type="button" onClick={onRegenerate} className="-ml-xs inline-flex min-h-11 cursor-pointer items-center rounded-sm border-none bg-transparent px-xs font-body text-[15px] font-semibold text-primary hover:bg-canvas-parchment">
           {changed || regenError ? "Cập nhật phân tích" : "Phân tích lại"}
         </button>
       ) : null}

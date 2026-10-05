@@ -24,3 +24,19 @@ export const Pending: Story = { args: { pending: true } };
 export const Failure: Story = {
   args: { error: "Không thể đăng xuất. Vui lòng thử lại." },
 };
+export const CategoryDeletion: Story = {
+  args: {
+    title: "Xóa “Danh mục sinh hoạt gia đình”?",
+    consequence: "Thao tác này không thể hoàn tác.",
+    cancelLabel: "Giữ lại",
+    confirmLabel: "Xóa danh mục",
+  },
+};
+export const BlockedDeletion: Story = {
+  args: {
+    title: "Chưa thể xóa danh mục",
+    consequence: "Danh mục này đang được dùng bởi 8 giao dịch. Bạn cần chuyển các giao dịch sang danh mục khác trước.",
+    cancelLabel: "Đã hiểu",
+    confirmLabel: undefined,
+  },
+};

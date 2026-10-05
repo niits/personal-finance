@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
           }}>
             Hiện không thể khôi phục mật khẩu bằng email. Vui lòng sử dụng phương thức đăng nhập khác.
           </p>
-          <Link href="/sign-in" style={{
+          <Link href="/sign-in" className="inline-flex min-h-11 items-center" style={{
             fontFamily: "var(--font-body)",
             fontSize: 14,
             color: "var(--primary)",
