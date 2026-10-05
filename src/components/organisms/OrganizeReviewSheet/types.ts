@@ -4,10 +4,14 @@ export type OrganizePreview = {
     name: string;
     type: "income" | "expense";
     parent_category_id: number | null;
+    parent_category_name: string | null;
+    emoji: string;
     example_notes: string[];
   }[];
   emoji_assignments: {
     category_id: number;
+    category_name: string;
+    current_emoji: string | null;
     emoji: string;
   }[];
   recategorizations: {
@@ -15,6 +19,7 @@ export type OrganizePreview = {
     note: string;
     current_category_id: number;
     current_category_name: string;
+    current_updated_at: number;
     suggested_category_id: number | string;
     suggested_category_name: string;
     reason: string;
@@ -23,6 +28,7 @@ export type OrganizePreview = {
     transaction_id: number;
     note: string;
     current_emoji: string | null;
+    current_updated_at: number;
     emoji: string;
     reason: string;
   }[];

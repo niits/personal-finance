@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { OrganizeSectionHeader } from "@/components/molecules/OrganizeSectionHeader";
 import { NewCategoryRow } from "@/components/molecules/NewCategoryRow";
 import { RecategorizationRow } from "@/components/molecules/RecategorizationRow";
@@ -11,34 +11,71 @@ type OrganizeReviewSheetProps = {
   open: boolean;
   preview: OrganizePreview | null;
   applying: boolean;
+  error?: string | null;
+  applyBlocked?: boolean;
   onApply: (selection: OrganizeSelection) => void;
   onClose: () => void;
 };
 
-export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose }: OrganizeReviewSheetProps) {
-  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
-  const [selectedTxns, setSelectedTxns] = useState<Set<number>>(new Set());
-  const [selectedEmojiTxns, setSelectedEmojiTxns] = useState<Set<number>>(new Set());
+export function OrganizeReviewSheet({ open, preview, applying, error = null, applyBlocked = false, onApply, onClose }: OrganizeReviewSheetProps) {
+  if (!open || !preview) return null;
+  return <OpenOrganizeReviewSheet preview={preview} applying={applying} error={error} applyBlocked={applyBlocked} onApply={onApply} onClose={onClose} />;
+}
 
-  // Reset selection whenever a new preview arrives
-  useEffect(() => {
-    if (preview) {
-      setSelectedCats(new Set(preview.new_categories.map((c) => c.temp_id)));
-      setSelectedTxns(new Set(preview.recategorizations.map((r) => r.transaction_id)));
-      setSelectedEmojiTxns(new Set(preview.emoji_reassignments.map((r) => r.transaction_id)));
-    }
-  }, [preview]);
-
-  if (!open) return null;
+function OpenOrganizeReviewSheet({ preview, applying, error, applyBlocked, onApply, onClose }: Omit<OrganizeReviewSheetProps, "open" | "preview"> & { preview: OrganizePreview }) {
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(
+    () => new Set(preview.new_categories.map((c) => c.temp_id)),
+  );
+  const [selectedTxns, setSelectedTxns] = useState<Set<number>>(
+    () => new Set(preview.recategorizations.map((r) => r.transaction_id)),
+  );
+  const [selectedEmojiTxns, setSelectedEmojiTxns] = useState<Set<number>>(
+    () => new Set(preview.emoji_reassignments.map((r) => r.transaction_id)),
+  );
+  const [selectedEmojiCategories, setSelectedEmojiCategories] = useState<Set<number>>(
+    () => new Set(preview.emoji_assignments.map((assignment) => assignment.category_id)),
+  );
 
   function handleApply() {
-    if (!preview) return;
+    if (applying || applyBlocked) return;
     onApply({
       new_categories: preview.new_categories.filter((c) => selectedCats.has(c.temp_id)),
-      emoji_assignments: preview.emoji_assignments,
+      emoji_assignments: preview.emoji_assignments.filter((assignment) =>
+        selectedEmojiCategories.has(assignment.category_id)),
       recategorizations: preview.recategorizations.filter((r) => selectedTxns.has(r.transaction_id)),
       emoji_reassignments: preview.emoji_reassignments.filter((r) => selectedEmojiTxns.has(r.transaction_id)),
     });
+  }
+
+  function selectCategory(id: string, checked: boolean) {
+    setSelectedCats((previous) => {
+      const next = new Set(previous);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+    if (!checked) {
+      setSelectedTxns((previous) => {
+        const next = new Set(previous);
+        for (const move of preview.recategorizations) {
+          if (move.suggested_category_id === id) next.delete(move.transaction_id);
+        }
+        return next;
+      });
+    }
+  }
+
+  function selectMove(id: number, checked: boolean) {
+    setSelectedTxns((previous) => {
+      const next = new Set(previous);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+    if (checked) {
+      const target = preview.recategorizations.find((move) => move.transaction_id === id)?.suggested_category_id;
+      if (typeof target === "string") {
+        setSelectedCats((previous) => new Set(previous).add(target));
+      }
+    }
   }
 
   const hasAnything = preview && (
@@ -47,6 +84,8 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
     preview.recategorizations.length > 0 ||
     preview.emoji_reassignments.length > 0
   );
+  const hasSelection = selectedCats.size + selectedTxns.size +
+    selectedEmojiTxns.size + selectedEmojiCategories.size > 0;
 
   return (
     <>
@@ -89,16 +128,11 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
                       key={cat.temp_id}
                       tempId={cat.temp_id}
                       name={cat.name}
+                      emoji={cat.emoji}
                       type={cat.type}
                       exampleNotes={cat.example_notes}
                       checked={selectedCats.has(cat.temp_id)}
-                      onChange={(id, checked) =>
-                        setSelectedCats((prev) => {
-                          const next = new Set(prev);
-                          if (checked) next.add(id); else next.delete(id);
-                          return next;
-                        })
-                      }
+                      onChange={selectCategory}
                     />
                   ))}
                 </section>
@@ -106,14 +140,25 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
 
               {(preview?.emoji_assignments.length ?? 0) > 0 && (
                 <section>
-                  <OrganizeSectionHeader
-                    title="Emoji"
-                    count={preview!.emoji_assignments.length}
-                    autoIncluded
-                  />
-                  <p style={{ padding: "4px 16px 10px", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink-muted-48)" }}>
-                    Sẽ gán emoji cho {preview!.emoji_assignments.length} danh mục.
-                  </p>
+                  <OrganizeSectionHeader title="Emoji danh mục" count={preview.emoji_assignments.length} />
+                  {preview.emoji_assignments.map((assignment) => (
+                    <label key={assignment.category_id} className="flex min-h-11 items-center gap-3 px-4 py-2 font-body text-[15px] text-ink">
+                      <input
+                        type="checkbox"
+                        checked={selectedEmojiCategories.has(assignment.category_id)}
+                        onChange={(event) => setSelectedEmojiCategories((previous) => {
+                          const next = new Set(previous);
+                          if (event.target.checked) next.add(assignment.category_id);
+                          else next.delete(assignment.category_id);
+                          return next;
+                        })}
+                        aria-label={`Gán ${assignment.emoji} cho danh mục ${assignment.category_name}`}
+                        style={{ accentColor: "var(--primary)" }}
+                      />
+                      <span className="min-w-0 flex-1 break-words">{assignment.category_name}</span>
+                      <span aria-hidden="true" className="text-lg">{assignment.emoji}</span>
+                    </label>
+                  ))}
                 </section>
               )}
 
@@ -130,13 +175,7 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
                       isNewCategory={typeof r.suggested_category_id === "string"}
                       reason={r.reason}
                       checked={selectedTxns.has(r.transaction_id)}
-                      onChange={(id, checked) =>
-                        setSelectedTxns((prev) => {
-                          const next = new Set(prev);
-                          if (checked) next.add(id); else next.delete(id);
-                          return next;
-                        })
-                      }
+                      onChange={selectMove}
                     />
                   ))}
                 </section>
@@ -171,16 +210,18 @@ export function OrganizeReviewSheet({ open, preview, applying, onApply, onClose 
 
         {/* CTA */}
         <div style={{ padding: "12px 16px 28px", flexShrink: 0, borderTop: "1px solid var(--hairline)" }}>
+          {error && <p role="alert" className="mb-3 text-sm text-danger">{error}</p>}
           <button type="button"
             onClick={handleApply}
-            disabled={applying || !hasAnything}
+            disabled={applying || applyBlocked || !hasSelection}
+            aria-busy={applying}
             className={`w-full p-[14px] rounded-xl border-none font-body text-[17px] font-semibold flex items-center justify-center gap-2 tracking-[-0.4px] ${
-              applying || !hasAnything
+              applying || applyBlocked || !hasSelection
                 ? "bg-canvas-parchment text-ink-muted-48 cursor-default"
                 : "bg-primary text-white cursor-pointer"
             }`}
           >
-            {applying ? "Đang áp dụng…" : "Áp dụng"}
+            {applying ? "Đang áp dụng…" : hasSelection ? "Áp dụng" : "Chưa chọn thay đổi"}
           </button>
         </div>
       </div>

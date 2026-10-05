@@ -115,10 +115,13 @@ type OrganizePreview = {
     name: string;
     type: "income" | "expense";
     parent_category_id: number | null;
+    parent_category_name: string | null;
+    emoji: string;
     example_notes: string[];
   }>;
   emoji_assignments: Array<{
     category_id: number;
+    category_name: string;
     current_emoji: string | null;
     emoji: string;
   }>;
@@ -127,6 +130,7 @@ type OrganizePreview = {
     note: string;
     current_category_id: number;
     current_category_name: string;
+    current_updated_at: number;
     suggested_category_id: number | `new:${number}`;
     suggested_category_name: string;
     reason: string;
@@ -135,6 +139,7 @@ type OrganizePreview = {
     transaction_id: number;
     note: string;
     current_emoji: string | null;
+    current_updated_at: number;
     emoji: string;
     reason: string;
   }>;
@@ -143,9 +148,10 @@ type OrganizePreview = {
 
 `POST /api/ai/organize/apply` receives selected subsets of those four arrays. Every
 temporary category reference must resolve to a selected `new_categories` item. The
-server compares current ownership, transaction category, current emoji, hierarchy,
-type, and leaf state with the submitted preview; a stale or incompatible selection
-returns `409` without writes.
+server compares current ownership, transaction category and note, current emoji,
+hierarchy, type, and leaf state with the submitted preview; a stale or incompatible
+selection returns `409` without writes. New category levels are derived from the
+current parent level. Selected writes use one D1 batch transaction.
 
 A successful apply returns counts rather than a bare success flag:
 

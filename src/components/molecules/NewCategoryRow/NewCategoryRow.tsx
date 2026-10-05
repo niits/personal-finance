@@ -3,13 +3,14 @@ import { Badge } from "@/components/atoms/Badge";
 type NewCategoryRowProps = {
   tempId: string;
   name: string;
+  emoji: string;
   type: "income" | "expense";
   exampleNotes: string[];
   checked: boolean;
   onChange: (tempId: string, checked: boolean) => void;
 };
 
-export function NewCategoryRow({ tempId, name, type, exampleNotes, checked, onChange }: NewCategoryRowProps) {
+export function NewCategoryRow({ tempId, name, emoji, type, exampleNotes, checked, onChange }: NewCategoryRowProps) {
   return (
     <label style={{
       display: "flex",
@@ -26,6 +27,7 @@ export function NewCategoryRow({ tempId, name, type, exampleNotes, checked, onCh
         style={{ marginTop: 2, accentColor: "var(--primary)", flexShrink: 0, width: 16, height: 16 }}
       />
 
+      <span aria-hidden="true" className="text-lg leading-6">{emoji}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: exampleNotes.length > 0 ? 3 : 0 }}>
           <span style={{

@@ -11,13 +11,13 @@ const base = {
 };
 
 export const Checked: Story = {
-  args: { ...base, name: "Ăn uống", type: "expense", exampleNotes: ["cơm trưa", "cà phê"], checked: true },
+  args: { ...base, name: "Ăn uống", emoji: "🍜", type: "expense", exampleNotes: ["cơm trưa", "cà phê"], checked: true },
 };
 
 export const Unchecked: Story = {
-  args: { ...base, tempId: "new:1", name: "Lương thưởng", type: "income", exampleNotes: [], checked: false },
+  args: { ...base, tempId: "new:1", name: "Lương thưởng", emoji: "💰", type: "income", exampleNotes: [], checked: false },
 };
 
 export const LongName: Story = {
-  args: { ...base, tempId: "new:2", name: "Chi phí di chuyển và xăng xe hàng ngày", type: "expense", exampleNotes: ["grab", "xăng"], checked: true },
+  args: { ...base, tempId: "new:2", name: "Chi phí di chuyển và xăng xe hàng ngày", emoji: "🚗", type: "expense", exampleNotes: ["grab", "xăng"], checked: true },
 };
