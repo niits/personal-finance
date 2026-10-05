@@ -94,7 +94,7 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
       key={e}
       type="button"
       onClick={() => pickEmoji(e)}
-      className="size-9 rounded-sm border-none text-[20px] cursor-pointer flex items-center justify-center transition-colors"
+      className="flex size-11 items-center justify-center rounded-sm border-none text-[20px] transition-colors"
       style={{ background: value === e ? "rgba(0,102,204,0.1)" : "transparent" }}
       onMouseEnter={(el) => { (el.currentTarget as HTMLButtonElement).style.background = "var(--canvas-parchment)"; }}
       onMouseLeave={(el) => { (el.currentTarget as HTMLButtonElement).style.background = value === e ? "rgba(0,102,204,0.1)" : "transparent"; }}
@@ -123,7 +123,7 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
           {value && (
             <div style={{ padding: "0 10px 6px" }}>
               <button type="button" onClick={() => { onChange(null); setOpen(false); }}
-                style={{ background: "none", border: "none", color: "var(--primary)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer", padding: "2px 4px" }}>
+                className="min-h-11 rounded-sm border-0 bg-transparent px-xs font-body text-[15px] text-primary hover:bg-canvas-parchment">
                 Xóa emoji
               </button>
             </div>

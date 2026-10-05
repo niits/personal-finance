@@ -85,10 +85,17 @@ export const EditCustomBudget: Story = {
   },
 };
 
+export const NewCustomBudget: Story = {
+  args: WithBudget.args,
+  play: async ({ canvasElement }) => {
+    clickButton(canvasElement, "Thêm");
+  },
+};
+
 export const BlockedDeletion: Story = {
   args: WithBudget.args,
   play: async ({ canvasElement }) => {
-    const button = canvasElement.querySelector<HTMLButtonElement>('[aria-label="Xoá ngân sách Du lịch Đà Nẵng"]');
+    const button = canvasElement.querySelector<HTMLButtonElement>('[aria-label="Xóa ngân sách Du lịch Đà Nẵng"]');
     button?.click();
   },
 };

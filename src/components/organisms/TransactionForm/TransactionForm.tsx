@@ -177,7 +177,7 @@ function CategoryDrillDown({
 
 function DatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div style={{ position: "relative", display: "inline-block" }}>
+    <div className="relative inline-flex min-h-11 items-center px-xs">
       <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--primary)" }}>
         {fmtDateLabel(value)}
       </span>
@@ -187,7 +187,7 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
         value={value}
         max={todayStr()}
         onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
-        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
+        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer", fontSize: 17 }}
       />
     </div>
   );
@@ -203,7 +203,7 @@ type DebtLinkState =
 function DueDatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const display = value ? value.split("-").reverse().map(Number).join("/") : "Chưa chọn";
   return (
-    <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+    <div className="relative inline-flex min-h-11 items-center px-xs">
       <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: value ? "var(--ink)" : "var(--ink-muted-48)" }}>
         {display}
       </span>
@@ -212,7 +212,7 @@ function DueDatePicker({ value, onChange }: { value: string; onChange: (v: strin
         aria-label="Hạn trả"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
+        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer", fontSize: 17 }}
       />
     </div>
   );
@@ -342,7 +342,7 @@ void DebtLinkSection;
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 10,
   border: "1px solid var(--hairline)", background: "var(--canvas-parchment)",
-  fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)",
+  fontFamily: "var(--font-body)", fontSize: 17, color: "var(--ink)",
   outline: "none", boxSizing: "border-box",
 };
 
@@ -642,7 +642,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
         {/* Nav bar */}
         <div style={{ display: "flex", alignItems: "center", padding: "4px 16px 12px", flexShrink: 0 }}>
-          <button type="button" aria-label="Đóng biểu mẫu" onClick={handleClose} className="bg-transparent border-none font-body text-[28px] text-ink-muted-48 cursor-pointer pr-2 leading-none">
+          <button type="button" aria-label="Đóng biểu mẫu" onClick={handleClose} className="flex size-11 shrink-0 items-center justify-center rounded-sm border-0 bg-transparent font-body text-[28px] leading-none text-ink-muted-48 hover:bg-canvas-parchment">
             ✕
           </button>
           <span style={{ flex: 1, textAlign: "center", fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, color: "var(--ink)", letterSpacing: -0.4 }}>
@@ -651,7 +651,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           <button type="button"
             onClick={submit}
             disabled={saving}
-            className={`bg-transparent border-none font-body text-[17px] font-semibold pl-2 ${
+            className={`min-h-11 min-w-11 rounded-sm border-0 bg-transparent px-xs font-body text-[17px] font-semibold hover:bg-canvas-parchment ${
               saving ? "text-ink-muted-48 cursor-not-allowed" : "text-primary cursor-pointer"
             }`}
           >
@@ -690,7 +690,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                 </div>
                 <button type="button"
                   onClick={() => setUnlinkMode(true)}
-                  className="bg-transparent border-none font-body text-[13px] text-danger cursor-pointer font-semibold"
+                  className="min-h-11 border-none bg-transparent font-body text-[15px] font-semibold text-danger"
                 >
                   Hủy liên kết
                 </button>
@@ -707,7 +707,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                     const raw = e.target.value.replace(/[^\d]/g, "");
                     setEditLinkedAmountStr(raw ? fmt(parseInt(raw, 10)) : "");
                   }}
-                  style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 500, color: editLinkedAmountStr ? "var(--primary)" : "var(--ink-muted-48)", border: "none", outline: "none", background: "transparent", textAlign: "right", width: 160 }}
+                  style={{ fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 500, color: editLinkedAmountStr ? "var(--primary)" : "var(--ink-muted-48)", border: "none", outline: "none", background: "transparent", textAlign: "right", width: 160 }}
                 />
               </div>
             </div>
@@ -725,7 +725,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                   if (!isEdit && !isRepayment) setCategoryId(null);
                 }}
                   style={{
-                    flex: 1, padding: "9px", borderRadius: 8, border: "none",
+                    flex: 1, minHeight: 44, padding: "9px", borderRadius: 8, border: "none",
                     background: type === t ? (t === "expense" ? "var(--danger)" : "var(--success)") : "transparent",
                     color: type === t ? "#fff" : "var(--ink-muted-48)",
                     fontFamily: "var(--font-body)", fontSize: 15, fontWeight: type === t ? 600 : 400,
@@ -783,7 +783,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                     <button type="button" key={cb.id}
                       onClick={() => setSelectedCbIds((p) => on ? p.filter((x) => x !== cb.id) : [...p, cb.id])}
                       style={{
-                        padding: "7px 14px", borderRadius: 999, cursor: "pointer",
+                        minHeight: 44, padding: "7px 14px", borderRadius: 999, cursor: "pointer",
                         border: on ? "none" : "1px solid var(--hairline)",
                         background: on ? "var(--ink)" : "var(--canvas-parchment)",
                         color: on ? "#fff" : "var(--ink-muted-48)",
@@ -824,18 +824,19 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {/* Note + emoji */}
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
-            <EmojiPicker value={emoji} onChange={setEmoji} />
-            <input
-              type="text" placeholder="Ghi chú (tùy chọn)" aria-label="Ghi chú"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              style={{
-                flex: 1, padding: "12px 16px", borderRadius: 11,
-                border: "1px solid var(--hairline)", fontFamily: "var(--font-body)",
-                fontSize: 15, color: "var(--ink)", background: "var(--canvas-parchment)", outline: "none",
-              }}
-            />
+          <div className="border-t border-hairline py-sm">
+            <label htmlFor="transaction-note" className="mb-xs block font-body text-[13px] text-ink-muted-80">Ghi chú (tùy chọn)</label>
+            <div className="flex items-start gap-xs">
+              <EmojiPicker value={emoji} onChange={setEmoji} />
+              <input
+                id="transaction-note"
+                type="text"
+                placeholder="Thêm ghi chú"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="min-h-11 min-w-0 flex-1 rounded-md border border-hairline bg-canvas-parchment px-md font-body text-[17px] text-ink outline-none"
+              />
+            </div>
           </div>
 
           {error && (

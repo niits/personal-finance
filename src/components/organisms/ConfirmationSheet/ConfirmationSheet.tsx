@@ -7,6 +7,7 @@ export function ConfirmationSheet({
   title,
   consequence,
   confirmLabel,
+  cancelLabel = "Hủy",
   pendingLabel = "Đang xử lý…",
   pending = false,
   error,
@@ -16,11 +17,12 @@ export function ConfirmationSheet({
   open: boolean;
   title: string;
   consequence: string;
-  confirmLabel: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
   pendingLabel?: string;
   pending?: boolean;
   error?: string | null;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onCancel: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -71,18 +73,18 @@ export function ConfirmationSheet({
             type="button"
             disabled={pending}
             onClick={onCancel}
-            className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas font-body text-base font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 min-w-0 flex-1 rounded-md border border-hairline bg-canvas px-sm py-xs font-body text-base font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Hủy
+            {cancelLabel}
           </button>
-          <button
+          {confirmLabel && onConfirm ? <button
             type="button"
             disabled={pending}
             onClick={onConfirm}
-            className="min-h-11 flex-1 rounded-md border-0 bg-danger font-body text-base font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 min-w-0 flex-1 rounded-md border-0 bg-danger px-sm py-xs font-body text-base font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? pendingLabel : confirmLabel}
-          </button>
+          </button> : null}
         </div>
       </div>
     </dialog>

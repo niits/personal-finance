@@ -60,6 +60,7 @@ export function Button({
         fontFamily: "var(--font-body)",
         fontWeight: 600,
         cursor: isDisabled ? "not-allowed" : "pointer",
+        minHeight: 44,
         opacity: isDisabled ? 0.6 : 1,
         transition: "opacity 0.15s",
         width: fullWidth ? "100%" : undefined,

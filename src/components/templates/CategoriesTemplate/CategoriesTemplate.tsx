@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
+import { ConfirmationSheet } from "@/components/organisms/ConfirmationSheet";
 
 export type Category = {
   id: number;
@@ -123,19 +124,17 @@ export function CategoriesTemplate({
   const selectedParent = parentOptions.find((category) => category.id === parentId);
 
   useEffect(() => {
-    if (!editingCategory && !deleteCategory) return;
-    if (editingCategory) editInputRef.current?.focus();
-    else dialogCancelRef.current?.focus();
+    if (!editingCategory) return;
+    editInputRef.current?.focus();
 
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setEditingCategory(null);
-      setDeleteCategory(null);
     }
 
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [editingCategory, deleteCategory]);
+  }, [editingCategory]);
 
   function changeType(type: CategoryType) {
     setActiveType(type);
@@ -395,28 +394,22 @@ export function CategoriesTemplate({
         </div>
       ) : null}
 
-      {deleteCategory ? (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-surface-black/40 p-0 sm:items-center sm:p-lg" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDeleteCategory(null)}>
-          <section role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description" className="w-full max-w-md rounded-t-[24px] bg-canvas p-5 sm:rounded-[24px]">
-            <h2 id="delete-title" className="font-display text-[21px] font-semibold text-ink">Xóa “{deleteCategory.name}”?</h2>
-            <p id="delete-description" className="mt-xs font-body text-[15px] leading-[21px] text-ink-muted-80">
-              {deleteCategory.children.length > 0
-                ? `Danh mục này có ${deleteCategory.children.length} danh mục con. Bạn cần xóa các danh mục con trước.`
-                : (usageCounts[deleteCategory.id] ?? 0) > 0
-                  ? `Danh mục này đang được dùng bởi ${usageCounts[deleteCategory.id]} giao dịch. Các giao dịch phải được chuyển sang danh mục khác trước.`
-                  : "Thao tác này không thể hoàn tác."}
-            </p>
-            {deleteError ? <p role="alert" className="mt-sm font-body text-[14px] leading-[20px] text-danger">{deleteError}</p> : null}
-            <div className="mt-lg flex gap-xs">
-              {deleteCategory.children.length > 0 || (usageCounts[deleteCategory.id] ?? 0) > 0 ? (
-                <button ref={dialogCancelRef} type="button" onClick={() => setDeleteCategory(null)} className="min-h-11 w-full rounded-md border border-hairline bg-canvas font-body text-[15px] font-semibold text-ink">Đã hiểu</button>
-              ) : (
-                <><button ref={dialogCancelRef} type="button" onClick={() => setDeleteCategory(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas font-body text-[15px] font-semibold text-ink">Giữ lại</button><button type="button" onClick={confirmDelete} disabled={saving} className="min-h-11 flex-[2] rounded-md border-0 bg-danger font-body text-[15px] font-semibold text-on-primary disabled:opacity-60">{saving ? "Đang xóa…" : `Xóa “${deleteCategory.name}”`}</button></>
-              )}
-            </div>
-          </section>
-        </div>
-      ) : null}
+      <ConfirmationSheet
+        open={Boolean(deleteCategory)}
+        title={deleteCategory ? `Xóa “${deleteCategory.name}”?` : ""}
+        consequence={deleteCategory?.children.length
+          ? `Danh mục này có ${deleteCategory.children.length} danh mục con. Bạn cần xóa các danh mục con trước.`
+          : deleteCategory && (usageCounts[deleteCategory.id] ?? 0) > 0
+            ? `Danh mục này đang được dùng bởi ${usageCounts[deleteCategory.id]} giao dịch. Các giao dịch phải được chuyển sang danh mục khác trước.`
+            : "Thao tác này không thể hoàn tác."}
+        cancelLabel={deleteCategory && (deleteCategory.children.length > 0 || (usageCounts[deleteCategory.id] ?? 0) > 0) ? "Đã hiểu" : "Giữ lại"}
+        confirmLabel={deleteCategory && deleteCategory.children.length === 0 && (usageCounts[deleteCategory.id] ?? 0) === 0 ? "Xóa danh mục" : undefined}
+        pending={saving}
+        pendingLabel="Đang xóa…"
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteCategory(null)}
+      />
     </main>
   );
 }
