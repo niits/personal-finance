@@ -83,3 +83,40 @@ atomic writes, use a D1-supported batch or equivalent atomic mechanism.
 Define the business meaning and grain, implement deterministic tests, expose it through
 the analytics service, and only then make it available to AI tools or charts. A new
 metric must not silently reuse `total_expense` when the intended domain is consumption.
+
+## Statistics Evidence Model
+
+Statistics persist a versioned server-computed snapshot with each report. Version 2
+records inclusive period boundaries, the last included date, the previous comparison
+range, the comparison basis, current and previous metrics, category and card-group
+breakdowns, notable consumption transactions, and chart datasets. `model_id`,
+`report_version`, and `source_revision` record generation provenance.
+
+`card_spend` is consumption paid through a card group; `cash_spend` is the remaining
+consumption. `unpaid_card_spend` counts purchases in the selected period that are not
+covered by a paid statement, including open-period purchases. Payment status is read
+at generation time; this measure is not the outstanding balance across all periods.
+Statement payment changes status without creating additional expense.
+
+Budget usage and percentage exceeded are distinct: `budget_used_pct` measures the
+percentage used; `budget_overrun_pct` measures the positive percentage above the
+limit. Missing limits and undefined changes remain null. Calendar-day `daily_pace`
+and `projected_total` are explicitly labeled pace extrapolations; they are separate
+from the working-day Dashboard pace line.
+
+An active period compares the same elapsed number of calendar days in the previous
+stored period, capped at that period's end. If the previous period is shorter, the
+comparison basis explicitly states that the durations differ. Completed periods
+compare full ranges. Trend charts include zero-spend dates and omit an incomplete
+current day.
+
+The model selects server-provided chart IDs and a focal label. It cannot supply chart
+values or chart code. The server verifies chart references, literal currency amounts,
+percentages, and sentence endings before saving. These checks establish numerical
+provenance; they do not prove that every interpretation or causal statement is correct.
+
+A user-scoped revision increments on transaction, category, monthly-budget, card-group,
+and statement mutations. Triggers conservatively mark the user's reports dirty,
+including historical reports and reports comparing with changed periods. Saving a
+report checks the captured revision atomically; data changed during generation leave
+the saved report dirty.

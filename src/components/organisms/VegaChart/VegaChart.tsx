@@ -1,23 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { expressionInterpreter } from "vega-interpreter";
 import type { TopLevelSpec } from "vega-lite";
-import type { Insight } from "@/lib/statistics";
+import type { Insight } from "@/lib/statistics-report";
 import { chartDatumLabel, chartTextSummary, formatChartValue } from "./presentation";
 
-// Design values must stay aligned with docs/design/calm-ledger.md.
+import { buildVegaLiteSpec, type ChartTheme } from "./spec";
 
-const PRIMARY = "#0066cc";
-// Storytelling-with-data "focus attention": the highlighted bar is PRIMARY, every
-// other bar drops to this neutral grey so the eye lands on the one that matters.
-const MUTED = "#c7c7cc";
-const CHART_PALETTE = [PRIMARY, "#30d158", "#ff9f0a", "#bf5af2", "#32ade6", "#ff453a", "#ac8e68", "#5856d6"];
-const INK = "#1d1d1f";
-const INK_MUTED = "#7a7a7a";
-const HAIRLINE = "#e0e0e0";
-const FONT_BODY = "SF Pro Text, system-ui, -apple-system, sans-serif";
+
+function readChartTheme(): string {
+  const styles = getComputedStyle(document.documentElement);
+  const token = (name: string) => styles.getPropertyValue(name).trim();
+  return JSON.stringify({ primary: token("--primary"), muted: token("--hairline"), ink: token("--ink"), inkMuted: token("--ink-muted-48"), hairline: token("--divider-soft"), font: token("--font-body") });
+}
+function subscribeChartTheme(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
+  return () => observer.disconnect();
+}
 
 // ─── vi-VN locale for Vega ────────────────────────────────────────────────────
 
@@ -38,240 +40,6 @@ const VEGA_TIME_FORMAT_LOCALE = {
   months: ["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"],
   shortMonths: ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","T11","T12"],
 };
-
-// ─── Spec builder ─────────────────────────────────────────────────────────────
-
-function vegaFormat(unit?: Insight["value_unit"]): string {
-  if (unit === "percent") return ",.2~f";
-  return ",.0f";
-}
-
-function vegaUnitSuffix(unit?: Insight["value_unit"]): string {
-  if (unit === "percent") return "%";
-  if (unit === "count") return "";
-  return " ₫";
-}
-
-function buildVegaLiteSpec(insight: Insight): TopLevelSpec | null {
-  const data = insight.chart_data;
-  if (!data || data.length === 0 || !insight.chart_type) return null;
-  const unit = insight.value_unit;
-  const format = vegaFormat(unit);
-  const suffix = vegaUnitSuffix(unit);
-  const valueTitle = unit === "percent" ? "Tỷ lệ" : unit === "count" ? "Số lượng" : "Số tiền";
-
-  const baseAxis = {
-    labelFont: FONT_BODY,
-    titleFont: FONT_BODY,
-    labelColor: INK_MUTED,
-    titleColor: INK_MUTED,
-    labelFontSize: 11,
-    titleFontSize: 11,
-    labelFontWeight: 400 as const,
-    grid: false,
-    domain: false,
-    ticks: false,
-  };
-  const config = {
-    view: { stroke: null },
-    axis: baseAxis,
-    axisX: { ...baseAxis },
-    axisY: { ...baseAxis, grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] },
-    legend: {
-      labelFont: FONT_BODY,
-      titleFont: FONT_BODY,
-      labelColor: INK,
-      labelFontSize: 12,
-      symbolSize: 72,
-      symbolType: "circle" as const,
-      orient: "bottom" as const,
-      padding: 12,
-      offset: 8,
-    },
-    range: { category: CHART_PALETTE },
-    font: FONT_BODY,
-  };
-  // Compact axis labels for mobile: "15.000.000 đ" → "15tr", "500.000 đ" → "500k"
-  const valueLabelExpr =
-    unit === "currency"
-      ? `datum.value >= 1000000 ? format(datum.value / 1000000, '.1~f') + 'tr' : datum.value >= 1000 ? format(datum.value / 1000, '.0f') + 'k' : format(datum.value, '.0f') + ' ₫'`
-      : `datum.label + '${suffix}'`;
-
-  const base = {
-    $schema: "https://vega.github.io/schema/vega-lite/v6.json",
-    width: "container" as const,
-    autosize: { type: "fit" as const, contains: "padding" as const, resize: true },
-    background: "transparent",
-    config,
-    data: { values: data },
-  };
-
-  if (insight.chart_type === "forecast_line") {
-    const meta = insight.forecast_meta;
-    if (!meta) return null;
-    return {
-      ...base,
-      height: 150,
-      layer: [
-        {
-          mark: { type: "line", strokeWidth: 2, interpolate: "monotone" },
-          encoding: {
-            x: {
-              field: "name",
-              type: "temporal" as const,
-              title: null,
-              axis: {
-                values: [meta.period_start, meta.today, meta.next_period_start],
-                format: "%d/%m",
-                labelAngle: 0,
-                labelFont: FONT_BODY,
-                labelColor: INK_MUTED,
-                labelFontSize: 11,
-                grid: false,
-                domain: false,
-                ticks: false,
-                title: null,
-              },
-            },
-            y: {
-              field: "value",
-              type: "quantitative" as const,
-              title: null,
-              axis: null,
-              scale: { zero: true },
-            },
-            color: {
-              field: "series",
-              type: "nominal" as const,
-              scale: { domain: ["Thực tế", "Ngân sách"], range: ["#30d158", PRIMARY] },
-              legend: { title: null },
-            },
-          },
-        },
-      ],
-    } as TopLevelSpec;
-  }
-
-  if (insight.chart_type === "line") {
-    // A line through a single point is not a trend — show nothing.
-    if (data.length < 2) return null;
-    const isDate = data.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.name));
-    const xEnc = isDate
-      ? { field: "name", type: "temporal" as const, title: null, axis: { format: "%d/%m", labelAngle: 0, tickCount: 5 } }
-      : { field: "name", type: "ordinal" as const, title: null, axis: { labelAngle: 0 } };
-    const yEnc = { field: "value", type: "quantitative" as const, title: null, axis: { format, labelExpr: valueLabelExpr } };
-    const lineTooltip = [
-      isDate
-        ? { field: "name", type: "temporal" as const, title: "Ngày", format: "%d/%m/%Y" }
-        : { field: "name", type: "ordinal" as const, title: "Mục" },
-      { field: "value", type: "quantitative" as const, title: valueTitle, format },
-    ];
-    return {
-      ...base,
-      height: 200,
-      layer: [
-        {
-          mark: { type: "line", color: PRIMARY, strokeWidth: 2, interpolate: "monotone" },
-          encoding: { x: xEnc, y: yEnc, tooltip: lineTooltip },
-        },
-        // Visible markers so each data point is locatable, not just the trend line.
-        {
-          mark: { type: "point", color: PRIMARY, filled: true, size: 56 },
-          encoding: { x: { ...xEnc, axis: null }, y: { field: "value", type: "quantitative" as const }, tooltip: lineTooltip },
-        },
-      ],
-    } as TopLevelSpec;
-  }
-
-  // bar / bar_grouped
-  const hasSeries = data.some((d) => d.series);
-  const grouped = insight.chart_type === "bar_grouped" || hasSeries;
-  const distinctNames = new Set(data.map((d) => d.name)).size;
-  const hasHighlight = data.some((d) => d.highlight === true);
-
-  // Apple-style reference-rule: bar_grouped where exactly one series is a
-  // budget/limit/average marker → draw actual data as bars, reference as a
-  // vertical rule line (like Apple Health's threshold indicator).
-  const REF_SERIES_RE = /^(Ngân sách|Giới hạn|Trung bình|Mục tiêu)$/;
-  const allSeriesNames = [...new Set(data.filter((d) => d.series).map((d) => d.series!))];
-  const refSeriesName = allSeriesNames.find((s) => REF_SERIES_RE.test(s));
-  const refEntries = refSeriesName ? data.filter((d) => d.series === refSeriesName) : [];
-  const uniqueRefValues = new Set(refEntries.map((d) => d.value));
-  const isRefChart = grouped && !!refSeriesName && allSeriesNames.length === 2 && uniqueRefValues.size === 1;
-
-  if (isRefChart) {
-    const actualData = data.filter((d) => d.series !== refSeriesName);
-    const refValue = [...uniqueRefValues][0];
-    const actualRowCount = new Set(actualData.map((d) => d.name)).size;
-    const xAxisSpec = {
-      format, labelExpr: valueLabelExpr, tickCount: 3,
-      grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] as number[],
-    };
-    return {
-      ...base,
-      height: Math.max(72, actualRowCount * 44 + 20),
-      layer: [
-        {
-          mark: { type: "bar", cornerRadiusEnd: 4, height: 28 },
-          data: { values: actualData },
-          encoding: {
-            y: { field: "name", type: "nominal", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK } },
-            x: { field: "value", type: "quantitative", title: null, axis: xAxisSpec },
-            color: { value: PRIMARY },
-            tooltip: [
-              { field: "name", type: "nominal", title: "Mục" },
-              { field: "value", type: "quantitative", title: valueTitle, format },
-            ],
-          },
-        },
-        // Reference threshold rule
-        {
-          mark: { type: "rule", color: INK_MUTED, strokeDash: [4, 3], strokeWidth: 1.5 },
-          encoding: { x: { datum: refValue, type: "quantitative" as const } },
-        },
-        // Reference label (top of rule line)
-        {
-          mark: { type: "text", align: "left", dx: 4, dy: 0, fontSize: 10, color: INK_MUTED, baseline: "top" as const },
-          encoding: {
-            x: { datum: refValue, type: "quantitative" as const },
-            y: { value: 2 },
-            text: { value: refSeriesName },
-          },
-        },
-      ],
-    } as TopLevelSpec;
-  }
-
-  // A bar chart with a single category compares nothing — its one number already
-  // lives in the summary. Render no chart so a lone bar can never ship.
-  if (distinctNames < 2) return null;
-
-  return {
-    ...base,
-    height: Math.max(180, Math.min(360, distinctNames * (grouped ? 32 : 28) + 40)),
-    mark: { type: "bar", cornerRadiusEnd: 4 },
-    encoding: {
-      y: { field: "name", type: "nominal", sort: "-x", title: null, axis: { ...baseAxis, labelLimit: 140, labelColor: INK, labelFontWeight: 400 } },
-      x: { field: "value", type: "quantitative", title: null, axis: { format, labelExpr: valueLabelExpr, tickCount: 3, grid: true, gridColor: HAIRLINE, gridOpacity: 0.6, gridDash: [2, 4] } },
-      ...(grouped
-        ? {
-            color: { field: "series", type: "nominal", legend: { title: null } },
-            yOffset: { field: "series", type: "nominal" },
-          }
-        : {
-            // Focus attention: highlighted row in the accent colour, rest grey.
-            color: hasHighlight
-              ? { condition: { test: "datum.highlight === true", value: PRIMARY }, value: MUTED }
-              : { value: PRIMARY },
-          }),
-      tooltip: [
-        { field: "name", type: "nominal", title: "Mục" },
-        ...(grouped ? [{ field: "series", type: "nominal" as const, title: "Nhóm" }] : []),
-        { field: "value", type: "quantitative", title: valueTitle, format },
-      ],
-    },
-  } as TopLevelSpec;
-}
 
 // ─── VegaEmbed dynamic import (no SSR — Workers runtime has no DOM) ──────────
 
@@ -303,13 +71,14 @@ export type VegaChartProps = {
 };
 
 export function VegaChart({ insight, featured = false }: VegaChartProps) {
-  const spec = buildVegaLiteSpec(insight);
+  const themeJson = useSyncExternalStore(subscribeChartTheme, readChartTheme, () => null);
+  const spec = useMemo(() => themeJson ? buildVegaLiteSpec(insight, JSON.parse(themeJson) as ChartTheme) : null, [insight, themeJson]);
   const typeLabel = insight.type ? INSIGHT_TYPE_LABEL[insight.type] ?? null : null;
   const textSummary = chartTextSummary(insight);
   const [vegaError, setVegaError] = useState(false);
 
   return (
-    <article className="border-b border-divider-soft py-6 first:pt-0 last:border-b-0">
+    <article className="analysis-reveal border-b border-divider-soft py-lg first:pt-0 last:border-b-0">
       {typeLabel ? (
         <p className="mb-2 font-body text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted-48">
           {typeLabel}
@@ -328,13 +97,14 @@ export function VegaChart({ insight, featured = false }: VegaChartProps) {
         {insight.summary}
       </p>
       {spec && !vegaError ? (
-        <figure className="m-0 mt-5" aria-label={textSummary ?? undefined}>
+        <figure className="m-0 mt-lg min-w-0" aria-label={textSummary ?? undefined}>
           <VegaEmbed
+            className="block w-full min-w-0"
             spec={spec}
             onError={() => setVegaError(true)}
             options={{
               actions: false,
-              renderer: "canvas",
+              renderer: "svg",
               ast: true,
               expr: expressionInterpreter,
               formatLocale: VEGA_FORMAT_LOCALE,
@@ -366,7 +136,7 @@ export function VegaChart({ insight, featured = false }: VegaChartProps) {
               </thead>
               <tbody>
                 {insight.chart_data.map((datum) => (
-                  <tr key={`${datum.name}-${datum.series ?? "value"}-${datum.value}`} className="border-b border-divider-soft last:border-b-0">
+                  <tr key={`${datum.name}-${datum.series ?? "value"}-${datum.value}`} className="border-b border-divider-soft last:border-b-0 hover:bg-canvas-parchment motion-safe:transition-colors">
                     <td className="py-2 pr-3 text-ink-muted-80">{chartDatumLabel(datum)}</td>
                     <td className="py-2 text-right tabular-nums text-ink">{formatChartValue(datum.value, insight.value_unit)}</td>
                   </tr>

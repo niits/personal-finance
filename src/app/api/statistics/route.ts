@@ -1,3 +1,4 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { NextRequest } from "next/server";
 import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     const db = await getKysely();
     const row = await db
       .selectFrom("statistics_report")
-      .select(["insights", "is_dirty", "generated_at"])
+      .select(["insights", "is_dirty", "generated_at", "snapshot", "model_id", "report_version"])
       .where("user_id", "=", session.user.id)
       .where("period_type", "=", "monthly")
       .where("period_key", "=", periodKey)
@@ -41,15 +42,16 @@ export async function GET(request: NextRequest) {
         is_dirty: row.is_dirty === 1,
         is_current_period: isCurrentPeriod,
         generated_at: row.generated_at,
+        snapshot: row.snapshot ? JSON.parse(row.snapshot) : null,
+        model_id: row.model_id,
+        report_version: row.report_version,
     });
   } catch (e) {
     return Errors.internal(e);
   }
 }
 
-// User-triggered generation — returns a Server-Sent Events stream so the UI can
-// display live agent steps. Emits {type:"tool_call"}, {type:"tool_result"} events
-// as the agent works, then {type:"done", report:{...}} on completion.
+// Generation emits trusted processing steps, followed by the persisted report.
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
@@ -71,14 +73,14 @@ export async function POST(request: NextRequest) {
     try { ctrl.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`)); } catch { /* closed */ }
   };
 
-  (async () => {
+  const generation = (async () => {
     try {
       await generateStatisticsReport(userId, "monthly", periodKey, send);
 
       const db = await getKysely();
       const row = await db
         .selectFrom("statistics_report")
-        .select(["insights", "generated_at"])
+        .select(["insights", "generated_at", "is_dirty", "snapshot", "model_id", "report_version"])
         .where("user_id", "=", userId)
         .where("period_type", "=", "monthly")
         .where("period_key", "=", periodKey)
@@ -92,19 +94,26 @@ export async function POST(request: NextRequest) {
           period_key: periodKey,
           period_type: "monthly",
           insights,
-          is_dirty: false,
+          is_dirty: row?.is_dirty === 1,
+          snapshot: row?.snapshot ? JSON.parse(row.snapshot) : null,
+          model_id: row?.model_id ?? null,
+          report_version: row?.report_version ?? 2,
           is_current_period: periodKey === currentBudgetMonth(),
           generated_at: row?.generated_at ?? Math.floor(Date.now() / 1000),
         },
       });
     } catch (e) {
-      send({ type: "error", message: e instanceof Error ? e.message : String(e) });
+      console.error("[statistics] generation failed", e);
+      send({ type: "error", message: "Không thể hoàn tất bản phân tích. Vui lòng thử lại." });
     } finally {
       try { ctrl.close(); } catch { /* already closed */ }
     }
   })();
 
-  return new Response(stream as unknown as BodyInit, {
+  const context = await getCloudflareContext({ async: true });
+  context.ctx.waitUntil(generation);
+
+  return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",

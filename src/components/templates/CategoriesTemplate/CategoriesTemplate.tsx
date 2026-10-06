@@ -347,14 +347,14 @@ export function CategoriesTemplate({
       ) : loadError ? (
         <section className="py-xxl text-center" aria-labelledby="load-error-title">
           <h2 id="load-error-title" className="font-display text-[21px] font-semibold text-ink">Không thể tải danh mục</h2>
-          <p role="alert" className="mx-auto mt-xs max-w-md font-body text-[15px] leading-[21px] text-ink-muted-80">{loadError}</p>
+          <p role="alert" className="mx-auto mt-xs w-full max-w-prose font-body text-[15px] leading-[21px] text-ink-muted-80">{loadError}</p>
           <button type="button" onClick={onRetry} className="mt-lg min-h-11 rounded-pill border-0 bg-primary px-lg font-body text-[15px] font-semibold text-on-primary">Thử lại</button>
         </section>
       ) : categories.length === 0 ? (
         <section className="py-xxl text-center" aria-labelledby="empty-title">
           <h2 id="empty-title" className="font-display text-[21px] font-semibold text-ink">Bắt đầu với danh mục của bạn</h2>
-          <p className="mx-auto mt-xs max-w-sm font-body text-[15px] leading-[21px] text-ink-muted-48">Tạo từng danh mục hoặc thêm các danh mục mẫu.</p>
-          {seedError ? <p role="alert" className="mx-auto mt-sm max-w-sm font-body text-[14px] leading-[20px] text-danger">{seedError}</p> : null}
+          <p className="mx-auto mt-xs w-full max-w-prose font-body text-[15px] leading-[21px] text-ink-muted-48">Tạo từng danh mục hoặc thêm các danh mục mẫu.</p>
+          {seedError ? <p role="alert" className="mx-auto mt-sm w-full max-w-prose font-body text-[14px] leading-[20px] text-danger">{seedError}</p> : null}
           <button type="button" onClick={onSeed} disabled={seedState === "loading"} className="mt-lg min-h-11 rounded-pill border-0 bg-primary px-lg font-body text-[15px] font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60">
             {seedState === "loading" ? "Đang tạo danh mục mẫu…" : seedState === "error" ? "Thử tạo lại" : "Tạo danh mục mẫu"}
           </button>

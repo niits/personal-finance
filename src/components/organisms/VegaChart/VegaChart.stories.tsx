@@ -102,3 +102,16 @@ export const AlertNoChart: Story = {
     },
   },
 };
+
+export const PeriodComparison: Story = {
+  args: { insight: { type: "analysis", title: "Chi mua sắm tăng so với cùng phần kỳ trước.", summary: "Biểu đồ so sánh các phần kỳ có cùng số ngày đã trôi qua.", chart_type: "bar_grouped", value_unit: "currency", chart_data: [
+    { name: "Chi tiêu > Sinh hoạt > Ăn uống", value: 1400000, series: "Kỳ này" }, { name: "Chi tiêu > Sinh hoạt > Ăn uống", value: 1000000, series: "Kỳ trước" },
+    { name: "Chi tiêu > Cá nhân > Mua sắm", value: 2800000, series: "Kỳ này" }, { name: "Chi tiêu > Cá nhân > Mua sắm", value: 800000, series: "Kỳ trước" },
+  ] } },
+};
+export const MultipleLines: Story = {
+  args: { insight: { type: "analysis", title: "Chi thẻ và tiền mặt thay đổi theo ngày.", summary: "Hai chuỗi được phân biệt bằng màu và kiểu đường.", chart_type: "line", value_unit: "currency", chart_data: [
+    { name: "2026-05-01", value: 120000, series: "Thẻ" }, { name: "2026-05-02", value: 300000, series: "Thẻ" }, { name: "2026-05-03", value: 0, series: "Thẻ" }, { name: "2026-05-04", value: 200000, series: "Thẻ" },
+    { name: "2026-05-01", value: 50000, series: "Tiền mặt" }, { name: "2026-05-02", value: 0, series: "Tiền mặt" }, { name: "2026-05-03", value: 100000, series: "Tiền mặt" }, { name: "2026-05-04", value: 80000, series: "Tiền mặt" },
+  ] } },
+};

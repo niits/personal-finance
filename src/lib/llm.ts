@@ -52,10 +52,21 @@ export async function runAIObject<T>(opts: {
   }
 }
 
-// gpt-4o via Vercel AI Gateway — used for statistics agent (long context, streaming)
+// Statistics models are configurable independently of short-context tasks.
 export async function getOpenAIModel(): Promise<LanguageModel> {
   const { env } = await getCloudflareContext({ async: true });
   return createAIGatewayProvider(env as Cloudflare.Env)("openai/gpt-4o");
+}
+
+export const STATISTICS_MODELS = ["openai/gpt-5.6-terra", "openai/gpt-6.1-sol"] as const;
+export type StatisticsModelId = (typeof STATISTICS_MODELS)[number];
+
+export async function getStatisticsModel(): Promise<{ model: LanguageModel; modelId: StatisticsModelId }> {
+  const { env } = await getCloudflareContext({ async: true });
+  const configured = (env as Cloudflare.Env & { STATISTICS_MODEL?: string }).STATISTICS_MODEL ?? "openai/gpt-6.1-sol";
+  if (!STATISTICS_MODELS.includes(configured as StatisticsModelId)) throw new Error("Mô hình phân tích chưa được cấu hình hợp lệ.");
+  const modelId = configured as StatisticsModelId;
+  return { model: createAIGatewayProvider(env as Cloudflare.Env)(modelId), modelId };
 }
 
 export { generateText };

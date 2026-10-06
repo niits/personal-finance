@@ -29,7 +29,7 @@ const mockReport = {
   ],
   is_dirty: false,
   is_current_period: true,
-  generated_at: Math.floor(Date.now() / 1000) - 3600,
+  generated_at: 1747303200,
 };
 
 export const Ready: Story = {
@@ -64,8 +64,10 @@ export const Generating: Story = {
     status: "generating",
     report: null,
     agentSteps: [
-      { id: 1, type: "tool_call" as const, tool: "get_expense_by_category", label: "Truy vấn giao dịch tháng 5", callId: "abc1", stepIndex: 0 },
-      { id: 2, type: "tool_result" as const, tool: "get_expense_by_category", rows: 42, callId: "abc1", durationMs: 320 },
+      { id: 1, type: "step", key: "period", label: "Xác định kỳ ngân sách và phạm vi so sánh", status: "completed" },
+      { id: 2, type: "step", key: "spending", label: "Tổng hợp chi tiêu tiêu dùng và thu chi", status: "completed" },
+      { id: 3, type: "step", key: "cards", label: "Đối chiếu chi tiêu thẻ và trạng thái thanh toán", status: "completed" },
+      { id: 4, type: "step", key: "narrative", label: "Diễn giải số liệu và đề xuất hành động", status: "running" },
     ],
   },
 };
@@ -83,6 +85,7 @@ export const DirtyReportRefreshing: Story = {
     ...Ready.args,
     report: { ...mockReport, is_dirty: true },
     refreshing: true,
+    agentSteps: Generating.args?.agentSteps,
   },
 };
 
@@ -108,5 +111,12 @@ export const Error: Story = {
       error: "Internal Server Error",
       details: { message: "Private model timeout", stack: "private stack", cause: { secret: true } },
     },
+  },
+};
+
+export const CreditCardReport: Story = {
+  args: {
+    ...Ready.args,
+    report: { ...mockReport, insights: [{ type: "analysis", topic: "cards", title: "Chi thẻ chiếm 75% chi tiêu tiêu dùng.", summary: "Trong kỳ, chi thẻ là 3.000.000 ₫, trong đó 2.000.000 ₫ chưa thanh toán. Đây là một phần của tổng chi tiêu 4.000.000 ₫.", chart_type: "bar", value_unit: "currency", chart_data: [{ name: "Thẻ tín dụng", value: 3000000, highlight: true }, { name: "Tiền mặt", value: 1000000 }] }] },
   },
 };

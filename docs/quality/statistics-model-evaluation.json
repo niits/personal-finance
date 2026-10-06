@@ -1,0 +1,324 @@
+[
+  {
+    "scenario": "card-heavy",
+    "modelId": "openai/gpt-5.6-terra",
+    "success": true,
+    "durationMs": 10159,
+    "usage": {
+      "inputTokens": 1868,
+      "inputTokenDetails": {
+        "noCacheTokens": 3,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 1865
+      },
+      "outputTokens": 713,
+      "outputTokenDetails": {
+        "textTokens": 414,
+        "reasoningTokens": 299
+      },
+      "totalTokens": 2581,
+      "reasoningTokens": 299,
+      "cachedInputTokens": 0
+    },
+    "estimatedCostUsd": 0.0132245,
+    "narrative": {
+      "insights": [
+        {
+          "type": "alert",
+          "topic": "budget",
+          "title": "Đã sử dụng 69% ngân sách tiêu dùng.",
+          "summary": "Chi tiêu tiêu dùng là 5.500.000 ₫, còn lại 2.500.000 ₫ trong ngân sách 8.000.000 ₫. Theo nhịp chi hiện tại, tổng chi được ước tính là 10.633.333 ₫; nên giới hạn các khoản chi mới trong phần ngân sách còn lại.",
+          "chart_id": null,
+          "highlight_name": null
+        },
+        {
+          "type": "analysis",
+          "topic": "spending",
+          "title": "Chi mua sắm tăng 250% so với kỳ trước.",
+          "summary": "Mua sắm đạt 2.800.000 ₫, cao hơn 800.000 ₫ ở cùng phần kỳ trước. Đây là so sánh các phần thời gian đã trôi qua tương ứng, không phải so sánh toàn bộ tháng.",
+          "chart_id": "category_comparison",
+          "highlight_name": null
+        },
+        {
+          "type": "analysis",
+          "topic": "cards",
+          "title": "Chi tiêu bằng thẻ đạt 5.000.000 ₫.",
+          "summary": "Thẻ chiếm 91% chi tiêu tiêu dùng, trong khi tiền mặt là 500.000 ₫. Chi bằng thẻ tăng 178% so với cùng phần kỳ trước.",
+          "chart_id": "payment_methods",
+          "highlight_name": "Thẻ tín dụng"
+        },
+        {
+          "type": "recommendation",
+          "topic": "cards",
+          "title": "Cần theo dõi 2.200.000 ₫ chưa thanh toán trên Thẻ A.",
+          "summary": "Khoản chưa thanh toán là một phần của 5.000.000 ₫ chi bằng thẻ và 5.500.000 ₫ chi tiêu tiêu dùng, không phải chi tiêu bổ sung hay tổng dư nợ mọi kỳ. Nên đối chiếu và bố trí thanh toán khoản này trước khi phát sinh thêm chi tiêu thẻ.",
+          "chart_id": "card_payment_status",
+          "highlight_name": "Chưa thanh toán"
+        }
+      ]
+    }
+  },
+  {
+    "scenario": "card-heavy",
+    "modelId": "openai/gpt-6.1-sol",
+    "success": true,
+    "durationMs": 6973,
+    "usage": {
+      "inputTokens": 1868,
+      "inputTokenDetails": {
+        "noCacheTokens": 3,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 1865
+      },
+      "outputTokens": 300,
+      "outputTokenDetails": {
+        "textTokens": 300,
+        "reasoningTokens": 0
+      },
+      "totalTokens": 2168,
+      "reasoningTokens": 0,
+      "cachedInputTokens": 0
+    },
+    "estimatedCostUsd": 0.0076685,
+    "narrative": {
+      "insights": [
+        {
+          "type": "analysis",
+          "topic": "spending",
+          "title": "Chi tiêu tiêu dùng tăng 129% so với cùng phần kỳ trước.",
+          "summary": "Chi tiêu đạt 5.500.000 ₫, so với 2.400.000 ₫. Đây là so sánh các phần kỳ đã trôi qua tương ứng, không phải toàn bộ tháng.",
+          "chart_id": "category_comparison",
+          "highlight_name": null
+        },
+        {
+          "type": "recommendation",
+          "topic": "budget",
+          "title": "Ngân sách tiêu dùng đã được sử dụng 69%.",
+          "summary": "Ngân sách còn 2.500.000 ₫. Hãy dùng mức này làm giới hạn chi còn lại; ngoại suy theo nhịp hiện tại là 10.633.333 ₫, cao hơn ngân sách 8.000.000 ₫, nhưng không phải dự báo chắc chắn.",
+          "chart_id": null,
+          "highlight_name": null
+        },
+        {
+          "type": "analysis",
+          "topic": "cards",
+          "title": "Khoản chi thẻ chưa thanh toán là 2.200.000 ₫.",
+          "summary": "Khoản này thuộc 5.000.000 ₫ chi thẻ và 5.500.000 ₫ chi tiêu tiêu dùng, không phải chi thêm hay tổng dư nợ mọi kỳ. Hãy đối chiếu các giao dịch Thẻ A với trạng thái thanh toán.",
+          "chart_id": "card_payment_status",
+          "highlight_name": "Chưa thanh toán"
+        }
+      ]
+    }
+  },
+  {
+    "scenario": "over-budget",
+    "modelId": "openai/gpt-5.6-terra",
+    "success": true,
+    "durationMs": 4644,
+    "usage": {
+      "inputTokens": 1756,
+      "inputTokenDetails": {
+        "noCacheTokens": 3,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 1753
+      },
+      "outputTokens": 351,
+      "outputTokenDetails": {
+        "textTokens": 351,
+        "reasoningTokens": 0
+      },
+      "totalTokens": 2107,
+      "reasoningTokens": 0,
+      "cachedInputTokens": 0
+    },
+    "estimatedCostUsd": 0.0086005,
+    "narrative": {
+      "insights": [
+        {
+          "type": "alert",
+          "topic": "budget",
+          "title": "Chi tiêu tiêu dùng đã vượt ngân sách 2.300.000 ₫.",
+          "summary": "Đã sử dụng 215% ngân sách, vượt 115%. Nên tạm dừng các khoản chi tiêu dùng không thiết yếu cho đến hết kỳ.",
+          "chart_id": null,
+          "highlight_name": null
+        },
+        {
+          "type": "analysis",
+          "topic": "spending",
+          "title": "Chi tiêu tiêu dùng tăng 139% cùng phần kỳ trước.",
+          "summary": "Chi tiêu tiêu dùng là 4.300.000 ₫, so với 1.800.000 ₫ ở phần kỳ tương ứng trước đó. Đây là so sánh các phần thời gian đã trôi qua tương ứng, không phải toàn bộ tháng.",
+          "chart_id": "category_comparison",
+          "highlight_name": null
+        },
+        {
+          "type": "analysis",
+          "topic": "cards",
+          "title": "Toàn bộ 2.200.000 ₫ chi thẻ hiện chưa thanh toán.",
+          "summary": "Khoản chưa thanh toán thuộc Thẻ A và là một phần của 2.200.000 ₫ chi bằng thẻ cùng chi tiêu tiêu dùng, không phải khoản chi bổ sung hoặc tổng dư nợ của mọi kỳ.",
+          "chart_id": "card_payment_status",
+          "highlight_name": "Chưa thanh toán"
+        },
+        {
+          "type": "recommendation",
+          "topic": "spending",
+          "title": "Ưu tiên kiểm soát chi tiêu ăn uống.",
+          "summary": "Ăn uống ghi nhận 2.200.000 ₫ và tăng 120% cùng phần kỳ trước. Nên rà soát các giao dịch thuộc danh mục này trước khi phát sinh khoản chi tiếp theo.",
+          "chart_id": "categories",
+          "highlight_name": "Ăn uống"
+        }
+      ]
+    }
+  },
+  {
+    "scenario": "over-budget",
+    "modelId": "openai/gpt-6.1-sol",
+    "success": true,
+    "durationMs": 6675,
+    "usage": {
+      "inputTokens": 1756,
+      "inputTokenDetails": {
+        "noCacheTokens": 3,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 1753
+      },
+      "outputTokens": 306,
+      "outputTokenDetails": {
+        "textTokens": 306,
+        "reasoningTokens": 0
+      },
+      "totalTokens": 2062,
+      "reasoningTokens": 0,
+      "cachedInputTokens": 0
+    },
+    "estimatedCostUsd": 0.0074485,
+    "narrative": {
+      "insights": [
+        {
+          "type": "recommendation",
+          "topic": "budget",
+          "title": "Chi tiêu tiêu dùng vượt ngân sách 2.300.000 ₫.",
+          "summary": "Chi tiêu đạt 4.300.000 ₫, sử dụng 215% ngân sách 2.000.000 ₫ và vượt 115%. Nên tạm dừng các khoản mua sắm không thiết yếu và rà soát chi ăn uống trước khi phát sinh thêm chi tiêu.",
+          "chart_id": null,
+          "highlight_name": null
+        },
+        {
+          "type": "analysis",
+          "topic": "spending",
+          "title": "Chi tiêu tiêu dùng tăng 139% so với cùng phần kỳ trước.",
+          "summary": "Đây là so sánh các phần kỳ đã trôi qua tương ứng, không phải toàn tháng. Chi ăn uống đạt 2.200.000 ₫, tăng 120%; chi mua sắm đạt 1.800.000 ₫, tăng 125%.",
+          "chart_id": "category_comparison",
+          "highlight_name": null
+        },
+        {
+          "type": "analysis",
+          "topic": "cards",
+          "title": "Khoản chi thẻ chưa thanh toán là 2.200.000 ₫.",
+          "summary": "Khoản này thuộc chi thẻ 2.200.000 ₫ và chi tiêu tiêu dùng, không phải chi bổ sung hay tổng dư nợ mọi kỳ. Nên đối chiếu giao dịch Thẻ A và dành nguồn tiền thanh toán.",
+          "chart_id": "card_payment_status",
+          "highlight_name": "Chưa thanh toán"
+        }
+      ]
+    }
+  },
+  {
+    "scenario": "sparse-no-budget",
+    "modelId": "openai/gpt-5.6-terra",
+    "success": true,
+    "durationMs": 4478,
+    "usage": {
+      "inputTokens": 1314,
+      "inputTokenDetails": {
+        "noCacheTokens": 3,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 1311
+      },
+      "outputTokens": 273,
+      "outputTokenDetails": {
+        "textTokens": 273,
+        "reasoningTokens": 0
+      },
+      "totalTokens": 1587,
+      "reasoningTokens": 0,
+      "cachedInputTokens": 0
+    },
+    "estimatedCostUsd": 0.006559500000000001,
+    "narrative": {
+      "insights": [
+        {
+          "type": "analysis",
+          "topic": "spending",
+          "title": "Chi tiêu tiêu dùng đạt 150.000 ₫, tập trung ở Ăn uống.",
+          "summary": "Có 1 giao dịch tiền mặt thuộc danh mục Ăn uống. So sánh theo phần thời gian đã trôi qua tương ứng cùng phần kỳ trước không có chi tiêu tiêu dùng ghi nhận.",
+          "chart_id": "category_comparison",
+          "highlight_name": "Ăn uống"
+        },
+        {
+          "type": "alert",
+          "topic": "spending",
+          "title": "Dòng tiền ròng âm 2.150.000 ₫ trong kỳ.",
+          "summary": "Tổng dòng tiền ra là 2.150.000 ₫, cao hơn chi tiêu tiêu dùng 150.000 ₫ do hai chỉ tiêu này có phạm vi khác nhau và dòng tiền ra gồm cả các khoản vận động tài chính.",
+          "chart_id": null,
+          "highlight_name": null
+        },
+        {
+          "type": "recommendation",
+          "topic": "budget",
+          "title": "Cần thiết lập hạn mức chi tiêu tiêu dùng.",
+          "summary": "Chưa có ngân sách nên không thể đánh giá mức sử dụng hay số tiền còn lại. Hãy đặt hạn mức cho kỳ hiện tại và theo dõi chi tiêu tiêu dùng 150.000 ₫ so với hạn mức đó.",
+          "chart_id": null,
+          "highlight_name": null
+        }
+      ]
+    }
+  },
+  {
+    "scenario": "sparse-no-budget",
+    "modelId": "openai/gpt-6.1-sol",
+    "success": true,
+    "durationMs": 6531,
+    "usage": {
+      "inputTokens": 1314,
+      "inputTokenDetails": {
+        "noCacheTokens": 3,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 1311
+      },
+      "outputTokens": 273,
+      "outputTokenDetails": {
+        "textTokens": 273,
+        "reasoningTokens": 0
+      },
+      "totalTokens": 1587,
+      "reasoningTokens": 0,
+      "cachedInputTokens": 0
+    },
+    "estimatedCostUsd": 0.006013500000000001,
+    "narrative": {
+      "insights": [
+        {
+          "type": "analysis",
+          "topic": "spending",
+          "title": "Chi tiêu ăn uống đạt 150.000 ₫.",
+          "summary": "Khoản chi này được thanh toán bằng tiền mặt; cùng phần kỳ trước không ghi nhận chi tiêu. So sánh chỉ áp dụng cho các phần kỳ đã trôi qua tương ứng, không phải toàn tháng.",
+          "chart_id": "category_comparison",
+          "highlight_name": "Ăn uống"
+        },
+        {
+          "type": "analysis",
+          "topic": "spending",
+          "title": "Tổng dòng tiền ra là 2.150.000 ₫.",
+          "summary": "Chi tiêu tiêu dùng là 150.000 ₫, còn dòng tiền ròng là -2.150.000 ₫. Tổng dòng tiền ra và dòng tiền ròng bao gồm các dịch chuyển tài chính, không đồng nghĩa với chi tiêu tiêu dùng.",
+          "chart_id": null,
+          "highlight_name": null
+        },
+        {
+          "type": "recommendation",
+          "topic": "budget",
+          "title": "Chưa có hạn mức ngân sách để đánh giá chi tiêu.",
+          "summary": "Hãy thiết lập hạn mức và đối chiếu với chi tiêu tiêu dùng 150.000 ₫. Mức ngoại suy theo nhịp chi hiện tại là 290.000 ₫, không phải dự báo chắc chắn cho cả kỳ.",
+          "chart_id": null,
+          "highlight_name": null
+        }
+      ]
+    }
+  }
+]

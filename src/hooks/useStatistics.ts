@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { Report, ApiError, AgentStep } from "@/components/templates/StatisticsTemplate";
-import type { AgentEvent } from "@/lib/statistics";
+import type { AgentEvent } from "@/lib/statistics-report";
+import { currentBudgetMonth } from "@/lib/validators";
 
 function currentMonth() {
-  return new Date().toISOString().substring(0, 7);
+  return currentBudgetMonth();
 }
 
 function todayUtc() {
@@ -61,14 +62,16 @@ export function useStatistics(): UseStatisticsReturn {
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
   const [regenError, setRegenError] = useState<ApiError | null>(null);
   const stepCounter = useRef(0);
+  const activeRequest = useRef<AbortController | null>(null);
   const activeMonth = useRef(selectedMonth);
   const failedAction = useRef<"load" | "generate">("load");
 
   const generate = useCallback(async (
     month: string,
+    signal: AbortSignal,
     onStep?: (step: AgentStep) => void,
   ): Promise<{ report: Report } | { error: ApiError }> => {
-    const res = await fetch(`/api/statistics?period_key=${month}`, { method: "POST" });
+    const res = await fetch(`/api/statistics?period_key=${month}`, { method: "POST", signal });
     if (!res.ok) return { error: await readError(res) };
 
     const reader = res.body?.getReader();
@@ -108,6 +111,10 @@ export function useStatistics(): UseStatisticsReturn {
 
   const load = useCallback(async (month: string) => {
     activeMonth.current = month;
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    setAgentSteps([]);
     setStatus("loading");
     setReport(null);
     setError(null);
@@ -116,9 +123,9 @@ export function useStatistics(): UseStatisticsReturn {
 
     let res: Response;
     try {
-      res = await fetch(`/api/statistics?period_key=${month}`, { cache: "no-cache" });
+      res = await fetch(`/api/statistics?period_key=${month}`, { cache: "no-cache", signal: controller.signal });
     } catch {
-      if (activeMonth.current !== month) return;
+      if (activeMonth.current !== month || controller.signal.aborted) return;
       failedAction.current = "load";
       setError({ status: 0, error: "Network request failed" });
       setStatus("error");
@@ -126,14 +133,14 @@ export function useStatistics(): UseStatisticsReturn {
     }
 
     if (res.status === 404) {
-      if (activeMonth.current !== month) return;
+      if (activeMonth.current !== month || controller.signal.aborted) return;
       setStatus("no-report");
       return;
     }
 
     if (!res.ok) {
       const apiError = await readError(res);
-      if (activeMonth.current !== month) return;
+      if (activeMonth.current !== month || controller.signal.aborted) return;
       failedAction.current = "load";
       setError(apiError);
       setStatus("error");
@@ -141,7 +148,7 @@ export function useStatistics(): UseStatisticsReturn {
     }
 
     const data = (await res.json()) as Report;
-    if (activeMonth.current !== month) return;
+    if (activeMonth.current !== month || controller.signal.aborted) return;
 
     setReport(data);
     setStatus("ready");
@@ -150,22 +157,28 @@ export function useStatistics(): UseStatisticsReturn {
     const stale = data.is_dirty || (data.is_current_period && dayOf(data.generated_at) < todayUtc());
     if (!stale) return;
 
+    setAgentSteps([]);
     setRefreshing(true);
     let result: Awaited<ReturnType<typeof generate>>;
     try {
-      result = await generate(month);
+      result = await generate(month, controller.signal, step => {
+        if (!controller.signal.aborted) setAgentSteps(prev => [...prev, step]);
+      });
     } catch {
       result = { error: { status: 0, error: "Network request failed" } };
     } finally {
-      if (activeMonth.current === month) setRefreshing(false);
+      if (activeMonth.current === month && !controller.signal.aborted) setRefreshing(false);
     }
-    if (activeMonth.current !== month) return;
+    if (activeMonth.current !== month || controller.signal.aborted) return;
     if ("report" in result) setReport(result.report);
     else setRegenError(result.error);
   }, [generate]);
 
   const regenerate = useCallback(async (month: string) => {
     activeMonth.current = month;
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     const hasReport = report !== null;
     if (hasReport) setRefreshing(true);
     else setStatus("generating");
@@ -174,15 +187,15 @@ export function useStatistics(): UseStatisticsReturn {
     setRegenError(null);
     let result: Awaited<ReturnType<typeof generate>>;
     try {
-      result = await generate(month, (step) => {
-        if (activeMonth.current === month) setAgentSteps((prev) => [...prev, step]);
+      result = await generate(month, controller.signal, (step) => {
+        if (activeMonth.current === month && !controller.signal.aborted) setAgentSteps((prev) => [...prev, step]);
       });
     } catch {
       result = { error: { status: 0, error: "Network request failed" } };
     } finally {
-      if (activeMonth.current === month && hasReport) setRefreshing(false);
+      if (activeMonth.current === month && !controller.signal.aborted && hasReport) setRefreshing(false);
     }
-    if (activeMonth.current !== month) return;
+    if (activeMonth.current !== month || controller.signal.aborted) return;
     if ("error" in result) {
       if (!hasReport) {
         failedAction.current = "generate";
@@ -198,7 +211,7 @@ export function useStatistics(): UseStatisticsReturn {
 
   useEffect(() => {
     const pendingLoad = window.setTimeout(() => load(selectedMonth), 0);
-    return () => window.clearTimeout(pendingLoad);
+    return () => { window.clearTimeout(pendingLoad); activeRequest.current?.abort(); };
   }, [load, selectedMonth]);
 
   const isAtUpperBound = selectedMonth === upperBound;

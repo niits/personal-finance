@@ -25,7 +25,7 @@ function splitSql(sql: string): string[] {
   const withoutTriggers = cleaned.replace(/CREATE\s+TRIGGER[\s\S]*?\bEND\s*;/gi, (trigger) => {
     const marker = `__SQL_TRIGGER_${triggers.length}__`;
     triggers.push(trigger);
-    return marker;
+    return `${marker};`;
   });
 
   return withoutTriggers

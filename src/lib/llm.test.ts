@@ -82,3 +82,20 @@ describe("llm", () => {
     expect(waitUntil).toHaveBeenCalledTimes(1);
   });
 });
+
+it("selects Sol for statistics independently of short-context models", async () => {
+  getCloudflareContext.mockResolvedValue({ env: { AI_GATEWAY_API_KEY: "vck_test-key" }, ctx: { waitUntil: vi.fn() } });
+  const gatewayModel = vi.fn(() => ({}));
+  createGateway.mockReturnValue(gatewayModel);
+  const { getStatisticsModel } = await import("./llm");
+  expect((await getStatisticsModel()).modelId).toBe("openai/gpt-6.1-sol");
+  expect(gatewayModel).toHaveBeenCalledWith("openai/gpt-6.1-sol");
+});
+
+it("supports explicit Terra selection and rejects unsupported statistics models", async () => {
+  const { getStatisticsModel } = await import("./llm");
+  getCloudflareContext.mockResolvedValue({ env: { STATISTICS_MODEL: "openai/gpt-5.6-terra" }, ctx: { waitUntil: vi.fn() } });
+  expect((await getStatisticsModel()).modelId).toBe("openai/gpt-5.6-terra");
+  getCloudflareContext.mockResolvedValue({ env: { STATISTICS_MODEL: "openai/gpt-4o" }, ctx: { waitUntil: vi.fn() } });
+  await expect(getStatisticsModel()).rejects.toThrow(/cấu hình/);
+});

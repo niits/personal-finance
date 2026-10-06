@@ -1,8 +1,9 @@
 "use client";
 
+import { AnalysisProgress } from "@/components/organisms/AnalysisProgress";
 import { Button } from "@/components/atoms/Button";
 import { VegaChart } from "@/components/organisms/VegaChart";
-import type { AgentEvent, Insight } from "@/lib/statistics";
+import type { AgentEvent, Insight, StatisticsSnapshot } from "@/lib/statistics-report";
 import { formatReportTime, generationProgress, safeStatisticsError } from "./presentation";
 
 export type AgentStep = AgentEvent & { id: number };
@@ -14,6 +15,7 @@ export type Report = {
   is_dirty: boolean;
   is_current_period: boolean;
   generated_at: number;
+  snapshot?: StatisticsSnapshot | null;
 };
 
 export type ApiError = {
@@ -129,6 +131,7 @@ function GeneratingState({ steps }: { steps: AgentStep[] }) {
       <p aria-live="polite" className="mt-2 mb-0 font-body text-[17px] leading-[25px] text-ink-muted-80">
         {generationProgress(steps)}
       </p>
+      <AnalysisProgress events={steps} />
     </CenteredState>
   );
 }
@@ -202,7 +205,6 @@ export function StatisticsTemplate({
 
   return (
     <div className="min-h-[calc(100svh-44px-72px)] bg-canvas">
-      <style>{`.vega-embed { display: block !important; width: 100% !important; }`}</style>
       <MonthHeader
         selectedMonth={selectedMonth}
         isAtUpperBound={isAtUpperBound}
@@ -217,12 +219,18 @@ export function StatisticsTemplate({
           <NoReportState monthLabel={monthLabel} showCurrent={!isAtUpperBound} onGenerate={onRegenerate} onNextMonth={onNextMonth} />
         ) : null}
         {status === "generating" ? <GeneratingState steps={agentSteps} /> : null}
-        {status === "error" ? <ErrorState error={error} onRetry={onRetry} /> : null}
+        {status === "error" ? <><ErrorState error={error} onRetry={onRetry} /><AnalysisProgress events={agentSteps} failed /></> : null}
         {status === "ready" && report?.insights.length === 0 ? (
           <EmptyState monthLabel={monthLabel} showCurrent={!isAtUpperBound} onNextMonth={onNextMonth} />
         ) : null}
         {status === "ready" && report?.insights.length ? (
           <>
+            {report.snapshot ? (
+              <p className="mb-sm font-body text-[13px] leading-[18px] text-ink-muted-48">
+                Dữ liệu từ {report.snapshot.period.start.split("-").reverse().join("/")} đến {report.snapshot.period.through.split("-").reverse().join("/")}.
+                {report.snapshot.comparison_basis === "equal_elapsed_days" ? " So sánh với phần kỳ trước có cùng số ngày đã trôi qua." : report.snapshot.comparison_basis === "elapsed_vs_complete_previous" ? " Kỳ trước ngắn hơn; hai phạm vi so sánh có số ngày khác nhau." : " So sánh với toàn bộ kỳ trước."}
+              </p>
+            ) : null}
             <ReportStatus
               report={report}
               refreshing={refreshing}
@@ -230,6 +238,7 @@ export function StatisticsTemplate({
               onRegenerate={onRegenerate}
               onDismiss={onDismissRegenError}
             />
+            {refreshing || regenError ? <><p role="status" className="font-body text-[13px] text-ink-muted-48">{refreshing ? generationProgress(agentSteps) : "Tiến trình cập nhật chưa hoàn tất."}</p><AnalysisProgress events={agentSteps} failed={!!regenError} /></> : null}
             <section aria-label={`Nhận xét cho ${monthLabel.toLowerCase()}`}>
               {report.insights.map((insight, index) => (
                 <VegaChart key={`${insight.type ?? "insight"}-${insight.title}`} insight={insight} featured={index === 0} />

@@ -101,3 +101,17 @@ historical data explicitly identify the budget and statement periods they affect
 Integration tests use the generated OpenNext Worker and require the repository's test
 setup patches. Better Auth internals are library-owned; project tests verify provider
 configuration, route boundaries, session handling, and user isolation.
+
+## Statistics Model Evaluation
+
+`node scripts/evaluate-statistics.mjs <output-directory>` runs a paid comparison of
+Terra and Sol against the same synthetic financial evidence and production narrative
+contract. It reads the configured gateway key without logging credentials. Cases cover
+card-heavy consumption, an exceeded budget, and sparse data without a limit. Results
+include generated narratives, hydrated charts, token usage, elapsed time, and estimated
+cost based on the gateway catalog's token rates, including cache writes and reads.
+
+Inspect narrative correctness, clarity, recommendations, selected-chart relevance,
+latency, and cost. Passing structural and numerical checks does not establish prose
+quality. Live evaluations are opt-in and never part of ordinary tests or CI. The current
+comparison is recorded in [statistics-model-evaluation.md](./statistics-model-evaluation.md).

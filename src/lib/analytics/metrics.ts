@@ -7,6 +7,16 @@ import type { Database } from "@/lib/schema";
 type JoinedEB = ExpressionBuilder<Database, "transaction" | "category">;
 
 export const METRICS = {
+  consumption_expense: () => sql<number>`COALESCE(SUM(CASE WHEN "transaction".type = 'expense' AND category.budget_behavior = 'consumption' THEN "transaction".amount ELSE 0 END), 0)`,
+  consumption_count: () => sql<number>`COALESCE(SUM(CASE WHEN "transaction".type = 'expense' AND category.budget_behavior = 'consumption' THEN 1 ELSE 0 END), 0)`,
+  card_spend: () => sql<number>`COALESCE(SUM(CASE WHEN "transaction".type = 'expense' AND category.budget_behavior = 'consumption' AND "transaction".credit_card_group_id IS NOT NULL THEN "transaction".amount ELSE 0 END), 0)`,
+  cash_spend: () => sql<number>`COALESCE(SUM(CASE WHEN "transaction".type = 'expense' AND category.budget_behavior = 'consumption' AND "transaction".credit_card_group_id IS NULL THEN "transaction".amount ELSE 0 END), 0)`,
+  unpaid_card_spend: () => sql<number>`COALESCE(SUM(CASE WHEN "transaction".type = 'expense' AND category.budget_behavior = 'consumption' AND "transaction".credit_card_group_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM credit_card_statement AS s WHERE s.user_id = "transaction".user_id
+      AND s.group_id = "transaction".credit_card_group_id AND s.status = 'paid'
+      AND "transaction".date >= s.period_start AND "transaction".date < s.period_end
+  ) THEN "transaction".amount ELSE 0 END), 0)`,
+
   total_expense: (eb: JoinedEB) =>
     eb.fn.sum(
       eb.case()
@@ -61,6 +71,8 @@ export const DIMENSION_NAMES = [
   "category__path",
   "category__name",
   "transaction__type",
+  "payment_method",
+  "card_group",
 ] as const;
 export type DimensionName = (typeof DIMENSION_NAMES)[number];
 
@@ -75,14 +87,44 @@ export const METRIC_CATALOG: Record<
     supportsMoM: boolean;
   }
 > = {
+  consumption_expense: {
+    description: "Chi tiêu tiêu dùng",
+    validBreakdowns: ["category__path", "category__name", "metric_time", "payment_method", "card_group"],
+    validTimeGrains: ["day", "week", "month", "day_of_week"],
+    supportsMoM: true,
+  },
+  consumption_count: {
+    description: "Số giao dịch chi tiêu tiêu dùng",
+    validBreakdowns: ["category__path", "category__name", "metric_time", "payment_method", "card_group"],
+    validTimeGrains: ["day", "week", "month", "day_of_week"],
+    supportsMoM: true,
+  },
+  card_spend: {
+    description: "Chi tiêu tiêu dùng bằng thẻ tín dụng",
+    validBreakdowns: ["category__path", "category__name", "metric_time", "payment_method", "card_group"],
+    validTimeGrains: ["day", "week", "month", "day_of_week"],
+    supportsMoM: true,
+  },
+  cash_spend: {
+    description: "Chi tiêu tiêu dùng bằng tiền mặt",
+    validBreakdowns: ["category__path", "category__name", "metric_time", "payment_method", "card_group"],
+    validTimeGrains: ["day", "week", "month", "day_of_week"],
+    supportsMoM: true,
+  },
+  unpaid_card_spend: {
+    description: "Chi tiêu thẻ trong kỳ chưa thanh toán, thuộc chi tiêu tiêu dùng; trạng thái tại thời điểm phân tích",
+    validBreakdowns: ["category__path", "category__name", "metric_time", "payment_method", "card_group"],
+    validTimeGrains: ["day", "week", "month", "day_of_week"],
+    supportsMoM: true,
+  },
   total_expense: {
-    description: "Tổng chi tiêu",
+    description: "Tổng dòng tiền chi, bao gồm các vận động tài chính ngoài ngân sách",
     validBreakdowns: ["category__path", "category__name", "metric_time", "transaction__type"],
     validTimeGrains: ["day", "week", "month", "day_of_week"],
     supportsMoM: true,
   },
   total_income: {
-    description: "Tổng thu nhập",
+    description: "Tổng dòng tiền thu, bao gồm các vận động tài chính",
     validBreakdowns: ["category__path", "category__name", "metric_time", "transaction__type"],
     validTimeGrains: ["day", "week", "month", "day_of_week"],
     supportsMoM: true,
@@ -100,7 +142,7 @@ export const METRIC_CATALOG: Record<
     supportsMoM: true,
   },
   budget_remaining: {
-    description: "Ngân sách còn lại (server-computed: budget.amount - total_expense)",
+    description: "Ngân sách còn lại (server-computed: budget.amount - consumption_expense)",
     validBreakdowns: [],
     validTimeGrains: [],
     supportsMoM: false,

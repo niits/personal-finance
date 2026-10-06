@@ -63,7 +63,7 @@ their canonical destination. Account export is not part of the route or API cont
 | `finance_account` | Debt or savings metadata; balance is derived from transactions. |
 | `credit_card_group` | User-managed group and statement-close day. |
 | `credit_card_statement` | Immutable period boundaries plus unpaid/paid metadata. |
-| AI suggestion/report tables | Review windows and generated statistics state. |
+| AI suggestion/report tables | Review windows, versioned generated reports, deterministic evidence snapshots, model provenance, and user-scoped source revisions. |
 
 Legacy `debt` storage may remain during migration but is not part of the target domain
 contract. Migration changes use expand/contract deployment and preserve user data.
@@ -184,5 +184,11 @@ This policy follows [`ADR 006`](../decisions/006-http-revalidation-for-editable-
 
 OpenAI is the target model provider. Model IDs and gateway routing are deployment
 configuration rather than product behavior. The semantic layer computes all financial
-arithmetic before model invocation. Optional telemetry must flush with the Worker
+arithmetic before model invocation. Statistics use one structured narrative request over deterministic evidence rather
+than a model-driven query loop. `STATISTICS_MODEL` accepts `openai/gpt-5.6-terra` or
+`openai/gpt-6.1-sol`; Sol is the default. Statistics use low reasoning effort and a
+bounded output budget, with no automatic cross-model fallback or paid retry. Existing
+short-context AI features keep their separate model configuration.
+
+Optional telemetry must flush with the Worker
 execution context and must not expose secrets or cross-user data.
