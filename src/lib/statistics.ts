@@ -1,486 +1,116 @@
-import { z } from "zod";
 import { sql } from "kysely";
-import { tool, stepCountIs } from "ai";
+import { generateText, Output } from "ai";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getKysely } from "@/lib/db";
-import { getOpenAIModel, generateText } from "@/lib/llm";
+import { getStatisticsModel } from "@/lib/llm";
 import { startAITrace } from "@/lib/telemetry";
-import { getBudgetPeriod, currentDate } from "@/lib/validators";
-import { createAnalyticsService } from "@/lib/analytics/service";
-import { METRIC_NAMES, METRIC_CATALOG, DIMENSION_NAMES, TIME_GRAINS } from "@/lib/analytics/metrics";
-import { getBudgetMonthForDate, currentBudgetMonth } from "@/lib/validators";
+import { getBudgetPeriodInclusive, currentDate, getBudgetMonthForDate } from "@/lib/validators";
 import { reportEndDate } from "@/lib/statistics-period";
-
-// Hoisted to module scope: Intl constructors allocate per-call, so reuse one instance.
-const _vndFormat = new Intl.NumberFormat("vi-VN");
-
-export type InsightType = "analysis" | "recommendation" | "alert";
-
-export type ChartType = "pie" | "bar" | "line" | "bar_grouped" | "forecast_line";
-
-export type ForecastMeta = {
-  period_start: string;
-  today: string;
-  next_period_start: string;
-};
-
-export type ChartDatum = { name: string; value: number; series?: string; highlight?: boolean };
-
-export type Insight = {
-  type?: InsightType;
-  title: string;
-  summary: string;
-  chart_type?: ChartType;
-  chart_data?: ChartDatum[];
-  value_unit?: "currency" | "percent" | "count";
-  forecast_meta?: ForecastMeta;
-};
-
-export type AgentEvent =
-  | { type: "tool_call"; tool: string; label: string; callId: string; stepIndex: number }
-  | { type: "tool_result"; tool: string; rows: number; callId: string; durationMs: number }
-  | { type: "tool_error"; tool: string; message: string; callId: string }
-  | { type: "done" }
-  | { type: "error"; message: string };
+import {
+  addDays, daysBetween, buildStatisticsSnapshot, hydrateStatisticsInsights,
+  narrativeSchema, STATISTICS_SYSTEM,
+  type AgentEvent, type AnalysisTransaction, type StatisticsSnapshot,
+} from "@/lib/statistics-report";
+export type { InsightType, ChartType, ForecastMeta, ChartDatum, Insight, AgentEvent } from "@/lib/statistics-report";
 
 function prevMonthKey(key: string): string {
-  const [y, m] = key.split("-").map(Number);
-  const pm = m - 1;
-  return pm === 0
-    ? `${y - 1}-12`
-    : `${y}-${String(pm).padStart(2, "0")}`;
+  const [year, month] = key.split("-").map(Number);
+  return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, "0")}`;
 }
 
-export async function generateStatisticsReport(
-  userId: string,
-  periodType: "monthly",
-  periodKey: string,
-  emit?: (event: AgentEvent) => void,
-): Promise<void> {
+export async function loadStatisticsSnapshot(userId: string, periodKey: string, emit?: (event: AgentEvent) => void): Promise<{ snapshot: StatisticsSnapshot; revision: number }> {
+  const step = (key: string, label: string, status: "running" | "completed") => emit?.({ type: "step", key, label, status });
+  step("period", "Xác định kỳ ngân sách và phạm vi so sánh", "running");
   const db = await getKysely();
-  const analyticsService = createAnalyticsService(db);
-
-  const budget = await db
-    .selectFrom("monthly_budget")
-    .select(["amount", "start_date", "end_date", "objective"])
-    .where("user_id", "=", userId)
-    .where("month", "=", periodKey)
-    .executeTakeFirst();
-
-  const computed = getBudgetPeriod(periodKey);
-  const periodStart = budget?.start_date ?? computed.start;
-  const periodEnd = budget?.end_date ?? (() => {
-    const d = new Date(computed.end + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() - 1);
-    return d.toISOString().substring(0, 10);
-  })();
-
-  const today = currentDate();
-  const effectiveEnd = reportEndDate(periodEnd, today);
-  const now = Math.floor(Date.now() / 1000);
-
-  if (effectiveEnd < periodStart) {
-    await saveReport(db, userId, periodType, periodKey, [], now);
-    return;
-  }
-
-  const txCount = await db
-    .selectFrom("transaction")
-    .select((eb) => eb.fn.countAll<number>().as("cnt"))
-    .where("user_id", "=", userId)
-    .where("date", ">=", periodStart)
-    .where("date", "<=", effectiveEnd)
-    .executeTakeFirst();
-
-  if ((txCount?.cnt ?? 0) === 0) {
-    await saveReport(db, userId, periodType, periodKey, [], now);
-    return;
-  }
-
-  // ── Schemas ───────────────────────────────────────────────────────────────
-
-  const chartDatumSchema = z.object({
-    name: z.string().describe("Category label or ISO date — never the key 'category'"),
-    value: z.number().describe("Raw numeric amount (no formatting, no units)"),
-    series: z.string().optional().describe("Group label, only for bar_grouped"),
-    highlight: z.boolean().optional()
-      .describe("Set true on EXACTLY ONE 'bar' row — the category the title is about. It renders in the accent colour; all other rows turn grey so the eye lands on your point. Leave unset for line/bar_grouped."),
+  const revisionRow = await db.selectFrom("statistics_revision").select("revision").where("user_id", "=", userId).executeTakeFirst();
+  const revision = revisionRow?.revision ?? 0;
+  const previousKey = prevMonthKey(periodKey);
+  const budgets = await db.selectFrom("monthly_budget").select(["month", "amount", "start_date", "end_date", "objective"]).where("user_id", "=", userId).where("month", "in", [periodKey, previousKey]).execute();
+  const resolve = (key: string) => {
+    const budget = budgets.find(b => b.month === key);
+    const computed = getBudgetPeriodInclusive(key);
+    return { key, start: budget?.start_date || computed.start_date, end: budget?.end_date || computed.end_date, amount: budget?.amount ?? null, objective: budget?.objective ?? null };
+  };
+  const current = resolve(periodKey);
+  const previous = resolve(previousKey);
+  const through = reportEndDate(current.end, currentDate());
+  const elapsed = daysBetween(current.start, through);
+  const previousThrough = through < current.end
+    ? reportEndDate(previous.end, addDays(previous.start, elapsed - 1))
+    : previous.end;
+  step("period", "Xác định kỳ ngân sách và phạm vi so sánh", "completed");
+  step("spending", "Tổng hợp chi tiêu tiêu dùng và thu chi", "running");
+  const rows = await db.selectFrom("transaction as t")
+    .leftJoin("category as c", "c.id", "t.category_id")
+    .leftJoin("category as p1", "p1.id", "c.parent_id")
+    .leftJoin("category as p2", "p2.id", "p1.parent_id")
+    .leftJoin("credit_card_group as g", join => join.onRef("g.id", "=", "t.credit_card_group_id").on("g.user_id", "=", userId))
+    .select(["t.amount", "t.type", "t.date", "t.note", "c.budget_behavior", "g.name as card_group",
+      sql<string>`CASE WHEN c.level = 1 THEN c.name WHEN c.level = 2 THEN COALESCE(p1.name, '') || ' > ' || c.name WHEN c.level = 3 THEN COALESCE(p2.name, '') || ' > ' || COALESCE(p1.name, '') || ' > ' || c.name ELSE 'Chưa phân loại' END`.as("category_path"),
+      sql<number>`CASE WHEN t.credit_card_group_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM credit_card_statement AS s WHERE s.user_id = ${userId} AND s.group_id = t.credit_card_group_id AND s.status = 'paid' AND t.date >= s.period_start AND t.date < s.period_end) THEN 1 ELSE 0 END`.as("is_unpaid"),
+    ])
+    .where("t.user_id", "=", userId)
+    .where(eb => eb.or([
+      eb.and([eb("t.date", ">=", current.start), eb("t.date", "<=", through)]),
+      eb.and([eb("t.date", ">=", previous.start), eb("t.date", "<=", previousThrough)]),
+    ]))
+    .orderBy("t.date", "asc").orderBy("t.id", "asc").execute();
+  step("spending", "Tổng hợp chi tiêu tiêu dùng và thu chi", "completed");
+  step("cards", "Đối chiếu chi tiêu thẻ và trạng thái thanh toán", "running");
+  const transactions: AnalysisTransaction[] = rows.map(r => ({ ...r, is_unpaid: r.is_unpaid === 1 }));
+  const snapshot = buildStatisticsSnapshot({
+    period: { key: periodKey, start: current.start, end: current.end, through },
+    previousPeriod: { key: previousKey, start: previous.start, end: previous.end, through: previousThrough },
+    transactions, budgetAmount: current.amount, previousBudgetAmount: previous.amount, objective: current.objective,
   });
+  step("cards", "Đối chiếu chi tiêu thẻ và trạng thái thanh toán", "completed");
+  step("comparison", "So sánh danh mục và kỳ trước", "running");
+  step("comparison", "So sánh danh mục và kỳ trước", "completed");
+  return { snapshot, revision };
+}
 
-  const insightItemSchema = z.object({
-    type: z.enum(["analysis", "recommendation", "alert"]),
-    title: z.string().max(60).describe("Specific Vietnamese headline, max 45 chars"),
-    summary: z.string().max(220).describe("One-sentence Vietnamese caption, ≤160 chars"),
-    chart_type: z.enum(["bar", "bar_grouped", "line"]).optional()
-      .describe("Required for 'analysis' and numeric 'alert'. 'bar' = compare categories (default), 'line' = change over time, 'bar_grouped' = two series across categories."),
-    chart_data: z.array(chartDatumSchema).optional()
-      .describe("Structured rows for the chart. Required whenever chart_type is set."),
-    value_unit: z.enum(["currency", "percent", "count"]).optional(),
-  });
-
-  const insightSchema = z.object({
-    insights: z.array(insightItemSchema).min(3).max(5),
-  });
-
-  // Build catalog description dynamically from METRIC_CATALOG
-  const catalogText = Object.entries(METRIC_CATALOG)
-    .map(([name, m]) => {
-      const parts = [`- **${name}**: ${m.description}`];
-      if (m.validBreakdowns.length) parts.push(`breakdowns: ${m.validBreakdowns.join(", ")}`);
-      if (m.validTimeGrains.length) parts.push(`grains: ${m.validTimeGrains.join(", ")}`);
-      if (m.supportsMoM) parts.push("compare_previous_period=true available");
-      return parts.join(" | ");
-    })
-    .join("\n");
-
-  const objectiveLine = budget?.objective
-    ? `\nUser's financial goal: "${budget.objective}" — frame recommendations around achieving this.`
-    : "";
-
-  const SYSTEM = `You are a trusted personal finance advisor.${objectiveLine}
-
-## Available metrics
-${catalogText}
-
-## Instructions
-Call query_metrics at least 3 times with DIFFERENT metrics or group_by to explore multiple angles.
-Suggested sequence:
-1. query_metrics(["budget_remaining", "budget_used_pct", "daily_pace", "projected_total"]) — budget overview
-2. query_metrics(["total_expense"], group_by=[{name:"category__path"}], limit=8, compare_previous_period=true) — category breakdown with MoM
-3. query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"week"}]) — weekly trend
-Then call get_notable_transactions and generate_insights with 3–5 insights.
-
-## Insight rules
-- Write every user-visible title and summary in formal, plain Vietnamese. Use complete, neutral sentences. Avoid slang, abbreviations, flowery wording, and vague recommendations.
-- Title = THE TAKEAWAY (max 45 chars, Vietnamese). State what the data MEANS, not what it shows.
-  ❌ "Chi tiêu theo danh mục" ✅ "Chi tiêu ăn uống chiếm 35%, tăng 12% so với tháng trước"
-- Summary = adds context the chart cannot show (max 160 chars, Vietnamese)
-- Mix types: include at least 1 "analysis", 1 "recommendation", and 1 "alert" (if data warrants it)
-- chart_data values MUST be EXACT integers copied from tool results. Never round, estimate, or recalculate.
-- budget_remaining, budget_used_pct etc. come from query_metrics — NEVER compute them yourself
-- ALL values in chart_data MUST match value_unit: if value_unit="percent" every value must be 0–100; if value_unit="currency" every value must be a VND amount (≥ 1000). NEVER mix different unit types in one chart (e.g. budget_remaining in VND alongside budget_used_pct as percent is WRONG — pick one metric type only).
-- For a budget insight showing usage, use ONLY budget_used_pct with value_unit="percent" — do NOT add budget_remaining (a VND amount) to the same chart
-
-## Choosing a chart — every chart MUST reveal a relationship the text cannot
-A chart earns its place only by letting the eye COMPARE. Pick the type from the data:
-- Compare amounts across categories → chart_type="bar" (horizontal, sorted desc, ≤5 rows, group the tail as "Khác", names ≤12 chars). This is the DEFAULT.
-- Change over time, ≥4 time points → chart_type="line". With <4 points, use "bar" instead.
-- Two series across SEVERAL categories (e.g. this-month vs last-month for 3–5 categories) → chart_type="bar_grouped".
-
-NEVER emit a chart that shows a single value:
-- One bar / one point conveys nothing the summary number already states. If your insight is about ONE number, put it in the title/summary and OMIT chart_type and chart_data entirely.
-- ❌ chart_data=[{name:"Cho tặng", value:2500000}] — a lone bar. Just write the number in the summary.
-- The ONLY way to chart a single value is AGAINST A REFERENCE: emit two series where the reference is named exactly "Ngân sách", "Giới hạn", "Trung bình", or "Mục tiêu" (e.g. actual spend vs its budget).
-
-## Focus attention — one accent colour per bar chart
-For every chart_type="bar", set highlight=true on EXACTLY ONE row: the category your title names. That row renders in the accent colour and the rest turn grey, so the reader's eye lands on your point. Never highlight zero or multiple rows. (line and bar_grouped manage their own colours — leave highlight unset.)
-
-## Don't manufacture a fake trend from an incomplete period
-The current period is still in progress, so its last day/week is PARTIAL and will look like a sudden crash on a line. When you build a time series:
-- Stop the line at the last COMPLETE period, OR exclude the in-progress final point.
-- Never let a partial final period drive an "alert" about spending dropping — that drop is an artifact, not a behaviour.
-
-## Forecast insight chart rules
-When reporting a forecast or spending trend over time, use chart_type="line" with:
-- time series data: query_metrics(["total_expense"], group_by=[{name:"metric_time", grain:"day"}]) for each day
-- chart_data rows: [{name: "2026-05-01", value: 500000, series: "Thực tế"}, ...]
-- Add ONE extra row per day for the budget daily pace as series="Ngân sách":
-  budget daily = round(budget_amount / days_total); get budget_amount from query_metrics(["budget_remaining"]) result
-- Use bar_grouped or line chart, NOT a bar chart mixing different metric types (projected_total, budget_remaining, daily_pace in one chart is WRONG)`;
-
-  // ── Tool schemas derived from catalog ─────────────────────────────────────
-
-  const GroupBySchema = z.object({
-    name: z.enum(DIMENSION_NAMES),
-    grain: z.enum(TIME_GRAINS).optional()
-      .describe("Required when name='metric_time'. Default: day"),
-  });
-
-  const WhereSchema = z.object({
-    dimension: z.enum(DIMENSION_NAMES),
-    operator: z.enum(["=", "!=", ">", ">=", "<", "<="]),
-    value: z.union([z.string(), z.number()]),
-  });
-
-  const OrderBySchema = z.object({
-    name: z.enum(METRIC_NAMES),
-    descending: z.boolean().default(false),
-  });
-
-  // ── Agent loop ─────────────────────────────────────────────────────────────
-
-  let capturedInsights: Insight[] | null = null as Insight[] | null;
-  let stepIndex = 0;
-  const model = await getOpenAIModel();
-  const { env, ctx } = await getCloudflareContext({ async: true });
-  const trace = startAITrace(env as Cloudflare.Env, {
-    name: "statistics-agent",
-    userId,
-    metadata: { periodKey },
-  });
-
+export async function generateStatisticsReport(userId: string, periodType: "monthly", periodKey: string, emit?: (event: AgentEvent) => void): Promise<void> {
+  const { snapshot, revision } = await loadStatisticsSnapshot(userId, periodKey, emit);
+  const [{ model, modelId }, { env, ctx }] = await Promise.all([getStatisticsModel(), getCloudflareContext({ async: true })]);
+  const trace = startAITrace(env as Cloudflare.Env, { name: "statistics-report", userId, metadata: { periodKey, modelId, reportVersion: 2 } });
+  let insights: ReturnType<typeof hydrateStatisticsInsights> = [];
   try {
-    await generateText({
-      model,
-      system: SYSTEM,
-      stopWhen: stepCountIs(10),
-      maxOutputTokens: 4096,
-      experimental_telemetry: trace.telemetry,
-      prompt: `Analyze spending for period ${periodKey} (${periodStart} to ${effectiveEnd}). Prior months: ${prevMonthKey(periodKey)}, ${prevMonthKey(prevMonthKey(periodKey))}.`,
-      tools: {
-        list_metrics: tool({
-          description: "List all available metrics with their valid dimensions and time grains. Call this first to discover what you can query.",
-          inputSchema: z.object({}),
-          execute: async () => {
-            const callId = Math.random().toString(36).slice(2, 10);
-            emit?.({ type: "tool_call", tool: "list_metrics", label: "Danh sách metrics", callId, stepIndex });
-            emit?.({ type: "tool_result", tool: "list_metrics", rows: Object.keys(METRIC_CATALOG).length, callId, durationMs: 0 });
-            return METRIC_CATALOG;
-          },
-        }),
-
-        query_metrics: tool({
-          description: `Query financial metrics with optional grouping, filtering, and ordering.
-Use list_metrics first to discover valid dimensions per metric.
-For budget metrics (budget_remaining, budget_used_pct, daily_pace, projected_total): no group_by allowed.`,
-          inputSchema: z.object({
-            metrics: z.array(z.enum(METRIC_NAMES)).min(1).max(4),
-            group_by: z.array(GroupBySchema).optional(),
-            where: z.array(WhereSchema).optional(),
-            order_by: z.array(OrderBySchema).optional(),
-            limit: z.number().int().min(1).max(20).optional(),
-            compare_previous_period: z.boolean().optional()
-              .describe("Adds prior period values. Only for metrics with supportsMoM=true"),
-          }),
-          execute: async (args) => {
-            const callId = Math.random().toString(36).slice(2, 10);
-            const label = args.group_by?.length
-              ? `${args.metrics.join("+")} by ${args.group_by.map((g) => g.grain ? `${g.name}(${g.grain})` : g.name).join(",")}`
-              : args.metrics.join("+");
-            const startMs = Date.now();
-            emit?.({ type: "tool_call", tool: "query_metrics", label, callId, stepIndex });
-            try {
-              const result = await analyticsService.queryMetricsForPeriod({
-                userId,
-                periodKey,
-                ...args,
-              });
-              emit?.({ type: "tool_result", tool: "query_metrics", rows: result.rows.length, callId, durationMs: Date.now() - startMs });
-              return result;
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : String(err);
-              emit?.({ type: "tool_error", tool: "query_metrics", message: msg, callId });
-              throw err;
-            }
-          },
-        }),
-
-        get_notable_transactions: tool({
-          description: "Get top N transactions by amount for the period with full category path",
-          inputSchema: z.object({
-            limit: z.number().int().min(1).max(20).default(10),
-          }),
-          execute: async (args) => {
-            const callId = Math.random().toString(36).slice(2, 10);
-            const startMs = Date.now();
-            emit?.({ type: "tool_call", tool: "get_notable_transactions", label: "Giao dịch đáng chú ý", callId, stepIndex });
-            const rows = await db
-              .selectFrom("transaction as t")
-              .innerJoin("category as c", "c.id", "t.category_id")
-              .leftJoin("category as p1", (join) => join.onRef("p1.id", "=", "c.parent_id"))
-              .leftJoin("category as p2", (join) => join.onRef("p2.id", "=", "p1.parent_id"))
-              .select([
-                "t.amount",
-                "t.type",
-                "t.date",
-                "t.note",
-                sql<string>`CASE
-                  WHEN c.level = 1 THEN c.name
-                  WHEN c.level = 2 THEN (COALESCE(p1.name, '') || ' > ' || c.name)
-                  ELSE (COALESCE(p2.name, '') || ' > ' || COALESCE(p1.name, '') || ' > ' || c.name)
-                END`.as("category_path"),
-              ])
-              .where("t.user_id", "=", userId)
-              .where("t.date", ">=", periodStart)
-              .where("t.date", "<=", effectiveEnd)
-              .orderBy("t.amount", "desc")
-              .limit(args.limit)
-              .execute();
-            emit?.({ type: "tool_result", tool: "get_notable_transactions", rows: rows.length, callId, durationMs: Date.now() - startMs });
-            return rows;
-          },
-        }),
-
-        generate_insights: tool({
-          description: "Generate the final structured finance report with 3–5 insights. Call this LAST after querying data.",
-          inputSchema: insightSchema,
-          outputSchema: z.object({ status: z.string(), count: z.number() }),
-          execute: async (args) => {
-            capturedInsights = (args as z.infer<typeof insightSchema>).insights as Insight[];
-            const callId = Math.random().toString(36).slice(2, 10);
-            emit?.({ type: "tool_call", tool: "generate_insights", label: "Tổng hợp nhận xét", callId, stepIndex });
-            emit?.({ type: "tool_result", tool: "generate_insights", rows: capturedInsights.length, callId, durationMs: 0 });
-            return { status: "saved", count: capturedInsights.length };
-          },
-        }),
-      },
-      onStepFinish({ stepNumber, toolCalls, finishReason, text }) {
-        stepIndex = stepNumber;
-        console.log("[stats-agent] step", {
-          stepNumber,
-          finishReason,
-          toolCalls: toolCalls.map((tc) => tc.toolName),
-          hasText: !!text?.trim(),
-        });
-      },
-    });
-  } catch (agentErr) {
-    console.error("[stats-agent] generateText error:", agentErr);
+    if (snapshot.metrics.total_income !== 0 || snapshot.metrics.total_outflow !== 0) {
+      emit?.({ type: "step", key: "narrative", label: "Diễn giải số liệu và đề xuất hành động", status: "running" });
+      const result = await generateText({
+        model,
+        system: STATISTICS_SYSTEM,
+        prompt: JSON.stringify(snapshot),
+        output: Output.object({ schema: narrativeSchema }),
+        maxOutputTokens: 6144,
+        maxRetries: 0,
+        providerOptions: { openai: { reasoningEffort: "low" } },
+        experimental_telemetry: trace.telemetry,
+      });
+      emit?.({ type: "step", key: "narrative", label: "Diễn giải số liệu và đề xuất hành động", status: "completed" });
+      emit?.({ type: "step", key: "validation", label: "Kiểm tra nhận xét và dữ liệu biểu đồ", status: "running" });
+      insights = hydrateStatisticsInsights(result.output, snapshot);
+      emit?.({ type: "step", key: "validation", label: "Kiểm tra nhận xét và dữ liệu biểu đồ", status: "completed" });
+    }
+    emit?.({ type: "step", key: "save", label: "Lưu bản phân tích", status: "running" });
+    const db = await getKysely();
+    const values = {
+      insights: JSON.stringify(insights), snapshot: JSON.stringify(snapshot), model_id: modelId,
+      report_version: 2, source_revision: revision,
+      is_dirty: sql<number>`CASE WHEN COALESCE((SELECT revision FROM statistics_revision WHERE user_id = ${userId}), 0) = ${revision} THEN 0 ELSE 1 END`,
+      generated_at: Math.floor(Date.now() / 1000),
+    };
+    await db.insertInto("statistics_report").values({ user_id: userId, period_type: periodType, period_key: periodKey, ...values })
+      .onConflict(oc => oc.columns(["user_id", "period_type", "period_key"]).doUpdateSet(values)).execute();
+    emit?.({ type: "step", key: "save", label: "Lưu bản phân tích", status: "completed" });
   } finally {
     ctx.waitUntil(trace.flush());
   }
-
-  if (!capturedInsights || capturedInsights.length === 0) {
-    throw new Error("AI không tạo được nhận xét — thử lại sau");
-  }
-
-  // Pre-build the forecast line chart so it always uses accurate cumsum data,
-  // not the AI's approximation (which caused NaN y-axis labels).
-  const nextPeriodStart = (() => {
-    const d = new Date(periodEnd + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() + 1);
-    return d.toISOString().substring(0, 10);
-  })();
-  const periodLengthDays =
-    Math.round(
-      (new Date(periodEnd + "T00:00:00Z").getTime() -
-        new Date(periodStart + "T00:00:00Z").getTime()) /
-        86400000,
-    ) + 1;
-
-  let forecastInsight: Insight | null = null;
-  if (budget?.amount) {
-    const dailyExpenses = await db
-      .selectFrom("transaction")
-      .select(["date", sql<number>`COALESCE(SUM(amount), 0)`.as("expense")])
-      .where("user_id", "=", userId)
-      .where("type", "=", "expense")
-      .where("date", ">=", periodStart)
-      .where("date", "<=", effectiveEnd)
-      .groupBy("date")
-      .execute();
-
-    const byDate = new Map<string, number>(dailyExpenses.map((r) => [r.date, r.expense as number]));
-
-    const actualCumData: ChartDatum[] = [];
-    let cumsum = 0;
-    for (let i = 0; i < periodLengthDays; i++) {
-      const d = new Date(periodStart + "T00:00:00Z");
-      d.setUTCDate(d.getUTCDate() + i);
-      const dateStr = d.toISOString().substring(0, 10);
-      if (dateStr > effectiveEnd) break;
-      cumsum += byDate.get(dateStr) ?? 0;
-      actualCumData.push({ name: dateStr, value: cumsum, series: "Thực tế" });
-    }
-
-    const budgetCumData: ChartDatum[] = [];
-    for (let i = 0; i < periodLengthDays; i++) {
-      const d = new Date(periodStart + "T00:00:00Z");
-      d.setUTCDate(d.getUTCDate() + i);
-      const dateStr = d.toISOString().substring(0, 10);
-      budgetCumData.push({
-        name: dateStr,
-        value: Math.round((budget.amount / periodLengthDays) * (i + 1)),
-        series: "Ngân sách",
-      });
-    }
-
-    const daysElapsed = actualCumData.length;
-    const projTotal = daysElapsed > 0 ? Math.round(cumsum * (periodLengthDays / daysElapsed)) : 0;
-    const isOver = projTotal > budget.amount;
-    const diff = Math.abs(projTotal - budget.amount);
-    forecastInsight = {
-      type: isOver ? "alert" : "analysis",
-      title: isOver
-        ? `Dự kiến vượt hạn mức ${_vndFormat.format(diff)} ₫`
-        : `Dự kiến chi thấp hơn hạn mức ${_vndFormat.format(diff)} ₫`,
-      summary: isOver
-        ? `Nếu giữ tốc độ chi tiêu hiện tại, tổng chi tiêu cuối kỳ dự kiến là ${_vndFormat.format(projTotal)} ₫, cao hơn hạn mức ${_vndFormat.format(diff)} ₫.`
-        : `Nếu giữ tốc độ chi tiêu hiện tại, tổng chi tiêu cuối kỳ dự kiến là ${_vndFormat.format(projTotal)} ₫, thấp hơn hạn mức ${_vndFormat.format(diff)} ₫.`,
-      chart_type: "forecast_line",
-      chart_data: [...actualCumData, ...budgetCumData],
-      value_unit: "currency",
-      forecast_meta: { period_start: periodStart, today, next_period_start: nextPeriodStart },
-    };
-  }
-
-  // Prepend forecast insight; drop any AI-generated insight that has both
-  // "Ngân sách" + "Thực tế" series (those are duplicate budget-pace charts).
-  const aiInsights = capturedInsights.filter((ins) => {
-    const seriesNames = new Set(ins.chart_data?.flatMap((d) => d.series ? [d.series] : []));
-    return !(seriesNames.has("Ngân sách") && seriesNames.has("Thực tế"));
-  });
-
-  // Strip charts where the AI mixed metric units (e.g. VND amounts in a percent chart).
-  // A percent chart with any value > 1000 is certainly carrying a VND amount by mistake.
-  const sanitizedAiInsights = aiInsights.map((ins) => {
-    if (ins.value_unit === "percent" && ins.chart_data?.some((d) => Math.abs(d.value) > 1000)) {
-      const stripped = { ...ins };
-      delete stripped.chart_type;
-      delete stripped.chart_data;
-      return stripped;
-    }
-    return ins;
-  });
-
-  const finalInsights: Insight[] = forecastInsight
-    ? [forecastInsight, ...sanitizedAiInsights]
-    : sanitizedAiInsights;
-
-  await saveReport(db, userId, periodType, periodKey, finalInsights, now);
 }
 
-async function saveReport(
-  db: Awaited<ReturnType<typeof getKysely>>,
-  userId: string,
-  periodType: "monthly",
-  periodKey: string,
-  insights: Insight[],
-  now: number,
-): Promise<void> {
-  const payload = JSON.stringify(insights);
-  await db
-    .insertInto("statistics_report")
-    .values({
-      user_id: userId,
-      period_type: periodType,
-      period_key: periodKey,
-      insights: payload,
-      is_dirty: 0,
-      generated_at: now,
-    })
-    .onConflict((oc) =>
-      oc.columns(["user_id", "period_type", "period_key"]).doUpdateSet({
-        insights: payload,
-        is_dirty: 0,
-        generated_at: now,
-      }),
-    )
-    .execute();
-}
-
-// Called after any transaction mutation for the current month.
-// Marks the report dirty so the next time the user opens the stats page,
-// the frontend triggers a fresh generation via POST /api/statistics.
+/** Mark any affected historical or current budget period for regeneration. */
 export async function markStatsDirty(userId: string, txnDate: string): Promise<void> {
-  const affectedMonth = getBudgetMonthForDate(txnDate);
-  if (affectedMonth !== currentBudgetMonth()) return;
   const db = await getKysely();
-  await db
-    .updateTable("statistics_report")
-    .set({ is_dirty: 1 })
-    .where("user_id", "=", userId)
-    .where("period_type", "=", "monthly")
-    .where("period_key", "=", affectedMonth)
-    .execute();
+  await db.updateTable("statistics_report").set({ is_dirty: 1 }).where("user_id", "=", userId)
+    .where("period_type", "=", "monthly").where("period_key", "=", getBudgetMonthForDate(txnDate)).execute();
 }

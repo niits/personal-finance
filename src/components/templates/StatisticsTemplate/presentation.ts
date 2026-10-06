@@ -1,4 +1,4 @@
-import type { AgentEvent } from "@/lib/statistics";
+import type { AgentEvent } from "@/lib/statistics-report";
 
 const reportTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "numeric",
@@ -10,6 +10,9 @@ const reportTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
 });
 
 export function generationProgress(events: AgentEvent[]): string {
+  const phases = events.filter((event): event is Extract<AgentEvent, { type: "step" }> => event.type === "step");
+  const latest = phases.at(-1);
+  if (latest) return latest.status === "running" ? `${latest.label}…` : `Đã hoàn tất: ${latest.label.toLowerCase()}.`;
   const completedSteps = events.filter((event) => event.type === "tool_result").length;
 
   if (completedSteps === 0) return "Đang tổng hợp dữ liệu thu nhập và chi tiêu…";

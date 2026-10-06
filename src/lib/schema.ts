@@ -171,6 +171,10 @@ export interface StatisticsReportTable {
   period_type: "monthly";
   period_key: string;
   insights: string; // JSON: Insight[]
+  snapshot: string | null;
+  model_id: string | null;
+  report_version: Generated<number>;
+  source_revision: Generated<number>;
   is_dirty: Generated<number>;
   generated_at: Generated<number>;
 }
@@ -189,6 +193,7 @@ export interface Database {
   category: CategoryTable;
   budget_config: BudgetConfigTable;
   statistics_report: StatisticsReportTable;
+  statistics_revision: { user_id: string; revision: number };
   debt: DebtTable;
   finance_account: FinanceAccountTable;
   credit_card_group: CreditCardGroupTable;

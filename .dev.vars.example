@@ -13,3 +13,6 @@ LANGFUSE_BASE_URL=https://cloud.langfuse.com
 
 # Vercel AI Gateway — get a key from https://vercel.com/ai-gateway
 AI_GATEWAY_API_KEY=
+
+# Statistics: openai/gpt-5.6-terra or openai/gpt-6.1-sol.
+STATISTICS_MODEL=openai/gpt-6.1-sol

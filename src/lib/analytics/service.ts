@@ -34,10 +34,10 @@ class AnalyticsService {
     const metricExpr = METRICS[opts.metric];
 
     if (!opts.breakdown) {
-      // No category join needed for totals — debt transactions (NULL category_id)
-      // must be included in income/outcome sums per product decision.
+      // Preserve uncategorized movements in cashflow totals while classifying consumption.
       const row = await this.db
         .selectFrom("transaction")
+        .leftJoin("category", "category.id", "transaction.category_id")
         .select((eb) => [(metricExpr(eb as any) as any).as("value")])
         .where("transaction.user_id", "=", opts.userId)
         .where("transaction.date", ">=", opts.from)
@@ -160,7 +160,7 @@ class AnalyticsService {
 
     // Compute derived metrics (scalar, no group_by)
     if (derivedMetricNames.length > 0) {
-      const totalExpenseRow = await this.queryMetric({ userId, metric: "total_expense", from, to });
+      const totalExpenseRow = await this.queryMetric({ userId, metric: "consumption_expense", from, to });
       const totalExpense = (totalExpenseRow as MetricRow).value;
 
       const scalarRow: Record<string, unknown> = {};
@@ -217,12 +217,12 @@ class AnalyticsService {
         let q = (hasCategoryPath
           ? this.db
               .selectFrom("transaction")
-              .innerJoin("category as c", "c.id", "transaction.category_id")
-              .leftJoin("category as p1", "p1.id", "c.parent_id" as any)
+              .innerJoin("category", "category.id", "transaction.category_id")
+              .leftJoin("category as p1", "p1.id", "category.parent_id" as any)
               .leftJoin("category as p2", "p2.id", "p1.parent_id" as any)
           : this.db
               .selectFrom("transaction")
-              .innerJoin("category as c", "c.id", "transaction.category_id")
+              .innerJoin("category", "category.id", "transaction.category_id")
         ) as any;
 
         q = q
@@ -336,8 +336,8 @@ class AnalyticsService {
       .executeTakeFirst();
 
     const computed = getBudgetPeriod(periodKey);
-    const from = budget?.start_date ?? computed.start;
-    const to = budget?.end_date ?? (() => {
+    const from = budget?.start_date || computed.start;
+    const periodEnd = budget?.end_date || (() => {
       const d = new Date(computed.end + "T00:00:00Z");
       d.setUTCDate(d.getUTCDate() - 1);
       return d.toISOString().substring(0, 10);
@@ -345,7 +345,7 @@ class AnalyticsService {
 
     const today = new Date().toISOString().substring(0, 10);
     const startD = new Date(from + "T00:00:00Z");
-    const endD = new Date(to + "T00:00:00Z");
+    const endD = new Date(periodEnd + "T00:00:00Z");
     const todayD = new Date(today + "T00:00:00Z");
     const daysTotal = Math.round((endD.getTime() - startD.getTime()) / 86400000) + 1;
     const daysElapsed = Math.min(
@@ -353,17 +353,20 @@ class AnalyticsService {
       Math.max(0, Math.round((todayD.getTime() - startD.getTime()) / 86400000) + 1)
     );
 
+    const to = periodEnd < today ? periodEnd : today;
     return { from, to, budgetAmount: budget?.amount ?? null, daysElapsed, daysTotal };
   }
 
   private _dimensionExpr(name: DimensionName, grain?: TimeGrain): RawBuilder<unknown> {
     if (name === "metric_time") return this._timeDimExpr(grain ?? "day");
     if (name === "category__path") return sql`CASE
-      WHEN c.level = 1 THEN c.name
-      WHEN c.level = 2 THEN (COALESCE(p1.name, '') || ' > ' || c.name)
-      ELSE (COALESCE(p2.name, '') || ' > ' || COALESCE(p1.name, '') || ' > ' || c.name)
+      WHEN category.level = 1 THEN category.name
+      WHEN category.level = 2 THEN (COALESCE(p1.name, '') || ' > ' || category.name)
+      ELSE (COALESCE(p2.name, '') || ' > ' || COALESCE(p1.name, '') || ' > ' || category.name)
     END`;
-    if (name === "category__name") return sql`c.name`;
+    if (name === "category__name") return sql`category.name`;
+    if (name === "payment_method") return sql`CASE WHEN "transaction".credit_card_group_id IS NULL THEN 'Tiền mặt' ELSE 'Thẻ tín dụng' END`;
+    if (name === "card_group") return sql`COALESCE((SELECT g.name FROM credit_card_group AS g WHERE g.id = "transaction".credit_card_group_id AND g.user_id = "transaction".user_id), 'Tiền mặt')`;
     if (name === "transaction__type") return sql`"transaction".type`;
     return sql`NULL`;
   }

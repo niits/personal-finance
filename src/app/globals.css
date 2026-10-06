@@ -165,3 +165,14 @@ body {
 @keyframes sheet-fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes sheet-slide-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes sheet-slide-out { from { transform: translateY(0); } to { transform: translateY(100%); } }
+
+/* Report transitions confirm updates without delaying access to the content. */
+@keyframes analysis-reveal {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .analysis-reveal { animation: analysis-reveal 180ms ease-out both; }
+}
+
+.vega-embed { display: block; width: 100%; }

@@ -64,6 +64,7 @@ does not resolve a real semantic conflict.
 | [`architecture/semantic-layer.md`](./architecture/semantic-layer.md) | Deterministic financial metrics and AI arithmetic boundary |
 | [`features/ai-organize.md`](./features/ai-organize.md) | AI Organize flow, selection, apply, and recovery behavior |
 | [`quality/testing.md`](./quality/testing.md) | Unit, Worker integration, Storybook, E2E, and release gates |
+| [`quality/statistics-model-evaluation.md`](./quality/statistics-model-evaluation.md) | Current Terra/Sol quality, cost, and latency evaluation |
 
 ### Decisions
 

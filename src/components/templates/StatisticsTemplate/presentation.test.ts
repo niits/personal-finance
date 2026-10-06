@@ -22,3 +22,7 @@ describe("statistics presentation", () => {
     expect(formatReportTime(0)).toMatch(/1\/1\/1970/);
   });
 });
+
+it("describes the actual streamed phase", () => {
+  expect(generationProgress([{ type: "step", key: "cards", label: "Đối chiếu chi tiêu thẻ và trạng thái thanh toán", status: "running" }])).toBe("Đối chiếu chi tiêu thẻ và trạng thái thanh toán…");
+});
