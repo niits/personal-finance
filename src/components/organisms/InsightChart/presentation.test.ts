@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { chartDatumLabel, chartTextSummary, formatChartValue } from "./presentation";
 
-describe("VegaChart presentation", () => {
+describe("InsightChart presentation", () => {
   it("provides a textual summary for chart data", () => {
     expect(chartTextSummary({
       title: "Chi theo nhóm",

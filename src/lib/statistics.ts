@@ -8,7 +8,7 @@ import { getBudgetPeriodInclusive, currentDate, getBudgetMonthForDate } from "@/
 import { reportEndDate } from "@/lib/statistics-period";
 import {
   addDays, daysBetween, buildStatisticsSnapshot, hydrateStatisticsInsights,
-  narrativeSchema, STATISTICS_SYSTEM,
+  narrativeSchema, STATISTICS_SYSTEM, REPORT_VERSION,
   type AgentEvent, type AnalysisTransaction, type StatisticsSnapshot,
 } from "@/lib/statistics-report";
 export type { InsightType, ChartType, ForecastMeta, ChartDatum, Insight, AgentEvent } from "@/lib/statistics-report";
@@ -72,7 +72,7 @@ export async function loadStatisticsSnapshot(userId: string, periodKey: string, 
 export async function generateStatisticsReport(userId: string, periodType: "monthly", periodKey: string, emit?: (event: AgentEvent) => void): Promise<void> {
   const { snapshot, revision } = await loadStatisticsSnapshot(userId, periodKey, emit);
   const [{ model, modelId }, { env, ctx }] = await Promise.all([getStatisticsModel(), getCloudflareContext({ async: true })]);
-  const trace = startAITrace(env as Cloudflare.Env, { name: "statistics-report", userId, metadata: { periodKey, modelId, reportVersion: 2 } });
+  const trace = startAITrace(env as Cloudflare.Env, { name: "statistics-report", userId, metadata: { periodKey, modelId, reportVersion: REPORT_VERSION } });
   let insights: ReturnType<typeof hydrateStatisticsInsights> = [];
   try {
     if (snapshot.metrics.total_income !== 0 || snapshot.metrics.total_outflow !== 0) {
@@ -96,7 +96,7 @@ export async function generateStatisticsReport(userId: string, periodType: "mont
     const db = await getKysely();
     const values = {
       insights: JSON.stringify(insights), snapshot: JSON.stringify(snapshot), model_id: modelId,
-      report_version: 2, source_revision: revision,
+      report_version: REPORT_VERSION, source_revision: revision,
       is_dirty: sql<number>`CASE WHEN COALESCE((SELECT revision FROM statistics_revision WHERE user_id = ${userId}), 0) = ${revision} THEN 0 ELSE 1 END`,
       generated_at: Math.floor(Date.now() / 1000),
     };

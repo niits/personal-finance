@@ -63,8 +63,11 @@ Transaction entry is one organism with responsive presentation: full-screen on m
 and bounded dialog/sheet on larger viewports. Generic confirmation and sheet mechanics
 are shared; feature-specific behavior remains in the owning organism.
 
-`VegaChart` is the single CSP-safe Vega renderer. Templates provide data/specification
-and accessible narrative rather than duplicating renderer setup.
+`InsightChart` owns the statistics report narrative, accessible data table, and local
+Recharts templates. Composition follows shadcn Charts with Calm Ledger tokens rather
+than importing a second design system. AI selects validated dataset and template IDs;
+it never supplies JSX or renderer configuration. Legacy chart names are adapted in
+the pure rendering model. Chart failures preserve the narrative and data table.
 
 ## Storybook
 

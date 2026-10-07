@@ -6,6 +6,7 @@ import { Errors } from "@/lib/errors";
 import { parseMonth, currentBudgetMonth } from "@/lib/validators";
 import { generateStatisticsReport } from "@/lib/statistics";
 import type { Insight, AgentEvent } from "@/lib/statistics";
+import { REPORT_VERSION } from "@/lib/statistics-report";
 import { privateJsonResponse } from "@/lib/private-revalidation";
 
 export async function GET(request: NextRequest) {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
         period_key: periodKey,
         period_type: "monthly",
         insights,
-        is_dirty: row.is_dirty === 1,
+        is_dirty: row.is_dirty === 1 || row.report_version < REPORT_VERSION,
         is_current_period: isCurrentPeriod,
         generated_at: row.generated_at,
         snapshot: row.snapshot ? JSON.parse(row.snapshot) : null,
@@ -94,10 +95,10 @@ export async function POST(request: NextRequest) {
           period_key: periodKey,
           period_type: "monthly",
           insights,
-          is_dirty: row?.is_dirty === 1,
+          is_dirty: row?.is_dirty === 1 || (row?.report_version ?? 0) < REPORT_VERSION,
           snapshot: row?.snapshot ? JSON.parse(row.snapshot) : null,
           model_id: row?.model_id ?? null,
-          report_version: row?.report_version ?? 2,
+          report_version: row?.report_version ?? REPORT_VERSION,
           is_current_period: periodKey === currentBudgetMonth(),
           generated_at: row?.generated_at ?? Math.floor(Date.now() / 1000),
         },

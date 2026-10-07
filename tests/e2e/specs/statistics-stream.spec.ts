@@ -45,7 +45,7 @@ test("shows streamed steps before rendering the completed card report", async ({
   await expect(page.getByRole("heading", { name: report.insights[0].title })).not.toBeVisible();
   await page.evaluate(() => window.finishStatistics());
   await expect(page.getByRole("heading", { name: report.insights[0].title })).toBeVisible();
-  await expect(page.locator(".vega-embed svg")).toBeVisible();
+  await expect(page.locator("[data-statistics-chart] svg").first()).toBeVisible();
   await page.getByText("Xem dữ liệu biểu đồ", { exact: true }).click();
   await expect(page.getByRole("table")).toContainText("3.000.000 ₫");
 });

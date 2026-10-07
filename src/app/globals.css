@@ -174,5 +174,3 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   .analysis-reveal { animation: analysis-reveal 180ms ease-out both; }
 }
-
-.vega-embed { display: block; width: 100%; }

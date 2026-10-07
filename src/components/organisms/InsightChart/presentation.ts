@@ -1,4 +1,4 @@
-import type { ChartDatum, Insight } from "@/lib/statistics";
+import type { ChartDatum, Insight } from "@/lib/statistics-report";
 
 const numberFormat = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });
 

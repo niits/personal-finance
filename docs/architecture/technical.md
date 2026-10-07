@@ -17,7 +17,7 @@ the configured AI gateway boundary.
 - Access bindings per request through `getCloudflareContext({ async: true })`.
 - Access D1 through `env.DB`; client components never access Worker bindings.
 - Use only APIs supported by the configured Cloudflare compatibility layer.
-- Do not use `eval` or `Function`; Vega expressions use `vega-interpreter`.
+- Do not use `eval` or `Function`; statistics charts use local Recharts components with no generated expressions.
 - Never cache a request, session, or Cloudflare context in module scope.
 - Secrets stay in Worker environment bindings and never enter client bundles or docs.
 

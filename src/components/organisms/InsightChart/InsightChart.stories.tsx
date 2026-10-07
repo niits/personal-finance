@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
-import { VegaChart } from "./VegaChart";
+import { InsightChart } from "./InsightChart";
 
-const meta: Meta<typeof VegaChart> = {
-  component: VegaChart,
+const meta: Meta<typeof InsightChart> = {
+  component: InsightChart,
   tags: ["autodocs"],
   parameters: {
     layout: "padded",
@@ -10,7 +10,7 @@ const meta: Meta<typeof VegaChart> = {
   },
 };
 export default meta;
-type Story = StoryObj<typeof VegaChart>;
+type Story = StoryObj<typeof InsightChart>;
 
 export const BarChart: Story = {
   args: {
@@ -115,3 +115,18 @@ export const MultipleLines: Story = {
     { name: "2026-05-01", value: 50000, series: "Tiền mặt" }, { name: "2026-05-02", value: 0, series: "Tiền mặt" }, { name: "2026-05-03", value: 100000, series: "Tiền mặt" }, { name: "2026-05-04", value: 80000, series: "Tiền mặt" },
   ] } },
 };
+
+export const Donut: Story = { args: { insight: { ...BarChart.args!.insight!, chart_type: "donut" } } };
+export const StackedPaymentParts: Story = { args: { insight: {
+  type: "analysis", title: "Thẻ và tiền mặt cùng đóng góp vào chi tiêu.", summary: "Mỗi thanh thể hiện các phần không trùng nhau của một danh mục.", chart_type: "stacked_bar", value_unit: "currency",
+  chart_data: [
+    { name: "Ăn uống", value: 800000, series: "Thẻ tín dụng", highlight: true }, { name: "Ăn uống", value: 300000, series: "Tiền mặt" },
+    { name: "Mua sắm", value: 1200000, series: "Thẻ tín dụng" }, { name: "Mua sắm", value: 400000, series: "Tiền mặt" },
+  ],
+} } };
+export const ZeroCounterpart: Story = { args: { insight: { title: "Chi tiêu thẻ chưa thanh toán.", summary: "Khoản này đã nằm trong chi tiêu tiêu dùng.", chart_type: "bar", chart_data: [{ name: "Chưa thanh toán", value: 1035777 }, { name: "Đã thanh toán", value: 0 }] } } };
+export const LongNames: Story = { args: { insight: { ...BarChart.args!.insight!, chart_data: [
+  { name: "Chi tiêu > Sinh hoạt gia đình > Đi chợ và siêu thị cuối tuần", value: 123456789, highlight: true },
+  { name: "Chi tiêu > Dịch vụ > Các dịch vụ phần mềm và lưu trữ trực tuyến", value: 87654321 },
+] } } };
+export const EmptyChart: Story = { args: { insight: { title: "Chưa đủ dữ liệu so sánh.", summary: "Nhận xét vẫn được giữ lại khi biểu đồ không có dữ liệu.", chart_type: "horizontal_bar", chart_data: [] } } };

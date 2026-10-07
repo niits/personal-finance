@@ -2,7 +2,7 @@
 
 import { AnalysisProgress } from "@/components/organisms/AnalysisProgress";
 import { Button } from "@/components/atoms/Button";
-import { VegaChart } from "@/components/organisms/VegaChart";
+import { InsightChart } from "@/components/organisms/InsightChart";
 import type { AgentEvent, Insight, StatisticsSnapshot } from "@/lib/statistics-report";
 import { formatReportTime, generationProgress, safeStatisticsError } from "./presentation";
 
@@ -241,7 +241,7 @@ export function StatisticsTemplate({
             {refreshing || regenError ? <><p role="status" className="font-body text-[13px] text-ink-muted-48">{refreshing ? generationProgress(agentSteps) : "Tiến trình cập nhật chưa hoàn tất."}</p><AnalysisProgress events={agentSteps} failed={!!regenError} /></> : null}
             <section aria-label={`Nhận xét cho ${monthLabel.toLowerCase()}`}>
               {report.insights.map((insight, index) => (
-                <VegaChart key={`${insight.type ?? "insight"}-${insight.title}`} insight={insight} featured={index === 0} />
+                <InsightChart key={`${insight.type ?? "insight"}-${insight.title}`} insight={insight} featured={index === 0} />
               ))}
             </section>
           </>
