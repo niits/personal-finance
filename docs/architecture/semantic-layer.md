@@ -86,7 +86,7 @@ metric must not silently reuse `total_expense` when the intended domain is consu
 
 ## Statistics Evidence Model
 
-Statistics persist a versioned server-computed snapshot with each report. Version 2
+Statistics persist a versioned server-computed snapshot with each report. Version 3
 records inclusive period boundaries, the last included date, the previous comparison
 range, the comparison basis, current and previous metrics, category and card-group
 breakdowns, notable consumption transactions, and chart datasets. `model_id`,
@@ -110,8 +110,14 @@ comparison basis explicitly states that the durations differ. Completed periods
 compare full ranges. Trend charts include zero-spend dates and omit an incomplete
 current day.
 
-The model selects server-provided chart IDs and a focal label. It cannot supply chart
-values or chart code. The server verifies chart references, literal currency amounts,
+The snapshot also includes deterministic top-two transaction concentration (amount,
+integer percentage of consumption, and remaining consumption). This excludes financial
+movements. Dataset row IDs are deterministic tuples of the category/date and series.
+The model selects a server-provided dataset ID, an allowed chart template, and zero or
+more row IDs for emphasis. It cannot supply chart values, chart code, or styling.
+Dataset IDs must be unique across insights; type and highlight membership are validated.
+The model may choose no chart. Sparse reports may contain one insight. Card insights
+are optional and retain the unpaid-subset explanation when relevant. The server verifies chart references, literal currency amounts,
 percentages, and sentence endings before saving. These checks establish numerical
 provenance; they do not prove that every interpretation or causal statement is correct.
 

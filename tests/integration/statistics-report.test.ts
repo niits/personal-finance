@@ -20,8 +20,8 @@ vi.mock("ai", async importOriginal => ({
     if (control.beforeGeneration) await control.beforeGeneration();
     if (control.fail) throw new Error("Private model failure");
     return { output: { insights: [
-      { type: "analysis", topic: "cards", title: "Chi thẻ thuộc tổng chi tiêu.", summary: "Trong kỳ, một phần chi thẻ chưa thanh toán.", chart_id: "payment_methods", highlight_name: "Thẻ tín dụng" },
-      { type: "recommendation", topic: "budget", title: "Đối chiếu hạn mức trước khi chi thêm.", summary: "Duy trì theo dõi phần ngân sách còn lại.", chart_id: null, highlight_name: null },
+      { type: "analysis", topic: "cards", title: "Chi thẻ thuộc tổng chi tiêu.", summary: "Trong kỳ, một phần chi thẻ chưa thanh toán.", chart_id: "payment_methods", chart_type: "horizontal_bar", highlight_ids: [JSON.stringify(["Thẻ tín dụng", ""])] },
+      { type: "recommendation", topic: "budget", title: "Đối chiếu hạn mức trước khi chi thêm.", summary: "Duy trì theo dõi phần ngân sách còn lại.", chart_id: null, chart_type: null, highlight_ids: [] },
     ] } };
   },
 }));
@@ -101,7 +101,7 @@ describe("statistics report contracts", () => {
     control.beforeGeneration = async () => { await env.DB.prepare("UPDATE monthly_budget SET amount = 1100000 WHERE id = ?").bind(budget).run(); };
     await generateStatisticsReport(user, "monthly", "2026-10");
     const result = await env.DB.prepare("SELECT is_dirty, snapshot, model_id, report_version FROM statistics_report WHERE user_id = ?").bind(user).first<{ is_dirty: number; snapshot: string; model_id: string; report_version: number }>();
-    expect(result).toMatchObject({ is_dirty: 1, model_id: "openai/gpt-6.1-sol", report_version: 2 });
+    expect(result).toMatchObject({ is_dirty: 1, model_id: "openai/gpt-6.1-sol", report_version: 3 });
     expect((JSON.parse(result!.snapshot) as StatisticsSnapshot).metrics.budget_amount).toBe(1_000_000);
   });
   it("marks historical reports dirty for transaction moves and statement payments", async () => {

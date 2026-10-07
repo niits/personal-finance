@@ -51,3 +51,26 @@ A single category may be charted when two explicit periods provide a comparison.
 Progress indicators may pulse and updated sections may fade in over 180 milliseconds.
 The content remains immediately available, and reduced-motion preferences disable
 these effects. Data tables retain keyboard access and a subtle row hover state.
+
+## AI-Selected Chart Templates
+
+The server offers datasets with row IDs and allowed chart types. The model selects
+`chart_id`, `chart_type`, and `highlight_ids`, or null IDs with an empty highlight list
+when no chart helps. Horizontal bars support ranking; donuts support complete positive
+compositions with at most five parts; lines support chronological observations;
+grouped bars compare series; stacked bars are limited to additive payment parts.
+Previous and current periods must never be stacked as parts of one total.
+
+Render with locally owned Recharts templates following shadcn Charts composition and
+Calm Ledger tokens. Full category paths wrap above horizontal marks; exact amounts
+remain visible without hover. Line tooltips and accessible tables expose exact values.
+Use compact 21/26 insight headings and 15/21 explanations. Keep generic chart summaries
+available to assistive technology without repeating them as visible paragraphs.
+
+Prioritize concentration and distinct evidence over restating totals. Permit one
+useful insight for sparse data and do not require a card insight solely because a card
+purchase exists. A single nonzero category against zero does not justify a composition
+chart. Financial movement and consumption semantics remain unchanged.
+
+Existing stored reports remain readable through legacy chart aliases. Older report
+versions are marked for refresh without deleting their narratives or evidence.
