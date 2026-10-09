@@ -427,7 +427,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const { data: cbData } = useSWR<{ custom_budgets: CustomBudget[] }>(
     open && !isRepayment ? "/api/custom-budgets?active_only=true" : null, fetcher,
   );
-  const { data: accountData } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment ? "/api/finance-accounts" : null, fetcher);
+  const { data: accountData, mutate: refreshAccounts } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment ? "/api/finance-accounts" : null, fetcher);
   const { data: cardData } = useSWR<{ groups: CardGroup[] }>(open && !isRepayment ? "/api/credit-card-groups" : null, fetcher);
 
   const allCats = catData?.categories ?? [];
@@ -486,6 +486,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       const { account } = await response.json() as { account: FinanceAccount };
       setFinanceAccountId(account.id);
       setNewAccountName("");
+      await refreshAccounts();
     } finally {
       isCreatingAccountRef.current = false;
       setCreatingAccount(false);
