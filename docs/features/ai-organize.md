@@ -36,6 +36,13 @@ classification, and transaction emoji without making unreviewed financial change
   Duplicate categories must share type, parent, budget behavior, and usage meaning.
   Similar names in different branches and parent-child relationships do not establish
   duplication.
+- Shared membership in a broader group does not establish duplicate meaning. Names
+  must be interchangeable in both directions without losing a distinction in timing,
+  purpose, object, or scope. Preserve breakfast, lunch, and dinner as separate
+  categories; likewise, electricity versus water and medical visits versus medicine.
+  A broader category and a narrower category are not interchangeable. Transaction
+  counts determine the retained target only after semantic equivalence is established.
+  The merge reason must explain equivalence rather than merely shared group membership.
 - Retain the eligible category with the most transactions; break ties by the smallest
   category ID. Do not rename or recreate the retained category.
 - A merge transfers every transaction referencing the source, including historical
@@ -125,6 +132,8 @@ after successful apply.
 - Preview and apply failures can be retried without losing context.
 - The server rejects stale, cross-user, invalid-depth, non-leaf, or type-incompatible
   references without partial writes.
+- AI preserves distinct meal categories and does not propose merging breakfast into
+  lunch because both are meals, including when breakfast has fewer transactions.
 
 ## Non-Goals
 
