@@ -58,3 +58,36 @@ test("AI Organize allows retry after preview failure", async ({ page }) => {
   await trigger.click();
   await expect(page.getByRole("dialog", { name: "Xem lại đề xuất tổ chức" })).toBeVisible();
 });
+
+test("AI Organize retries with the latest rejected patch and clears it after success", async ({ page }) => {
+  await resetTestData("full");
+  const retries = [
+    { patch: { ...preview, category_moves: [{ category_id: 903, parent_category_id: 903 }] }, errors: ["Danh mục 903 tạo vòng lặp."] },
+    { patch: { ...preview, category_moves: [{ category_id: 903, parent_category_id: 905 }] }, errors: ["Danh mục cha 905 không tồn tại."] },
+  ];
+  let attempts = 0;
+  await page.route("**/api/ai/organize", async (route) => {
+    expect(route.request().postDataJSON()).toEqual(
+      attempts === 1 || attempts === 2 ? { retry: retries[attempts - 1] } : null,
+    );
+    const retry = retries[attempts++];
+    await route.fulfill(retry
+      ? { status: 502, json: { code: "AI_INVALID_PATCH", error: "Đề xuất chưa hợp lệ. Vui lòng thử lại để AI sửa đề xuất.", retry } }
+      : { json: preview });
+  });
+  await page.goto("/");
+  const trigger = page.getByRole("button", { name: "AI tổ chức danh mục và giao dịch" });
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    await trigger.click();
+    await expect.poll(() => attempts).toBe(attempt);
+    await expect(page.getByRole("alert").filter({ hasText: "Đề xuất chưa hợp lệ" })).toBeVisible();
+    await expect(trigger).toBeEnabled();
+  }
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Xem lại đề xuất tổ chức" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Đóng", exact: true }).click();
+  await trigger.click();
+  await expect(dialog).toBeVisible();
+  expect(attempts).toBe(4);
+});

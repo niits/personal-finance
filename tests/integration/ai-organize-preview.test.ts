@@ -1,11 +1,12 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:test";
+import type { OrganizeRetry } from "@/lib/organize-patch";
 import type { NextRequest } from "next/server";
 import { applyMigrations, seedCategory, seedMonthlyBudget, seedUser } from "./helpers";
 
 const generation = vi.hoisted(() => ({ beforeEmojiResponse: null as null | (() => Promise<void>),
   proposal: null as null | Record<string, unknown>,
-  emoji: "📁", }));
+  emoji: "📁", prompts: [] as string[], }));
 
 vi.mock("@/lib/db", () => ({ getDB: async () => env.DB }));
 vi.mock("@/lib/session", () => ({
@@ -21,6 +22,7 @@ vi.mock("@opennextjs/cloudflare", () => ({
 vi.mock("ai", () => ({
   generateObject: async ({ prompt }: { prompt: string }) => {
     if (!prompt.startsWith("[")) {
+      generation.prompts.push(prompt);
       if (generation.proposal) return { object: generation.proposal };
       return { object: {
         category_merges: [], category_moves: [],
@@ -50,6 +52,22 @@ beforeAll(async () => {
   await applyMigrations();
   await seedUser({ id: "user-organize-preview", email: "organize-preview@example.com" });
 });
+
+beforeEach(() => {
+  generation.proposal = null;
+  generation.emoji = "📁";
+  generation.beforeEmojiResponse = null;
+  generation.prompts = [];
+});
+
+const emptyProposal = {
+  new_categories: [], recategorizations: [], emoji_reassignments: [],
+  category_moves: [], category_merges: [],
+};
+
+const requestPreview = () => POST(new Request("http://localhost/api/ai/organize", {
+  method: "POST",
+}) as NextRequest);
 
 describe("AI Organize preview", () => {
   it("proposes emoji for every missing category without noted transactions", async () => {
@@ -107,6 +125,147 @@ describe("AI Organize preview", () => {
 
 
 describe("AI Organize structural preview", () => {
+  it("returns a usable preview when AI repeats the current parent and order", async () => {
+    const categoryId = await seedCategory("user-organize-preview", "Sinh hoạt");
+    generation.proposal = { ...emptyProposal, category_moves: [{
+      category_id: categoryId, parent_category_id: null, sort_order: 0,
+      reason: "Giữ vị trí hiện tại.",
+    }] };
+
+    const response = await requestPreview();
+    expect(response.status).toBe(200);
+    const preview = await response.json<{ category_moves: unknown[]; emoji_assignments: unknown[] }>();
+    expect(preview.category_moves).toEqual([]);
+    expect(preview.emoji_assignments).toHaveLength(1);
+  });
+
+  it("preserves a valid tree change alongside unchanged parent and order suggestions", async () => {
+    const parent = await seedCategory("user-organize-preview", "Sinh hoạt");
+    const branch = await seedCategory("user-organize-preview", "Học tập");
+    generation.proposal = { ...emptyProposal, category_moves: [
+      { category_id: parent, parent_category_id: null, sort_order: 0, reason: "Giữ vị trí hiện tại." },
+      { category_id: branch, parent_category_id: parent, sort_order: 1, reason: "Sắp xếp nhóm học tập." },
+    ] };
+
+    const response = await requestPreview();
+    expect(response.status).toBe(200);
+    const preview = await response.json<{ category_moves: Array<{ category_id: number }> }>();
+    expect(preview.category_moves).toEqual([expect.objectContaining({ category_id: branch })]);
+    expect(await env.DB.prepare("SELECT parent_id FROM category WHERE id = ?").bind(branch).first())
+      .toEqual({ parent_id: null });
+  });
+
+  it("reports an invalid AI tree as a model proposal error when data did not change", async () => {
+    const parent = await seedCategory("user-organize-preview", "Sinh hoạt");
+    const child = await seedCategory("user-organize-preview", "Học tập", parent, 2);
+    generation.proposal = { ...emptyProposal, category_moves: [{
+      category_id: parent, parent_category_id: child, sort_order: 1,
+      reason: "Sắp xếp nhóm danh mục.",
+    }] };
+
+    const response = await requestPreview();
+    expect(response.status).toBe(502);
+    const failure = await response.json<{ code: string; retry: OrganizeRetry }>();
+    expect(failure.code).toBe("AI_INVALID_PATCH");
+    expect(failure.retry.patch.category_moves).toEqual([
+      expect.objectContaining({ category_id: parent, parent_category_id: child }),
+    ]);
+    expect(failure.retry.errors).toEqual([expect.stringContaining("vòng lặp")]);
+    expect(await env.DB.prepare("SELECT parent_id FROM category WHERE id = ?").bind(parent).first())
+      .toEqual({ parent_id: null });
+  });
+
+  it("passes the rejected patch and errors to AI and validates the repaired proposal against fresh data", async () => {
+    const parent = await seedCategory("user-organize-preview", "Sinh hoạt");
+    const child = await seedCategory("user-organize-preview", "Học tập", parent, 2);
+    generation.proposal = { ...emptyProposal, category_moves: [{
+      category_id: parent, parent_category_id: child, sort_order: 1, reason: "Sắp xếp nhóm danh mục.",
+    }] };
+    const failed = await requestPreview();
+    expect(failed.status).toBe(502);
+    const failure = await failed.json<{ retry: OrganizeRetry }>();
+
+    await env.DB.prepare("UPDATE category SET name = 'Học tập chuyên môn' WHERE id = ?").bind(child).run();
+    generation.proposal = { ...emptyProposal, category_moves: [{
+      category_id: child, parent_category_id: null, sort_order: 1, reason: "Tách thành nhóm cấp gốc.",
+    }] };
+    const response = await POST(new Request("http://localhost/api/ai/organize", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ retry: failure.retry }),
+    }) as NextRequest);
+    expect(response.status).toBe(200);
+    expect(generation.prompts.at(-1)).toContain(JSON.stringify(failure.retry));
+    expect(generation.prompts.at(-1)).toContain("Học tập chuyên môn");
+    const preview = await response.json<{ category_moves: unknown[] }>();
+    expect(preview.category_moves).toEqual([
+      expect.objectContaining({ category_id: child, category_name: "Học tập chuyên môn", parent_category_id: null }),
+    ]);
+    expect(await env.DB.prepare("SELECT parent_id FROM category WHERE id = ?").bind(child).first())
+      .toEqual({ parent_id: parent });
+  });
+
+  it("rejects an invalid repaired proposal and returns its latest patch and error", async () => {
+    const parent = await seedCategory("user-organize-preview", "Sinh hoạt");
+    const child = await seedCategory("user-organize-preview", "Học tập", parent, 2);
+    const retry: OrganizeRetry = { patch: emptyProposal, errors: ["Đề xuất trước chưa hợp lệ."] };
+    generation.proposal = { ...emptyProposal, category_moves: [{
+      category_id: parent, parent_category_id: child, sort_order: 1, reason: "Sắp xếp nhóm danh mục.",
+    }] };
+    const response = await POST(new Request("http://localhost/api/ai/organize", {
+      method: "POST", body: JSON.stringify({ retry }),
+    }) as NextRequest);
+    expect(response.status).toBe(502);
+    const failure = await response.json<{ code: string; retry: OrganizeRetry }>();
+    expect(failure.code).toBe("AI_INVALID_PATCH");
+    expect(failure.retry.patch.category_moves).toHaveLength(1);
+    expect(failure.retry.errors).toEqual([expect.stringContaining("vòng lặp")]);
+  });
+
+  it("rejects malformed repair context before calling AI", async () => {
+    const response = await POST(new Request("http://localhost/api/ai/organize", {
+      method: "POST", body: JSON.stringify({ retry: { patch: [], errors: [] } }),
+    }) as NextRequest);
+    expect(response.status).toBe(422);
+    expect(generation.prompts).toEqual([]);
+  });
+
+  it("rejects oversized repair requests before calling AI", async () => {
+    const response = await POST(new Request("http://localhost/api/ai/organize", {
+      method: "POST", body: JSON.stringify({ retry: { patch: { note: "a".repeat(1_000_001) }, errors: ["Lỗi xác thực."] } }),
+    }) as NextRequest);
+    expect(response.status).toBe(413);
+    expect(generation.prompts).toEqual([]);
+  });
+
+  it("omits protected finance recategorizations while preserving valid suggestions", async () => {
+    const lending = await seedCategory("user-organize-preview", "Cho vay");
+    await env.DB.prepare("UPDATE category SET system_kind = 'lend', budget_behavior = 'non_budget' WHERE id = ?")
+      .bind(lending).run();
+    const original = await seedCategory("user-organize-preview", "Chi phí khác");
+    const target = await seedCategory("user-organize-preview", "Điện nước");
+    const budget = await seedMonthlyBudget("user-organize-preview", "2026-10", 1000000);
+    const transactionIds = [];
+    for (const categoryId of [lending, original]) {
+      const result = await env.DB.prepare(`INSERT INTO "transaction"
+        (user_id, amount, type, category_id, note, date, monthly_budget_id)
+        VALUES (?, 50000, 'expense', ?, 'Tiền điện nước tháng 9', '2026-10-01', ?)`)
+        .bind("user-organize-preview", categoryId, budget.id).run();
+      transactionIds.push(result.meta.last_row_id);
+    }
+    generation.proposal = { ...emptyProposal, recategorizations: transactionIds.map((transactionId) => ({
+      transaction_id: transactionId, suggested_category_id: target,
+      reason: "Phân loại chi phí điện nước.",
+    })) };
+
+    const response = await requestPreview();
+    expect(response.status).toBe(200);
+    const preview = await response.json<{ recategorizations: Array<{ transaction_id: number }> }>();
+    expect(preview.recategorizations).toEqual([
+      expect.objectContaining({ transaction_id: transactionIds[1] }),
+    ]);
+    expect(await env.DB.prepare('SELECT category_id FROM "transaction" WHERE id = ?')
+      .bind(transactionIds[0]).first()).toEqual({ category_id: lending });
+  });
+
   it("analyzes structure without noted transactions and resolves review metadata", async () => {
     const target = await seedCategory("user-organize-preview", "Đi lại");
     const source = await seedCategory("user-organize-preview", "Di chuyển");

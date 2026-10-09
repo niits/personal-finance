@@ -55,8 +55,12 @@ classification, and transaction emoji without making unreviewed financial change
 ## Flow
 
 1. The user starts analysis and receives plain-language progress.
-2. The server reads the relevant data again after AI generation and returns a proposal
-   only when the complete patch passes the same validation used by Apply.
+2. Preview omits unchanged parent/order suggestions and rejects recategorization of
+   protected finance movements. The complete patch must pass the Apply validator
+   against the original analysis data before the server reads current data again.
+   An invalid model proposal returns `AI_INVALID_PATCH` (`502`); only a proposal that
+   was valid for the original data but no longer matches current data returns
+   `STALE_PROPOSAL` (`409`). Preview never writes data.
 3. A review surface groups proposals and allows independent selection, including
    emoji assignments for existing categories. Merges name the retained and deleted
    categories, affected transaction counts, and reasons. Tree changes show current and
@@ -97,6 +101,13 @@ Preview failure appears near the initiating Dashboard action with a retry. Apply
 failure keeps the review open, preserves the selection, explains that no partial
 change was committed, and offers retry. Expired session and unavailable network are
 distinct from a model or validation failure.
+
+An invalid preview returns the rejected patch and concrete validation errors. When
+the user retries, the client sends that context to AI with freshly loaded, user-scoped
+data. AI repairs the complete proposal; the same schema, original-state validation,
+and current-state validation must pass before opening review. Another invalid result
+replaces the retry context with its latest patch and errors. Success clears the
+context. Repair occurs only after an explicit user retry and never applies writes.
 
 ## Accessibility
 

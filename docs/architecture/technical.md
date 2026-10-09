@@ -104,7 +104,11 @@ Finance-account association is part of transaction create/edit.
 
 ## AI Organize Apply Contract
 
-`POST /api/ai/organize` has no request body. Analysis covers the user's most recently
+`POST /api/ai/organize` accepts no body for initial analysis or an optional
+`{ retry: { patch, errors } }` body for user-requested repair. An `AI_INVALID_PATCH`
+response includes that retry context. Requests are limited to 1,000,000 bytes; errors
+are bounded to 20 messages of at most 500 characters. Repair context is untrusted
+reference data for AI and never grants write access. Analysis covers the user's most recently
 updated transactions that carry a non-empty note, up to a documented cap. The preview
 response shape is:
 
