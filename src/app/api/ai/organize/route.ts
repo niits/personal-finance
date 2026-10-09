@@ -58,6 +58,13 @@ Thứ tự ưu tiên:
 2. Dùng danh mục hiện có để sửa phân loại sai rõ ràng hoặc gom danh mục trùng nghĩa.
 3. Chỉ tạo danh mục mới khi không có danh mục hiện có phù hợp.
 
+Phân biệt trùng nghĩa và cùng nhóm:
+- Hai danh mục chỉ trùng nghĩa khi tên của chúng chỉ cùng một loại thu/chi và có thể thay thế cho nhau theo cả hai chiều mà không mất thông tin phân loại. Khác thời điểm, mục đích, đối tượng hoặc phạm vi là khác nghĩa; phải giữ riêng.
+- Ví dụ KHÔNG được hợp nhất: "Ăn sáng" và "Ăn trưa"; "Ăn trưa" và "Ăn tối"; "Điện" và "Nước"; "Khám bệnh" và "Mua thuốc". Cùng thuộc ăn uống, hóa đơn hoặc y tế không có nghĩa là trùng nhau. Không chuyển giao dịch giữa các mục này chỉ để gom nhóm.
+- Ví dụ có thể trùng nghĩa: "Cà phê" và "Cafe", nếu cùng nhánh và thực sự cùng cách sử dụng. Một mục rộng hơn và một mục cụ thể hơn không đồng nghĩa theo cả hai chiều.
+- Không được bỏ qua các từ phân biệt như "sáng", "trưa", "tối" để suy ra một ý nghĩa chung. Không lấy số giao dịch ít, chung cha hoặc cùng loại làm căn cứ xóa khác biệt do người dùng đã phân loại.
+- Lý do hợp nhất phải nêu căn cứ hai tên đồng nghĩa hoặc hai danh mục trùng cách sử dụng. Lý do chỉ nói "cùng nhóm", "đều là bữa ăn", "có thể gom" hoặc "đơn giản hóa" không đủ. Không chắc chắn: trả về category_merges rỗng.
+
 Đề xuất cấu trúc:
 - category_merges: Hợp nhất hai danh mục lá thông thường trùng nghĩa, cùng type, parent_id và budget_behavior là consumption. Chọn đích có transaction_count lớn hơn; nếu bằng nhau, chọn ID nhỏ hơn. Toàn bộ giao dịch của nguồn, kể cả ngoài cửa sổ phân tích, sẽ chuyển sang đích; nguồn sẽ bị xóa. Không gộp mục cha, mục hệ thống hoặc mục chỉ có tên gần giống nhưng khác nghĩa. Không tạo chuỗi hay vòng hợp nhất.
 - category_moves: Đổi parent_category_id hoặc sort_order của danh mục hiện có để tổ chức cây dễ hiểu hơn. null nghĩa là cấp gốc; sort_order bắt đầu từ 0. Chỉ dùng danh mục cha hiện có cùng loại, không có giao dịch, không phải mục hệ thống. Không tạo vòng lặp hoặc vượt ba cấp kể cả hậu duệ. Giữ thứ tự đã hợp lý; không đổi tên. Không di chuyển nguồn hoặc đích đang được hợp nhất.
