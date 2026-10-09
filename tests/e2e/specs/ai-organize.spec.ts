@@ -25,7 +25,7 @@ for (const width of [375, 1280]) {
         : { json: { merged_categories: 1, reorganized_categories: 0, created_categories: 0, emoji_updated: 0, transactions_moved: 125 } });
     });
     await page.goto("/");
-    const trigger = page.getByRole("button", { name: "AI tổ chức danh mục và giao dịch" });
+    const trigger = page.getByRole("button", { name: "AI gợi ý phân loại" });
     await trigger.click();
     const dialog = page.getByRole("dialog", { name: "Xem lại đề xuất tổ chức" });
     await expect(dialog).toBeVisible();
@@ -52,7 +52,7 @@ test("AI Organize allows retry after preview failure", async ({ page }) => {
       : { json: preview });
   });
   await page.goto("/");
-  const trigger = page.getByRole("button", { name: "AI tổ chức danh mục và giao dịch" });
+  const trigger = page.getByRole("button", { name: "AI gợi ý phân loại" });
   await trigger.click();
   await expect(page.getByRole("alert").filter({ hasText: "Không thể tạo đề xuất" })).toContainText("Không thể tạo đề xuất");
   await trigger.click();
@@ -76,7 +76,7 @@ test("AI Organize retries with the latest rejected patch and clears it after suc
       : { json: preview });
   });
   await page.goto("/");
-  const trigger = page.getByRole("button", { name: "AI tổ chức danh mục và giao dịch" });
+  const trigger = page.getByRole("button", { name: "AI gợi ý phân loại" });
   for (let attempt = 1; attempt <= 2; attempt++) {
     await trigger.click();
     await expect.poll(() => attempts).toBe(attempt);

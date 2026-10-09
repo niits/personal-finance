@@ -11,8 +11,11 @@ I do next?
 
 ## Reading Order
 
-1. Selected budget period through an inline month picker, with the current-month AI
-   Organize action as a compact pill beside it.
+1. Selected budget period through an outlined inline month picker with a calendar
+   icon. The current-month AI action is labeled
+   `AI gợi ý phân loại` in a compact pill beside it, wrapping when space is limited.
+   Supporting text explains transaction classification, category organization, and
+   emoji suggestions, and states that the user reviews proposals before applying them.
 2. Consumption spending for the period, labeled against the monthly budget amount
    (`hạn mức`).
 3. Segmented progress bar of consumption against the budget. The amber segment is the
