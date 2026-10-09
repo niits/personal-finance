@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import { RecategorizationRow } from "./RecategorizationRow";
 
 const meta: Meta<typeof RecategorizationRow> = { component: RecategorizationRow };
@@ -21,4 +21,9 @@ export const NewCategory: Story = {
 
 export const LongReason: Story = {
   args: { ...base, transactionId: 4, note: "techcombank 50k", currentCategory: "Khác", suggestedCategory: "Phí ngân hàng", reason: "Khoản phí dịch vụ ngân hàng hàng tháng, bao gồm phí SMS và phí quản lý tài khoản", checked: true },
+};
+
+
+export const LongCategoryNames: Story = {
+  args: { ...base, note: "Chi phí khám chữa bệnh và chăm sóc sức khỏe định kỳ", currentCategory: "Khám chữa bệnh tại cơ sở y tế chuyên khoa", suggestedCategory: "Y tế và chăm sóc sức khỏe", reason: "Toàn bộ giao dịch lịch sử sẽ được chuyển trước khi xóa danh mục nguồn.", checked: true },
 };

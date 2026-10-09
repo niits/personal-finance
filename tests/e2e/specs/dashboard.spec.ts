@@ -130,13 +130,13 @@ test.describe("Dashboard — AI surface controls", () => {
 
   test("labeled AI organize action is visible for the current month", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "AI phân loại giao dịch" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "AI tổ chức danh mục và giao dịch" })).toBeVisible();
   });
 
   test("AI organize action is hidden for a historical month", async ({ page }) => {
     await page.goto("/");
     await page.getByLabel("Chọn tháng").selectOption({ index: 1 });
-    await expect(page.getByRole("button", { name: "AI phân loại giao dịch" })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "AI tổ chức danh mục và giao dịch" })).not.toBeVisible();
   });
 });
 

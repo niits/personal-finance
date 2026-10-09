@@ -2,11 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // auth.ts dynamically imports these inside getAuth(); mock both so the test runs
 // in plain node without a Workers runtime or a real better-auth instance.
-const getCloudflareContext = vi.fn();
-const betterAuth = vi.fn((config: unknown) => ({ config }));
+const { getCloudflareContext, betterAuth } = vi.hoisted(() => ({
+  getCloudflareContext: vi.fn(),
+  betterAuth: vi.fn((config: unknown) => ({ config })),
+}));
 
 vi.mock("@opennextjs/cloudflare", () => ({ getCloudflareContext }));
 vi.mock("better-auth", () => ({ betterAuth }));
+
+import { getAuth } from "./auth";
 
 const fakeEnv = {
   DB: { __binding: "d1" },
@@ -31,19 +35,20 @@ describe("getAuth", () => {
   // the first request's D1 binding, whose proxy can no longer resolve the request
   // state on later requests ("No request state found ... runWithRequestState").
   it("rebuilds the auth instance on every call (no module-scope cache)", async () => {
-    const { getAuth } = await import("./auth");
-
     await getAuth();
+    const nextEnv = { ...fakeEnv, DB: { __binding: "next-request-d1" } };
+    getCloudflareContext.mockResolvedValueOnce({ env: nextEnv });
     await getAuth();
 
     // Each call must re-enter the request context and reconstruct the instance.
     expect(getCloudflareContext).toHaveBeenCalledTimes(2);
     expect(betterAuth).toHaveBeenCalledTimes(2);
+    expect(betterAuth).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({ database: nextEnv.DB }),
+    );
   });
 
   it("wires the request-scoped D1 binding into the auth config", async () => {
-    const { getAuth } = await import("./auth");
-
     await getAuth();
 
     expect(betterAuth).toHaveBeenCalledWith(

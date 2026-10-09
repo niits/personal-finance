@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { getDB } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { Errors } from "@/lib/errors";
-import { OrganizePatchSchema, loadOrganizePatchState, validateOrganizePatch } from "@/lib/organize-patch";
+import { OrganizePatchSchema, loadOrganizePatchState, validateOrganizePatch, resolveOrganizeTree } from "@/lib/organize-patch";
 
 const conflict = () => Errors.conflict(
   "Dữ liệu đã thay đổi hoặc đề xuất không còn hợp lệ. Vui lòng tạo đề xuất mới.",
@@ -16,12 +16,14 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = OrganizePatchSchema.safeParse(body);
   if (!parsed.success) return Errors.validation("Đề xuất áp dụng không hợp lệ.");
-  const { new_categories, emoji_assignments, recategorizations, emoji_reassignments } = parsed.data;
+  const { new_categories, emoji_assignments, recategorizations, emoji_reassignments, category_merges, category_moves } = parsed.data;
   const db = await getDB();
   const userId = session.user.id;
   const { categories, transactions } = await loadOrganizePatchState(db, userId, parsed.data);
   if (!validateOrganizePatch(parsed.data, categories, transactions)) return conflict();
-  const categoryById = new Map(categories.map((category) => [category.id, category]));
+  const originalCategoryById = new Map(categories.map((category) => [category.id, category]));
+  const finalCategories = resolveOrganizeTree(parsed.data, categories)!;
+  const categoryById = new Map(finalCategories.map((category) => [category.id, category]));
 
   const now = Math.floor(Date.now() / 1000);
   const statements: D1PreparedStatement[] = [];
@@ -30,8 +32,21 @@ export async function POST(request: NextRequest) {
       `SELECT CASE WHEN ${condition} THEN 1 ELSE json_extract('invalid JSON', '$') END`,
     ).bind(...parameters));
   };
+  if (category_merges.length || category_moves.length) {
+    assertSnapshot(`(SELECT COUNT(*) FROM category WHERE user_id = ?) = ?`, userId, categories.length);
+    for (const category of categories) {
+      assertSnapshot(`EXISTS (SELECT 1 FROM category c WHERE c.id = ? AND c.user_id = ?
+        AND c.name = ? AND c.type = ? AND c.parent_id IS ? AND c.level = ? AND c.sort_order = ?
+        AND c.emoji IS ? AND c.system_kind IS ? AND c.budget_behavior = ?
+        AND (SELECT COUNT(*) FROM category child WHERE child.parent_id = c.id AND child.user_id = c.user_id) = ?
+        AND (SELECT COUNT(*) FROM "transaction" t WHERE t.category_id = c.id AND t.user_id = c.user_id) = ?)`,
+      category.id, userId, category.name, category.type, category.parent_id, category.level,
+      category.sort_order, category.emoji, category.system_kind, category.budget_behavior,
+      category.child_count, category.transaction_count);
+    }
+  }
   for (const cat of new_categories) {
-    if (cat.parent_category_id !== null) {
+    if (cat.parent_category_id !== null && category_moves.length === 0) {
       assertSnapshot(
         `EXISTS (SELECT 1 FROM category c WHERE c.id = ? AND c.user_id = ? AND c.name = ?
           AND c.type = ? AND c.level < 3 AND c.system_kind IS NULL
@@ -58,11 +73,12 @@ export async function POST(request: NextRequest) {
       `EXISTS (SELECT 1 FROM "transaction" t JOIN category c
         ON c.id = t.category_id AND c.user_id = t.user_id
         WHERE t.id = ? AND t.user_id = ? AND t.category_id = ?
-          AND t.note = ? AND t.updated_at = ? AND c.name = ?)`,
+          AND t.note = ? AND t.updated_at = ? AND c.name = ?
+          AND c.system_kind IS NULL AND c.budget_behavior = 'consumption')`,
       move.transaction_id, userId, move.current_category_id,
       move.note, move.current_updated_at, move.current_category_name,
     );
-    if (typeof move.suggested_category_id === "number") {
+    if (typeof move.suggested_category_id === "number" && category_moves.length === 0) {
       assertSnapshot(
         `EXISTS (SELECT 1 FROM category c WHERE c.id = ? AND c.user_id = ?
           AND c.name = ? AND c.system_kind IS NULL AND c.budget_behavior = 'consumption'
@@ -89,6 +105,27 @@ export async function POST(request: NextRequest) {
   const assertUpdated = () => statements.push(db.prepare(
     "SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('invalid JSON', '$') END",
   ));
+  for (const merge of category_merges) {
+    statements.push(db.prepare(`UPDATE "transaction" SET category_id = ?, updated_at = ?
+      WHERE category_id = ? AND user_id = ?`).bind(
+      merge.target_category_id, now, merge.source_category_id, userId,
+    ));
+    assertSnapshot(`changes() = ?`, merge.transaction_count);
+    statements.push(db.prepare(`DELETE FROM category WHERE id = ? AND user_id = ?`).bind(
+      merge.source_category_id, userId,
+    ));
+    assertUpdated();
+  }
+  for (const category of finalCategories) {
+    const original = originalCategoryById.get(category.id)!;
+    if (original.parent_id !== category.parent_id || original.sort_order !== category.sort_order || original.level !== category.level) {
+      statements.push(db.prepare(`UPDATE category SET parent_id = ?, sort_order = ?, level = ?
+        WHERE id = ? AND user_id = ?`).bind(
+        category.parent_id, category.sort_order, category.level, category.id, userId,
+      ));
+      assertUpdated();
+    }
+  }
   for (const cat of new_categories) {
     const parent = cat.parent_category_id === null ? null : categoryById.get(cat.parent_category_id)!;
     statements.push(db.prepare(`INSERT INTO category
@@ -135,6 +172,8 @@ export async function POST(request: NextRequest) {
   return Response.json({
     created_categories: new_categories.length,
     emoji_updated: emoji_assignments.length + emoji_reassignments.length,
-    transactions_moved: recategorizations.length,
+    transactions_moved: recategorizations.length + category_merges.reduce((sum, merge) => sum + merge.transaction_count, 0),
+    merged_categories: category_merges.length,
+    reorganized_categories: category_moves.length,
   });
 }

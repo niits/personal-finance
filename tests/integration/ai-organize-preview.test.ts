@@ -3,7 +3,9 @@ import { env } from "cloudflare:test";
 import type { NextRequest } from "next/server";
 import { applyMigrations, seedCategory, seedMonthlyBudget, seedUser } from "./helpers";
 
-const generation = vi.hoisted(() => ({ beforeEmojiResponse: null as null | (() => Promise<void>) }));
+const generation = vi.hoisted(() => ({ beforeEmojiResponse: null as null | (() => Promise<void>),
+  proposal: null as null | Record<string, unknown>,
+  emoji: "📁", }));
 
 vi.mock("@/lib/db", () => ({ getDB: async () => env.DB }));
 vi.mock("@/lib/session", () => ({
@@ -19,8 +21,10 @@ vi.mock("@opennextjs/cloudflare", () => ({
 vi.mock("ai", () => ({
   generateObject: async ({ prompt }: { prompt: string }) => {
     if (!prompt.startsWith("[")) {
+      if (generation.proposal) return { object: generation.proposal };
       return { object: {
-        new_categories: [{
+        category_merges: [], category_moves: [],
+        new_categories: prompt.endsWith("[]") ? [] : [{
           temp_id: "new:0", name: "Thuốc men", type: "expense",
           parent_category_id: null, emoji: "💊", example_notes: ["Mua thuốc"],
         }],
@@ -34,7 +38,7 @@ vi.mock("ai", () => ({
     }
     return { object: {
       assignments: (JSON.parse(prompt) as Array<{ category_id: number }>).map(
-        ({ category_id }) => ({ category_id, emoji: "📁" }),
+        ({ category_id }) => ({ category_id, emoji: generation.emoji }),
       ),
     } };
   },
@@ -98,5 +102,29 @@ describe("AI Organize preview", () => {
     }) as NextRequest);
     expect(response.status).toBe(409);
     expect(await response.json<{ code: string }>()).toMatchObject({ code: "STALE_PROPOSAL" });
+  });
+});
+
+
+describe("AI Organize structural preview", () => {
+  it("analyzes structure without noted transactions and resolves review metadata", async () => {
+    const target = await seedCategory("user-organize-preview", "Đi lại");
+    const source = await seedCategory("user-organize-preview", "Di chuyển");
+    generation.proposal = { new_categories: [], recategorizations: [], emoji_reassignments: [], category_moves: [], category_merges: [{
+      source_category_id: source, target_category_id: target, reason: "Hai danh mục cùng mô tả việc đi lại.",
+    }] };
+    generation.emoji = "🧑🏽‍🚀";
+    try {
+      const response = await POST(new Request("http://localhost/api/ai/organize", { method: "POST" }) as NextRequest);
+      expect(response.status).toBe(200);
+      const preview = await response.json<{ category_merges: unknown[]; category_snapshot: unknown[]; emoji_assignments: Array<{ category_id: number; emoji: string }> }>();
+      expect(preview.category_merges).toEqual([{
+        source_category_id: source, source_category_name: "Di chuyển", target_category_id: target,
+        target_category_name: "Đi lại", transaction_count: 0, reason: "Hai danh mục cùng mô tả việc đi lại.",
+      }]);
+      expect(preview.category_snapshot).toHaveLength(2);
+      expect(preview.emoji_assignments).toEqual([{ category_id: target, category_name: "Đi lại", current_emoji: null, emoji: "🧑🏽‍🚀" }]);
+      expect(await env.DB.prepare("SELECT id FROM category WHERE id = ?").bind(source).first()).not.toBeNull();
+    } finally { generation.proposal = null; generation.emoji = "📁"; }
   });
 });

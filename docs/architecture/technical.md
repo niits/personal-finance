@@ -110,6 +110,23 @@ response shape is:
 
 ```ts
 type OrganizePreview = {
+  category_snapshot: OrganizeCategoryState[];
+  category_merges: Array<{
+    source_category_id: number;
+    source_category_name: string;
+    target_category_id: number;
+    target_category_name: string;
+    transaction_count: number;
+    reason: string;
+  }>;
+  category_moves: Array<{
+    category_id: number;
+    category_name: string;
+    parent_category_id: number | null;
+    parent_category_name: string | null;
+    sort_order: number;
+    reason: string;
+  }>;
   new_categories: Array<{
     temp_id: `new:${number}`;
     name: string;
@@ -146,7 +163,9 @@ type OrganizePreview = {
 };
 ```
 
-`POST /api/ai/organize/apply` receives selected subsets of those four arrays. Every
+`POST /api/ai/organize/apply` receives selected proposal arrays and the category
+snapshot when structural changes are selected. Related tree changes are selected
+as a complete group. Every
 temporary category reference must resolve to a selected `new_categories` item. The
 server compares current ownership, transaction category and note, current emoji,
 hierarchy, type, and leaf state with the submitted preview; a stale or incompatible
@@ -157,11 +176,21 @@ A successful apply returns counts rather than a bare success flag:
 
 ```json
 {
+  "merged_categories": 1,
+  "reorganized_categories": 2,
   "created_categories": 2,
   "emoji_updated": 5,
   "transactions_moved": 8
 }
 ```
+
+The category snapshot is defined by `OrganizeCategorySnapshotSchema` in
+`src/lib/organize-patch.ts`. It includes all user category rows, hierarchy, ordering,
+protection, emoji, and child/transaction counts. Structural operations require an
+unchanged complete snapshot and repeat database assertions within the D1 batch.
+Merges move all source transactions before deleting the source; tree changes update
+parent, order, and descendant levels. The existing four proposal arrays remain
+required; structural arrays default to empty for older clients.
 
 The server revalidates ownership, hierarchy depth, category type, leaf eligibility,
 and proposal references inside one atomic operation. Detailed interaction semantics

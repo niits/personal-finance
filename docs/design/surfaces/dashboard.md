@@ -34,3 +34,15 @@ Cover loading, no budget, no transactions, partial summary/ledger failure, backg
 refresh, exactly exhausted, over budget, reverse financial values, long labels, and
 network failure. Independent regions fail independently. AI Organize does not replace
 the primary transaction action.
+
+## AI Organize Review
+
+The review uses the shared Calm Ledger sheet grammar. Proposed merges precede tree
+changes, new categories, emoji, and transaction corrections. Each merge displays the
+source, retained category, all affected transaction counts, deletion consequence, and
+reason. Related parent and order changes are selected as one structural group; every
+row exposes the category, current parent/order, proposed parent/order, and reason.
+Select-all and select-none controls are available. Long names wrap at 375px.
+The sheet has a named modal dialog, keyboard focus containment, focus restoration,
+explicit close control, pending state, and preserved selection after failure. Apply
+success announces exact merge, tree-change, creation, emoji, and transaction counts.

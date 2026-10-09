@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
 import { OrganizeReviewSheet } from "@/components/organisms/OrganizeReviewSheet";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
@@ -59,6 +59,7 @@ export type DashboardTemplateProps = {
   onDelete: (txn: Transaction) => void;
   organizeState: "idle" | "loading" | "review" | "applying";
   organizePreview: OrganizePreview | null;
+  organizeNotice?: { message: string; error: boolean } | null;
   organizeApplyError?: string | null;
   organizeApplyBlocked?: boolean;
   onOrganize: () => void;
@@ -160,6 +161,7 @@ export function DashboardTemplate({
   onDelete,
   organizeState,
   organizePreview,
+  organizeNotice,
   organizeApplyError = null,
   organizeApplyBlocked = false,
   onOrganize,
@@ -171,6 +173,7 @@ export function DashboardTemplate({
   onRetrySummary,
   onRetryLedger,
 }: DashboardTemplateProps) {
+  const organizeTriggerRef = useRef<HTMLButtonElement>(null);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<number | null>(null);
   const organizeBusy = organizeState === "loading" || organizeState === "applying";
   const isCurrentMonth = selectedMonth === currentMonth;
@@ -220,16 +223,18 @@ export function DashboardTemplate({
               {isCurrentMonth ? (
                 <button
                   type="button"
+                  ref={organizeTriggerRef}
                   onClick={onOrganize}
                   disabled={organizeState !== "idle"}
-                  aria-label="AI phân loại giao dịch"
+                  aria-label="AI tổ chức danh mục và giao dịch"
                   aria-busy={organizeBusy}
                   className="min-h-11 rounded-pill border border-primary bg-transparent px-md font-body text-xs font-semibold text-primary disabled:opacity-50"
                 >
-                  {organizeBusy ? "Đang phân loại…" : "AI phân loại ✦"}
+                  {organizeBusy ? "Đang tổ chức…" : "AI tổ chức"}
                 </button>
               ) : null}
             </div>
+            {organizeNotice && <p role={organizeNotice.error ? "alert" : "status"} className={`pb-2 font-body text-sm ${organizeNotice.error ? "text-danger" : "text-ink-muted-80"}`}>{organizeNotice.message}</p>}
           </div>
           <section aria-labelledby="monthly-outcome" className="mx-auto w-full max-w-[720px] px-5 pb-md pt-xs">
             {summaryError && !data ? (
@@ -415,6 +420,7 @@ export function DashboardTemplate({
       />
 
       <OrganizeReviewSheet
+        returnFocusRef={organizeTriggerRef}
         open={organizeState === "review" || organizeState === "applying"}
         preview={organizePreview}
         error={organizeApplyError}
