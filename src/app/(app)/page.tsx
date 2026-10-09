@@ -7,6 +7,7 @@ import { DashboardTemplate } from "@/components/templates/DashboardTemplate";
 import type { DashboardData, Transaction } from "@/components/templates/DashboardTemplate";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
 import { currentBudgetMonth } from "@/lib/validators";
+import type { OrganizeRetry } from "@/lib/organize-patch";
 
 export default function DashboardPage() {
   const initialMonth = currentBudgetMonth();
@@ -30,6 +31,7 @@ export default function DashboardPage() {
   const { replace } = useRouter();
   const abortRef = useRef<AbortController | null>(null);
   const organizeApplyingRef = useRef(false);
+  const organizeRetryRef = useRef<OrganizeRetry | null>(null);
 
   // silent=true: reload in background without showing spinner (visibilitychange / post-mutation)
   const load = useCallback(async (month?: string, silent = false) => {
@@ -156,15 +158,22 @@ export default function DashboardPage() {
     setOrganizeApplyBlocked(false);
     setOrganizeState("loading");
     try {
-      const r = await fetch("/api/ai/organize", { method: "POST" });
+      const retry = organizeRetryRef.current;
+      const r = await fetch("/api/ai/organize", {
+        method: "POST",
+        ...(retry ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ retry }) } : {}),
+      });
       if (!r.ok) {
         if (r.status === 401) { replace("/sign-in"); return; }
-        const failure = await r.json().catch(() => null) as { error?: string } | null;
+        const failure = await r.json().catch(() => null) as { error?: string; code?: string; retry?: OrganizeRetry } | null;
+        if (failure?.code === "AI_INVALID_PATCH") organizeRetryRef.current = failure.retry ?? null;
+        else if (r.status === 409 || r.status === 413) organizeRetryRef.current = null;
         setOrganizeNotice({ message: failure?.error ?? "Không thể tạo đề xuất. Vui lòng thử lại.", error: true });
         setOrganizeState("idle");
         return;
       }
       const preview = await r.json() as OrganizePreview;
+      organizeRetryRef.current = null;
       setOrganizePreview(preview);
       setOrganizeState("review");
     } catch {
