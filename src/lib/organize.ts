@@ -1,3 +1,5 @@
+import { isUnicodeEmoji } from "./emoji";
+
 // Pure helpers for the AI "organize" flow. No Next.js / Cloudflare imports so
 // this stays unit-testable in plain Node (see organize.test.ts).
 
@@ -36,14 +38,15 @@ export function resolveEmojiReassignments(
 ): ResolvedEmojiReassignment[] {
   return suggestions.flatMap((s) => {
     const txn = transactions.find((t) => t.id === s.transaction_id);
-    if (!txn || !s.emoji.trim()) return [];
+    const emoji = s.emoji.trim();
+    if (!txn || !isUnicodeEmoji(emoji)) return [];
     const currentEmoji = txn.emoji ?? txn.cat_emoji;
-    if (s.emoji === currentEmoji) return []; // no-op
+    if (emoji === currentEmoji) return []; // no-op
     return [{
       transaction_id: s.transaction_id,
       note: txn.note,
       current_emoji: currentEmoji,
-      emoji: s.emoji,
+      emoji,
       reason: s.reason,
     }];
   });

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Active target |
-| Updated | 2026-10-05 |
+| Updated | 2026-10-08 |
 
 ## Purpose
 
@@ -17,8 +17,9 @@ classification, and transaction emoji without making unreviewed financial change
   window boundary is defined in
   [`architecture/technical.md`](../architecture/technical.md).
 - Preview never writes data.
-- Category emoji suggestions cover every existing user category without an emoji,
-  including when there are no noted transactions.
+- Category emoji suggestions cover every user category without an emoji retained
+  by the complete proposal, including when there are no noted transactions. Sources
+  proposed for deletion are omitted from emoji assignments.
 - Newly suggested categories include an emoji in the preview and are created with
   that emoji.
 - The feature is not a replacement for single-transaction editing.
@@ -31,14 +32,23 @@ classification, and transaction emoji without making unreviewed financial change
   three similar noted transactions are necessary but insufficient for a new category;
   there must also be a distinct unmet classification need and at least three proposed
   moves to that new category.
-- Consolidate duplicate meaning through transaction moves to one existing category.
+- Consolidate duplicate meaning through an explicit merge into one existing leaf category.
   Duplicate categories must share type, parent, budget behavior, and usage meaning.
   Similar names in different branches and parent-child relationships do not establish
   duplication.
 - Retain the eligible category with the most transactions; break ties by the smallest
   category ID. Do not rename or recreate the retained category.
-- Consolidation covers only transactions supplied to the analysis. The proposal does
-  not delete duplicate category records or move transactions outside that window.
+- A merge transfers every transaction referencing the source, including historical
+  transactions and transactions without notes, then deletes the source atomically.
+  Amounts, dates, budgets, and finance associations are preserved. Only ordinary leaf
+  categories may be merged; sources and targets cannot also be moved within the tree.
+- Tree proposals change parent and sibling order for ordinary categories. Descendant
+  levels are recalculated; the resulting tree must be acyclic, have at most three
+  levels, preserve type, and keep categories with transactions as leaves.
+- Structural proposals carry a complete category snapshot. Preview and Apply reject
+  changed hierarchy, names, ordering, protection, emoji, or transaction counts.
+- Emoji suggestions may use any Unicode emoji, including composed sequences and emoji
+  outside the application's picker or existing data.
 - Preserve ambiguous classifications and reasonable inherited emoji. Suggest a
   transaction emoji only when it is missing or clearly incorrect.
 
@@ -48,7 +58,9 @@ classification, and transaction emoji without making unreviewed financial change
 2. The server reads the relevant data again after AI generation and returns a proposal
    only when the complete patch passes the same validation used by Apply.
 3. A review surface groups proposals and allows independent selection, including
-   emoji assignments for existing categories.
+   emoji assignments for existing categories. Merges name the retained and deleted
+   categories, affected transaction counts, and reasons. Tree changes show current and
+   proposed parent and order; related tree changes are selected as one group.
 4. Dependencies remain valid: selecting a move to a proposed category also selects
    that category; deselecting the category deselects dependent moves.
 5. Apply revalidates the complete selection and commits it atomically.
@@ -70,6 +82,8 @@ items before applying.
 The API wire schema is owned by
 [`architecture/technical.md`](../architecture/technical.md). Success reports:
 
+- `merged_categories`
+- `reorganized_categories`
 - `created_categories`
 - `emoji_updated`
 - `transactions_moved`

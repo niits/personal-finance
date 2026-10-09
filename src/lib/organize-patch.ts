@@ -1,20 +1,41 @@
 import { z } from "zod";
+import { isUnicodeEmoji } from "./emoji";
+
+export const OrganizeEmojiSchema = z.string().trim().min(1).refine(isUnicodeEmoji, "Một emoji Unicode hợp lệ là bắt buộc.");
+
+export const OrganizeCategorySnapshotSchema = z.object({
+  id: z.number().int().positive(), name: z.string(), type: z.enum(["income", "expense"]),
+  parent_id: z.number().int().positive().nullable(), level: z.number().int(),
+  sort_order: z.number().int(), emoji: z.string().nullable(), system_kind: z.string().nullable(),
+  budget_behavior: z.string(), child_count: z.number().int(), transaction_count: z.number().int(),
+});
 
 export const OrganizePatchSchema = z.object({
+  category_snapshot: z.array(OrganizeCategorySnapshotSchema).default([]),
+  category_merges: z.array(z.object({
+    source_category_id: z.number().int().positive(), source_category_name: z.string(),
+    target_category_id: z.number().int().positive(), target_category_name: z.string(),
+    transaction_count: z.number().int().nonnegative(), reason: z.string(),
+  })).default([]),
+  category_moves: z.array(z.object({
+    category_id: z.number().int().positive(), category_name: z.string(),
+    parent_category_id: z.number().int().positive().nullable(), parent_category_name: z.string().nullable(),
+    sort_order: z.number().int().nonnegative(), reason: z.string(),
+  })).default([]),
   new_categories: z.array(z.object({
     temp_id: z.string().regex(/^new:\d+$/),
     name: z.string().trim().min(1).max(100),
     type: z.enum(["income", "expense"]),
     parent_category_id: z.number().int().positive().nullable(),
     parent_category_name: z.string().nullable(),
-    emoji: z.string().trim().min(1),
+    emoji: OrganizeEmojiSchema,
     example_notes: z.array(z.string()),
   })),
   emoji_assignments: z.array(z.object({
     category_id: z.number().int().positive(),
     category_name: z.string(),
     current_emoji: z.string().nullable(),
-    emoji: z.string().trim().min(1),
+    emoji: OrganizeEmojiSchema,
   })),
   recategorizations: z.array(z.object({
     transaction_id: z.number().int().positive(),
@@ -31,18 +52,14 @@ export const OrganizePatchSchema = z.object({
     note: z.string(),
     current_emoji: z.string().nullable(),
     current_updated_at: z.number().int(),
-    emoji: z.string().trim().min(1),
+    emoji: OrganizeEmojiSchema,
     reason: z.string(),
   })),
 });
 
 export type OrganizePatch = z.infer<typeof OrganizePatchSchema>;
 
-export type OrganizeCategoryState = {
-  id: number; name: string; type: "income" | "expense"; parent_id: number | null;
-  level: number; emoji: string | null; system_kind: string | null;
-  budget_behavior: string; child_count: number; transaction_count: number;
-};
+export type OrganizeCategoryState = z.infer<typeof OrganizeCategorySnapshotSchema>;
 
 export type OrganizeTransactionState = {
   id: number; note: string | null; type: "income" | "expense";
@@ -59,7 +76,7 @@ export async function loadOrganizePatchState(
     ...patch.emoji_reassignments.map((assignment) => assignment.transaction_id),
   ])];
   const [categoryResult, transactionResult] = await db.batch([
-    db.prepare(`SELECT c.id, c.name, c.type, c.parent_id, c.level, c.emoji, c.system_kind,
+    db.prepare(`SELECT c.id, c.name, c.type, c.parent_id, c.level, c.sort_order, c.emoji, c.system_kind,
       c.budget_behavior,
       (SELECT COUNT(*) FROM category child WHERE child.parent_id = c.id AND child.user_id = c.user_id) AS child_count,
       (SELECT COUNT(*) FROM "transaction" t WHERE t.category_id = c.id AND t.user_id = c.user_id) AS transaction_count
@@ -84,13 +101,24 @@ export function validateOrganizePatch(
   transactions: OrganizeTransactionState[],
 ): boolean {
   const unique = <T,>(values: T[]) => new Set(values).size === values.length;
-  const { new_categories, emoji_assignments, recategorizations, emoji_reassignments } = patch;
+  const { new_categories, emoji_assignments, recategorizations, emoji_reassignments, category_merges, category_moves } = patch;
+  if (category_merges.length || category_moves.length) {
+    const snapshotById = new Map(patch.category_snapshot.map((category) => [category.id, category]));
+    if (snapshotById.size !== categories.length || patch.category_snapshot.length !== categories.length ||
+        categories.some((category) => {
+          const snapshot = snapshotById.get(category.id);
+          return !snapshot || Object.keys(snapshot).some((key) =>
+            snapshot[key as keyof OrganizeCategoryState] !== category[key as keyof OrganizeCategoryState]);
+        })) return false;
+  }
+  const finalCategories = resolveOrganizeTree(patch, categories);
+  if (!finalCategories) return false;
   if (!unique(new_categories.map((category) => category.temp_id)) ||
       !unique(emoji_assignments.map((assignment) => assignment.category_id)) ||
       !unique(recategorizations.map((move) => move.transaction_id)) ||
       !unique(emoji_reassignments.map((assignment) => assignment.transaction_id))) return false;
 
-  const categoryById = new Map(categories.map((category) => [category.id, category]));
+  const categoryById = new Map(finalCategories.map((category) => [category.id, category]));
   const transactionById = new Map(transactions.map((transaction) => [transaction.id, transaction]));
   const newById = new Map(new_categories.map((category) => [category.temp_id, category]));
   const newNames = new Set<string>();
@@ -102,7 +130,7 @@ export function validateOrganizePatch(
           parent.level >= 3 || parent.transaction_count > 0 || parent.system_kind)) return false;
     if (category.parent_category_id === null && category.parent_category_name !== null) return false;
     const siblingKey = `${category.type}:${category.parent_category_id ?? "root"}:${category.name.toLocaleLowerCase("vi")}`;
-    if (newNames.has(siblingKey) || categories.some((existing) =>
+    if (newNames.has(siblingKey) || finalCategories.some((existing) =>
       existing.type === category.type && existing.parent_id === category.parent_category_id &&
       existing.name.toLocaleLowerCase("vi") === category.name.toLocaleLowerCase("vi"))) return false;
     newNames.add(siblingKey);
@@ -120,7 +148,7 @@ export function validateOrganizePatch(
       : newById.get(move.suggested_category_id);
     if (!transaction || !current || !target || transaction.category_id !== current.id ||
         transaction.note !== move.note || transaction.updated_at !== move.current_updated_at ||
-        current.name !== move.current_category_name ||
+        current.name !== move.current_category_name || current.system_kind || current.budget_behavior !== "consumption" ||
         target.name !== move.suggested_category_name || target.type !== transaction.type ||
         move.suggested_category_id === current.id) return false;
     if ("id" in target && (target.child_count > 0 || target.system_kind || target.budget_behavior !== "consumption" ||
@@ -133,4 +161,69 @@ export function validateOrganizePatch(
         (transaction.emoji ?? transaction.category_emoji) !== assignment.current_emoji) return false;
   }
   return true;
+}
+
+/** Validate the complete resulting tree and derive descendant levels before writing. */
+export function resolveOrganizeTree(
+  patch: OrganizePatch,
+  categories: OrganizeCategoryState[],
+): OrganizeCategoryState[] | null {
+  if (patch.category_merges.length === 0 && patch.category_moves.length === 0) return categories.map((category) => ({ ...category }));
+  const originals = new Map(categories.map((category) => [category.id, category]));
+  const final = new Map(categories.map((category) => [category.id, { ...category }]));
+  const sources = new Set(patch.category_merges.map((merge) => merge.source_category_id));
+  const moved = new Set(patch.category_moves.map((move) => move.category_id));
+  if (sources.size !== patch.category_merges.length || moved.size !== patch.category_moves.length) return null;
+  for (const merge of patch.category_merges) {
+    const source = originals.get(merge.source_category_id);
+    const target = originals.get(merge.target_category_id);
+    if (!source || !target || source.id === target.id || sources.has(target.id) ||
+        moved.has(source.id) || moved.has(target.id) ||
+        source.name !== merge.source_category_name || target.name !== merge.target_category_name ||
+        source.transaction_count !== merge.transaction_count || source.child_count || target.child_count ||
+        source.system_kind || target.system_kind || source.budget_behavior !== "consumption" ||
+        target.budget_behavior !== source.budget_behavior || source.type !== target.type ||
+        source.parent_id !== target.parent_id || target.transaction_count < source.transaction_count ||
+        (target.transaction_count === source.transaction_count && target.id > source.id)) return null;
+    final.delete(source.id);
+    final.get(target.id)!.transaction_count += source.transaction_count;
+  }
+  for (const move of patch.category_moves) {
+    const category = final.get(move.category_id);
+    const parent = move.parent_category_id === null ? null : final.get(move.parent_category_id);
+    if (!category || category.system_kind || category.budget_behavior !== "consumption" ||
+        category.name !== move.category_name ||
+        (move.parent_category_id !== null && (!parent || parent.system_kind ||
+          parent.budget_behavior !== category.budget_behavior || parent.name !== move.parent_category_name ||
+          parent.type !== category.type || parent.transaction_count > 0)) ||
+        (move.parent_category_id === null && move.parent_category_name !== null) ||
+        (category.parent_id === move.parent_category_id && category.sort_order === move.sort_order)) return null;
+    category.parent_id = move.parent_category_id;
+    category.sort_order = move.sort_order;
+  }
+  const names = new Set<string>();
+  for (const category of final.values()) {
+    const visited = new Set([category.id]);
+    let ancestor = category;
+    let level = 1;
+    while (ancestor.parent_id !== null) {
+      const parent = final.get(ancestor.parent_id);
+      if (!parent || visited.has(parent.id) || parent.type !== category.type || ++level > 3) return null;
+      visited.add(parent.id);
+      ancestor = parent;
+    }
+    if (category.system_kind && level !== category.level) return null;
+    category.level = level;
+    category.child_count = [...final.values()].filter((child) => child.parent_id === category.id).length;
+    if (category.child_count && category.transaction_count > 0) return null;
+    const key = `${category.type}:${category.parent_id}:${category.name.toLocaleLowerCase("vi")}`;
+    if (names.has(key) && (patch.category_moves.length || patch.category_merges.length)) return null;
+    names.add(key);
+  }
+  // Structural operations cannot delete references selected in other proposal groups.
+  if (patch.recategorizations.some((move) => sources.has(move.current_category_id) ||
+      (typeof move.suggested_category_id === "number" && sources.has(move.suggested_category_id))) ||
+      patch.emoji_assignments.some((assignment) => sources.has(assignment.category_id)) ||
+      patch.new_categories.some((category) => category.parent_category_id !== null && sources.has(category.parent_category_id))) return null;
+  return [...final.values()];
 }

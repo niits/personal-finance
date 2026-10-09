@@ -25,6 +25,11 @@ spending and may be used only by compatible finance movements.
 - A user may create and rename ordinary categories within the depth and type rules.
 - A category with children or referenced transactions cannot be deleted.
 - Deleting a category never cascades into transaction history.
+- A reviewed AI merge transfers all source transactions to an eligible existing leaf
+  of the same type, parent, and consumption behavior before deleting the source in
+  one atomic operation. The source and target must be ordinary categories.
+- Reviewed AI tree changes preserve type, leaf assignability, maximum depth, and
+  protected financial behavior, including when moving a complete subtree.
 - Seed operations are user-scoped and idempotent.
 - AI-created categories pass the same hierarchy, ownership, uniqueness, and type
   validation as manually created categories.

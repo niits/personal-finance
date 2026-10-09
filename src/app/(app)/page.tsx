@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { mutate } from "swr";
 import { useRouter } from "next/navigation";
 import { DashboardTemplate } from "@/components/templates/DashboardTemplate";
 import type { DashboardData, Transaction } from "@/components/templates/DashboardTemplate";
@@ -20,6 +21,7 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [organizeState, setOrganizeState] = useState<"idle" | "loading" | "review" | "applying">("idle");
+  const [organizeNotice, setOrganizeNotice] = useState<{ message: string; error: boolean } | null>(null);
   const [organizePreview, setOrganizePreview] = useState<OrganizePreview | null>(null);
   const [organizeApplyError, setOrganizeApplyError] = useState<string | null>(null);
   const [organizeApplyBlocked, setOrganizeApplyBlocked] = useState(false);
@@ -149,16 +151,24 @@ export default function DashboardPage() {
   }
 
   async function handleOrganize() {
+    setOrganizeNotice(null);
     setOrganizeApplyError(null);
     setOrganizeApplyBlocked(false);
     setOrganizeState("loading");
     try {
       const r = await fetch("/api/ai/organize", { method: "POST" });
-      if (!r.ok) { setOrganizeState("idle"); return; }
+      if (!r.ok) {
+        if (r.status === 401) { replace("/sign-in"); return; }
+        const failure = await r.json().catch(() => null) as { error?: string } | null;
+        setOrganizeNotice({ message: failure?.error ?? "Không thể tạo đề xuất. Vui lòng thử lại.", error: true });
+        setOrganizeState("idle");
+        return;
+      }
       const preview = await r.json() as OrganizePreview;
       setOrganizePreview(preview);
       setOrganizeState("review");
     } catch {
+      setOrganizeNotice({ message: "Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.", error: true });
       setOrganizeState("idle");
     }
   }
@@ -175,10 +185,14 @@ export default function DashboardPage() {
         body: JSON.stringify(selection),
       });
       if (r.ok) {
+        const counts = await r.json() as { created_categories: number; emoji_updated: number; transactions_moved: number; merged_categories: number; reorganized_categories: number };
+        setOrganizeNotice({ message: `Đã hợp nhất ${counts.merged_categories} danh mục, sắp xếp ${counts.reorganized_categories} danh mục, tạo ${counts.created_categories} danh mục, cập nhật ${counts.emoji_updated} emoji và chuyển ${counts.transactions_moved} giao dịch.`, error: false });
+        void mutate((key) => typeof key === "string" && /^\/api\/(categories|transactions|dashboard|monthly-budgets|custom-budgets|pace-line|statistics)(?:[/?]|$)/.test(key));
         setOrganizeState("idle");
         setOrganizePreview(null);
         load(selectedMonth, true);
       } else {
+        if (r.status === 401) { replace("/sign-in"); return; }
         const blocked = r.status === 409;
         setOrganizeApplyBlocked(blocked);
         setOrganizeApplyError(blocked
@@ -223,6 +237,7 @@ export default function DashboardPage() {
       onCloseForm={() => { setFormOpen(false); setEditTxn(undefined); }}
       onSaved={() => load(selectedMonth, true)}
       onDelete={handleDelete}
+      organizeNotice={organizeNotice}
       organizeState={organizeState}
       organizePreview={organizePreview}
       organizeApplyError={organizeApplyError}
