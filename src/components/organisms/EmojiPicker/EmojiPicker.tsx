@@ -64,10 +64,12 @@ type EmojiPickerProps = {
   value: string | null;
   onChange: (emoji: string | null) => void;
   suggestForName?: string;
+  placement?: "above" | "viewport";
 };
 
-export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProps) {
+export function EmojiPicker({ value, onChange, suggestForName, placement = "above" }: EmojiPickerProps) {
   const [open, setOpen] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const suggestions = useMemo(
@@ -81,8 +83,36 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
+    const viewport = window.visualViewport;
+    function positionPopover() {
+      if (placement !== "viewport" || !ref.current || !popoverRef.current) return;
+      const rect = ref.current.getBoundingClientRect();
+      const top = viewport?.offsetTop ?? 0;
+      const left = viewport?.offsetLeft ?? 0;
+      const height = viewport?.height ?? window.innerHeight;
+      const width = viewport?.width ?? window.innerWidth;
+      const above = rect.top - top - 8;
+      const below = top + height - rect.bottom - 8;
+      const maxHeight = Math.min(360, Math.max(above, below));
+      const popoverWidth = Math.min(300, width - 40);
+      Object.assign(popoverRef.current.style, {
+        position: "fixed",
+        bottom: "auto",
+        top: `${above >= below ? rect.top - maxHeight - 8 : rect.bottom + 8}px`,
+        left: `${Math.max(left + 20, Math.min(rect.left, left + width - popoverWidth - 20))}px`,
+        width: `${popoverWidth}px`,
+        maxHeight: `${maxHeight}px`,
+      });
+    }
+    positionPopover();
+    viewport?.addEventListener("resize", positionPopover);
+    viewport?.addEventListener("scroll", positionPopover);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      viewport?.removeEventListener("resize", positionPopover);
+      viewport?.removeEventListener("scroll", positionPopover);
+    };
+  }, [open, placement]);
 
   function pickEmoji(e: string) {
     onChange(e);
@@ -109,6 +139,8 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="Chọn emoji"
+        aria-label="Chọn emoji"
+        aria-expanded={open}
         className="size-11 rounded-md bg-canvas-parchment cursor-pointer flex items-center justify-center shrink-0 transition-[border-color] text-ink-muted-48"
         style={{
           border: `1.5px solid ${open ? "var(--primary)" : "var(--hairline)"}`,
@@ -119,7 +151,7 @@ export function EmojiPicker({ value, onChange, suggestForName }: EmojiPickerProp
       </button>
 
       {open && (
-        <div className="absolute bottom-[calc(100%+8px)] left-0 w-[300px] max-h-[360px] overflow-y-auto bg-canvas border border-hairline rounded-[14px] shadow-[0_8px_32px_rgba(0,0,0,0.14)] z-[500] py-2">
+        <div ref={popoverRef} className="absolute bottom-[calc(100%+8px)] left-0 w-[300px] max-h-[360px] overflow-y-auto bg-canvas border border-hairline rounded-[14px] shadow-[0_8px_32px_rgba(0,0,0,0.14)] z-[500] py-2">
           {value && (
             <div style={{ padding: "0 10px 6px" }}>
               <button type="button" onClick={() => { onChange(null); setOpen(false); }}
