@@ -196,6 +196,8 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
       const sid = r.suggested_category_id;
       const txn = transactions.find((t) => t.id === r.transaction_id);
       if (!txn || txn.category_id === sid) return [];
+      const current = catMap.get(txn.category_id);
+      if (!current || current.system_kind || current.budget_behavior !== "consumption") return [];
       const target = typeof sid === "number" ? catMap.get(sid) : validNewCategories.find((c) => c.temp_id === sid);
       if (!target || target.type !== txn.type) return [];
       if ("id" in target && (target.child_count > 0 || target.system_kind ||
@@ -249,6 +251,8 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
   });
   const category_moves = (result?.category_moves ?? []).flatMap((move) => {
     const category = catMap.get(move.category_id);
+    if (category && category.parent_id === move.parent_category_id &&
+        category.sort_order === move.sort_order) return [];
     return category ? [{ ...move, category_name: category.name,
       parent_category_name: move.parent_category_id === null ? null : catMap.get(move.parent_category_id)?.name ?? null }] : [];
   });
@@ -266,7 +270,10 @@ ${JSON.stringify(transactions.map((t) => ({ id: t.id, note: t.note, type: t.type
     emoji_reassignments,
   };
   const parsed = OrganizePatchSchema.safeParse(proposal);
-  if (!parsed.success) {
+  const originalTransactions = transactions.map((transaction) => ({
+    ...transaction, category_emoji: transaction.cat_emoji,
+  }));
+  if (!parsed.success || !validateOrganizePatch(parsed.data, categories, originalTransactions)) {
     return Response.json({
       error: "Không thể tạo một đề xuất hợp lệ. Vui lòng thử lại.",
       code: "AI_INVALID_PATCH",

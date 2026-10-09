@@ -55,8 +55,12 @@ classification, and transaction emoji without making unreviewed financial change
 ## Flow
 
 1. The user starts analysis and receives plain-language progress.
-2. The server reads the relevant data again after AI generation and returns a proposal
-   only when the complete patch passes the same validation used by Apply.
+2. Preview omits unchanged parent/order suggestions and rejects recategorization of
+   protected finance movements. The complete patch must pass the Apply validator
+   against the original analysis data before the server reads current data again.
+   An invalid model proposal returns `AI_INVALID_PATCH` (`502`); only a proposal that
+   was valid for the original data but no longer matches current data returns
+   `STALE_PROPOSAL` (`409`). Preview never writes data.
 3. A review surface groups proposals and allows independent selection, including
    emoji assignments for existing categories. Merges name the retained and deleted
    categories, affected transaction counts, and reasons. Tree changes show current and

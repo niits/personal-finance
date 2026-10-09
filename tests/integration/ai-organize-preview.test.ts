@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:test";
 import type { NextRequest } from "next/server";
 import { applyMigrations, seedCategory, seedMonthlyBudget, seedUser } from "./helpers";
@@ -50,6 +50,21 @@ beforeAll(async () => {
   await applyMigrations();
   await seedUser({ id: "user-organize-preview", email: "organize-preview@example.com" });
 });
+
+beforeEach(() => {
+  generation.proposal = null;
+  generation.emoji = "📁";
+  generation.beforeEmojiResponse = null;
+});
+
+const emptyProposal = {
+  new_categories: [], recategorizations: [], emoji_reassignments: [],
+  category_moves: [], category_merges: [],
+};
+
+const requestPreview = () => POST(new Request("http://localhost/api/ai/organize", {
+  method: "POST",
+}) as NextRequest);
 
 describe("AI Organize preview", () => {
   it("proposes emoji for every missing category without noted transactions", async () => {
@@ -107,6 +122,81 @@ describe("AI Organize preview", () => {
 
 
 describe("AI Organize structural preview", () => {
+  it("returns a usable preview when AI repeats the current parent and order", async () => {
+    const categoryId = await seedCategory("user-organize-preview", "Sinh hoạt");
+    generation.proposal = { ...emptyProposal, category_moves: [{
+      category_id: categoryId, parent_category_id: null, sort_order: 0,
+      reason: "Giữ vị trí hiện tại.",
+    }] };
+
+    const response = await requestPreview();
+    expect(response.status).toBe(200);
+    const preview = await response.json<{ category_moves: unknown[]; emoji_assignments: unknown[] }>();
+    expect(preview.category_moves).toEqual([]);
+    expect(preview.emoji_assignments).toHaveLength(1);
+  });
+
+  it("preserves a valid tree change alongside unchanged parent and order suggestions", async () => {
+    const parent = await seedCategory("user-organize-preview", "Sinh hoạt");
+    const branch = await seedCategory("user-organize-preview", "Học tập");
+    generation.proposal = { ...emptyProposal, category_moves: [
+      { category_id: parent, parent_category_id: null, sort_order: 0, reason: "Giữ vị trí hiện tại." },
+      { category_id: branch, parent_category_id: parent, sort_order: 1, reason: "Sắp xếp nhóm học tập." },
+    ] };
+
+    const response = await requestPreview();
+    expect(response.status).toBe(200);
+    const preview = await response.json<{ category_moves: Array<{ category_id: number }> }>();
+    expect(preview.category_moves).toEqual([expect.objectContaining({ category_id: branch })]);
+    expect(await env.DB.prepare("SELECT parent_id FROM category WHERE id = ?").bind(branch).first())
+      .toEqual({ parent_id: null });
+  });
+
+  it("reports an invalid AI tree as a model proposal error when data did not change", async () => {
+    const parent = await seedCategory("user-organize-preview", "Sinh hoạt");
+    const child = await seedCategory("user-organize-preview", "Học tập", parent, 2);
+    generation.proposal = { ...emptyProposal, category_moves: [{
+      category_id: parent, parent_category_id: child, sort_order: 1,
+      reason: "Sắp xếp nhóm danh mục.",
+    }] };
+
+    const response = await requestPreview();
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ code: "AI_INVALID_PATCH" });
+    expect(await env.DB.prepare("SELECT parent_id FROM category WHERE id = ?").bind(parent).first())
+      .toEqual({ parent_id: null });
+  });
+
+  it("omits protected finance recategorizations while preserving valid suggestions", async () => {
+    const lending = await seedCategory("user-organize-preview", "Cho vay");
+    await env.DB.prepare("UPDATE category SET system_kind = 'lend', budget_behavior = 'non_budget' WHERE id = ?")
+      .bind(lending).run();
+    const original = await seedCategory("user-organize-preview", "Chi phí khác");
+    const target = await seedCategory("user-organize-preview", "Điện nước");
+    const budget = await seedMonthlyBudget("user-organize-preview", "2026-10", 1000000);
+    const transactionIds = [];
+    for (const categoryId of [lending, original]) {
+      const result = await env.DB.prepare(`INSERT INTO "transaction"
+        (user_id, amount, type, category_id, note, date, monthly_budget_id)
+        VALUES (?, 50000, 'expense', ?, 'Tiền điện nước tháng 9', '2026-10-01', ?)`)
+        .bind("user-organize-preview", categoryId, budget.id).run();
+      transactionIds.push(result.meta.last_row_id);
+    }
+    generation.proposal = { ...emptyProposal, recategorizations: transactionIds.map((transactionId) => ({
+      transaction_id: transactionId, suggested_category_id: target,
+      reason: "Phân loại chi phí điện nước.",
+    })) };
+
+    const response = await requestPreview();
+    expect(response.status).toBe(200);
+    const preview = await response.json<{ recategorizations: Array<{ transaction_id: number }> }>();
+    expect(preview.recategorizations).toEqual([
+      expect.objectContaining({ transaction_id: transactionIds[1] }),
+    ]);
+    expect(await env.DB.prepare('SELECT category_id FROM "transaction" WHERE id = ?')
+      .bind(transactionIds[0]).first()).toEqual({ category_id: lending });
+  });
+
   it("analyzes structure without noted transactions and resolves review metadata", async () => {
     const target = await seedCategory("user-organize-preview", "Đi lại");
     const source = await seedCategory("user-organize-preview", "Di chuyển");
