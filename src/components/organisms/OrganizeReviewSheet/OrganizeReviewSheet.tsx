@@ -105,9 +105,9 @@ function OpenOrganizeReviewSheet({ preview, applying, error, applyBlocked, onApp
       className="fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-none border-0 bg-transparent p-0 text-ink backdrop:bg-surface-black/40 sm:inset-0 sm:m-auto sm:max-w-[720px]"
     >
       <div className="flex max-h-[80dvh] flex-col overflow-hidden rounded-t-2xl bg-canvas sm:rounded-2xl">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-hairline px-4 py-3">
-          <h2 id="organize-review-title" className="font-display text-lg font-semibold">Xem lại đề xuất tổ chức</h2>
-          <button type="button" onClick={onClose} disabled={applying} className="min-h-11 px-3 font-body text-sm text-primary disabled:opacity-60">Đóng</button>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline px-4 py-3">
+          <h2 id="organize-review-title" className="min-w-0 flex-1 break-words font-display text-lg font-semibold">Xem lại đề xuất tổ chức</h2>
+          <button type="button" onClick={onClose} disabled={applying} className="min-h-11 min-w-11 shrink-0 px-3 font-body text-sm text-primary disabled:opacity-60">Đóng</button>
         </div>
         <fieldset disabled={applying} className="min-h-0 flex-1 overflow-y-auto border-0 p-0">
           {!hasAnything ? <p className="px-4 py-8 text-center font-body text-sm text-ink-muted-48">Không có đề xuất tổ chức mới.</p> : <>
