@@ -99,7 +99,7 @@ large amounts rather than truncating them. Inputs use at least 17px text on iOS.
 | 48px | Empty-state breathing room |
 
 Use 8px radius for compact controls, 12px for inputs and standard cards, 18px for
-prominent bounded summaries, and 24px for sheets. The default UI is shadowless. One
+prominent bounded summaries, and 24px (`--radius-sheet`) for sheets. The default UI is shadowless. One
 soft elevation treatment is reserved for a temporary floating surface above a scrim.
 Avoid gradients, glass effects, layered translucent cards, and permanent black bars.
 

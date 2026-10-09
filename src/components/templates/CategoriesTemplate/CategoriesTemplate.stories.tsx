@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
+import { expect, userEvent, within } from "storybook/test";
 import { CategoriesTemplate } from "./CategoriesTemplate";
 
 const meta: Meta<typeof CategoriesTemplate> = {
@@ -46,3 +47,21 @@ export const Empty: Story = { args: { ...defaultArgs, categories: [] } };
 export const SeedPending: Story = { args: { ...defaultArgs, categories: [], seedState: "loading" } };
 export const SeedError: Story = { args: { ...defaultArgs, categories: [], seedState: "error", seedError: "Không thể tạo danh mục mẫu lúc này." } };
 export const LongNames: Story = { args: defaultArgs, parameters: { viewport: { defaultViewport: "mobile1" } } };
+
+export const CreateCategory: Story = {
+  args: defaultArgs,
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Thêm" }));
+    await expect(canvas.getByLabelText("Tên danh mục")).toBeVisible();
+  },
+};
+
+export const RenameCategory: Story = {
+  args: defaultArgs,
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("button", { name: `Thao tác cho ${mockCategories[0].name}` }));
+    await userEvent.click(canvas.getByRole("button", { name: "Đổi tên" }));
+    const dialog = canvas.getByRole("dialog");
+    await expect(within(dialog).getByLabelText("Tên danh mục")).toHaveValue(mockCategories[0].name);
+  },
+};

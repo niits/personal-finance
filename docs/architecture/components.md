@@ -61,7 +61,9 @@ than expanding the overview into one monolith.
 
 Transaction entry is one organism with responsive presentation: full-screen on mobile
 and bounded dialog/sheet on larger viewports. Generic confirmation and sheet mechanics
-are shared; feature-specific behavior remains in the owning organism.
+are shared. `ModalSheet` provides native modal isolation, focus restoration, scroll
+locking, and visual-viewport sizing for category and finance forms. Feature-specific
+behavior remains in the owning organism.
 
 `InsightChart` owns the statistics report narrative, accessible data table, and local
 Recharts templates. Composition follows shadcn Charts with Calm Ledger tokens rather

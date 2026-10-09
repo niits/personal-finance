@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
 import { ConfirmationSheet } from "@/components/organisms/ConfirmationSheet";
+import { ModalSheet } from "@/components/organisms/ModalSheet";
 
 export type Category = {
   id: number;
@@ -106,8 +107,7 @@ export function CategoriesTemplate({
   const [editError, setEditError] = useState("");
   const [deleteCategory, setDeleteCategory] = useState<Category | null>(null);
   const [deleteError, setDeleteError] = useState("");
-  const dialogCancelRef = useRef<HTMLButtonElement>(null);
-  const editInputRef = useRef<HTMLInputElement>(null);
+  const categoryActionRef = useRef<HTMLButtonElement>(null);
 
   const allCategories = flattenCategories(categories);
   const counts = allCategories.reduce<Record<CategoryType, number>>(
@@ -123,19 +123,6 @@ export function CategoriesTemplate({
   );
   const selectedParent = parentOptions.find((category) => category.id === parentId);
 
-  useEffect(() => {
-    if (!editingCategory) return;
-    editInputRef.current?.focus();
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setEditingCategory(null);
-    }
-
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [editingCategory]);
-
   function changeType(type: CategoryType) {
     setActiveType(type);
     setParentId(null);
@@ -143,7 +130,7 @@ export function CategoriesTemplate({
   }
 
   async function createCategory() {
-    if (!newName.trim()) return;
+    if (saving || !newName.trim()) return;
     setSaving(true);
     setCreateError("");
     const result = await onAddCategory(newName.trim(), newEmoji, parentId, activeType);
@@ -167,7 +154,7 @@ export function CategoriesTemplate({
   }
 
   async function saveEdit() {
-    if (!editingCategory || !editName.trim()) return;
+    if (saving || !editingCategory || !editName.trim()) return;
     setSaving(true);
     setEditError("");
     const result = await onEditCategory(editingCategory.id, editName.trim(), editEmoji);
@@ -229,7 +216,10 @@ export function CategoriesTemplate({
                 type="button"
                 aria-label={`Thao tác cho ${category.name}`}
                 aria-expanded={actionCategoryId === category.id}
-                onClick={() => setActionCategoryId((current) => current === category.id ? null : category.id)}
+                onClick={(event) => {
+                  categoryActionRef.current = event.currentTarget;
+                  setActionCategoryId((current) => current === category.id ? null : category.id);
+                }}
                 className="flex size-11 shrink-0 items-center justify-center rounded-sm border-0 bg-transparent font-body text-[22px] leading-none text-ink-muted-48"
               >
                 ···
@@ -296,7 +286,7 @@ export function CategoriesTemplate({
       {showCreate ? (
         <section className="border-b border-hairline py-lg" aria-labelledby="create-category-title">
           <h2 id="create-category-title" className="font-body text-[17px] font-semibold text-ink">Danh mục mới</h2>
-          <div className="mt-sm flex items-start gap-xs">
+          <div className="mt-sm flex items-end gap-xs">
             <EmojiPicker value={newEmoji} onChange={setNewEmoji} suggestForName={newName} />
             <label className="min-w-0 flex-1 font-body text-[13px] text-ink-muted-80">
               Tên danh mục
@@ -374,25 +364,28 @@ export function CategoriesTemplate({
         </section>
       )}
 
-      {editingCategory ? (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-surface-black/40 p-0 sm:items-center sm:p-lg" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingCategory(null)}>
-          <section role="dialog" aria-modal="true" aria-labelledby="edit-title" className="w-full max-w-md rounded-t-[24px] bg-canvas p-5 sm:rounded-[24px]">
-            <h2 id="edit-title" className="font-display text-[21px] font-semibold text-ink">Đổi tên “{editingCategory.name}”</h2>
-            <div className="mt-lg flex items-start gap-xs">
-              <EmojiPicker value={editEmoji} onChange={setEditEmoji} suggestForName={editName} />
-              <label className="min-w-0 flex-1 font-body text-[13px] text-ink-muted-80">
-                Tên danh mục
-                <input ref={editInputRef} value={editName} onChange={(event) => setEditName(event.target.value)} maxLength={100} className="mt-xxs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-sm font-body text-[17px] text-ink outline-none" />
-              </label>
-            </div>
-            {editError ? <p role="alert" className="mt-xs font-body text-[14px] text-danger">{editError}</p> : null}
-            <div className="mt-lg flex gap-xs">
-              <button ref={dialogCancelRef} type="button" onClick={() => setEditingCategory(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas font-body text-[15px] font-semibold text-ink">Hủy</button>
-              <button type="button" onClick={saveEdit} disabled={saving || !editName.trim()} className="min-h-11 flex-[2] rounded-md border-0 bg-primary font-body text-[15px] font-semibold text-on-primary disabled:opacity-60">{saving ? "Đang lưu…" : "Lưu thay đổi"}</button>
-            </div>
-          </section>
-        </div>
-      ) : null}
+      <ModalSheet
+        open={Boolean(editingCategory)}
+        title={editingCategory ? `Đổi tên “${editingCategory.name}”` : "Đổi tên danh mục"}
+        pending={saving}
+        restoreFocusRef={categoryActionRef}
+        onDismiss={() => setEditingCategory(null)}
+      >
+        <form onSubmit={(event) => { event.preventDefault(); void saveEdit(); }}>
+          <div className="mt-lg flex items-end gap-xs">
+            <EmojiPicker value={editEmoji} onChange={setEditEmoji} suggestForName={editName} placement="viewport" />
+            <label className="min-w-0 flex-1 font-body text-[13px] text-ink-muted-80">
+              Tên danh mục
+              <input value={editName} onChange={(event) => setEditName(event.target.value)} disabled={saving} maxLength={100} className="mt-xxs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-sm font-body text-[17px] text-ink" />
+            </label>
+          </div>
+          {editError ? <p role="alert" className="mt-xs font-body text-[14px] text-danger">{editError}</p> : null}
+          <div className="mt-lg flex gap-xs">
+            <button type="button" disabled={saving} onClick={() => setEditingCategory(null)} className="min-h-11 min-w-0 flex-1 rounded-md border border-hairline bg-canvas px-xs font-body text-[15px] font-semibold text-ink disabled:opacity-60">Hủy</button>
+            <button type="submit" disabled={saving || !editName.trim()} className="min-h-11 min-w-0 flex-[2] rounded-md border-0 bg-primary px-xs font-body text-[15px] font-semibold text-on-primary disabled:opacity-60">{saving ? "Đang lưu…" : "Lưu thay đổi"}</button>
+          </div>
+        </form>
+      </ModalSheet>
 
       <ConfirmationSheet
         open={Boolean(deleteCategory)}
