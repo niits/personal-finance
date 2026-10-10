@@ -206,19 +206,23 @@ export function DashboardTemplate({
       <div className="mx-auto w-full max-w-[720px]">
         <div className="sticky top-0 z-40 border-b border-hairline bg-canvas">
           <div className="mx-auto w-full max-w-[720px] px-5 pt-xs">
-            <div className="flex min-h-11 items-center justify-between gap-sm">
+            <div className="flex min-h-11 flex-wrap items-center justify-between gap-xs">
               <div className="relative inline-flex items-center">
                 <select
                   aria-label="Chọn tháng"
+                  title="Chọn tháng khác"
                   value={selectedMonth}
                   onChange={(event) => onSelectMonth(event.target.value)}
-                  className="min-h-11 appearance-none border-none bg-transparent py-0 pr-md font-display text-[21px] font-semibold text-ink"
+                  className="min-h-11 cursor-pointer appearance-none rounded-sm border border-hairline bg-canvas py-0 pl-xs pr-9 font-display text-[17px] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
                   {months.map((month) => (
                     <option key={month} value={month}>{formatMonth(month)}</option>
                   ))}
                 </select>
-                <span aria-hidden="true" className="pointer-events-none absolute right-xs font-body text-xs text-ink-muted-48">▾</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="pointer-events-none absolute right-xs size-5 stroke-current text-ink-muted-80">
+                  <rect x="3" y="5" width="18" height="16" rx="2" strokeWidth="1.8" />
+                  <path d="M7 3v4m10-4v4M3 11h18" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
               </div>
               {isCurrentMonth ? (
                 <button
@@ -226,14 +230,19 @@ export function DashboardTemplate({
                   ref={organizeTriggerRef}
                   onClick={onOrganize}
                   disabled={organizeState !== "idle"}
-                  aria-label="AI tổ chức danh mục và giao dịch"
+                  aria-describedby="organize-description"
                   aria-busy={organizeBusy}
-                  className="min-h-11 rounded-pill border border-primary bg-transparent px-md font-body text-xs font-semibold text-primary disabled:opacity-50"
+                  className="min-h-11 shrink-0 rounded-pill border border-primary bg-transparent px-sm font-body text-xs font-semibold text-primary disabled:opacity-50"
                 >
-                  {organizeBusy ? "Đang tổ chức…" : "AI tổ chức"}
+                  {organizeBusy ? "Đang phân tích…" : "AI gợi ý phân loại"}
                 </button>
               ) : null}
             </div>
+            {isCurrentMonth ? (
+              <p id="organize-description" className="py-xs font-body text-xs text-ink-muted-80">
+                AI đề xuất phân loại giao dịch, sắp xếp danh mục và bổ sung biểu tượng. Bạn duyệt trước khi áp dụng.
+              </p>
+            ) : null}
             {organizeNotice && <p role={organizeNotice.error ? "alert" : "status"} className={`pb-2 font-body text-sm ${organizeNotice.error ? "text-danger" : "text-ink-muted-80"}`}>{organizeNotice.message}</p>}
           </div>
           <section aria-labelledby="monthly-outcome" className="mx-auto w-full max-w-[720px] px-5 pb-md pt-xs">
