@@ -238,11 +238,6 @@ export function DashboardTemplate({
                 </button>
               ) : null}
             </div>
-            {isCurrentMonth ? (
-              <p id="organize-description" className="py-xs font-body text-xs text-ink-muted-80">
-                AI đề xuất phân loại giao dịch, sắp xếp danh mục và bổ sung biểu tượng. Bạn duyệt trước khi áp dụng.
-              </p>
-            ) : null}
             {organizeNotice && <p role={organizeNotice.error ? "alert" : "status"} className={`pb-2 font-body text-sm ${organizeNotice.error ? "text-danger" : "text-ink-muted-80"}`}>{organizeNotice.message}</p>}
           </div>
           <section aria-labelledby="monthly-outcome" className="mx-auto w-full max-w-[720px] px-5 pb-md pt-xs">
