@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatVND } from "@/components/atoms/CurrencyDisplay";
+import { financeReduction } from "@/lib/finance-counterpart";
 import { ConfirmationSheet } from "@/components/organisms/ConfirmationSheet";
 import { ModalSheet } from "@/components/organisms/ModalSheet";
 
@@ -46,6 +47,7 @@ export type CreditCardsTemplateProps = {
   payingStatementId: string | null;
   onRetryGroups?: () => void;
   onRetryAccounts?: () => void;
+  onCreateCounterpart?: (account: FinanceAccount) => void;
   onPay: (statementId: string, paidAt: string) => MutationResult;
   onCreateGroup: (input: GroupInput) => MutationResult;
   onUpdateGroup: (id: string, input: GroupInput) => MutationResult;
@@ -193,14 +195,16 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
               {visibleAccounts.map((account) => {
                 const meaning = accountMeaning(account);
                 const expanded = expandedId === account.id;
+                const reduction = financeReduction(account);
                 return <article key={account.id} className="py-md first:pt-0">
                   <button type="button" onClick={() => setExpandedId(expanded ? null : account.id)} aria-expanded={expanded} className="flex min-h-11 w-full items-start justify-between gap-md border-0 bg-transparent text-left">
                     <span className="min-w-0"><span className="block break-words font-body text-[17px] font-semibold text-ink">{account.name}</span><span className="mt-xxs block font-body text-[13px] text-ink-muted-48">{account.type === "debt" ? account.debt_direction === "lend" ? "Cho vay" : "Đi vay" : "Tiền gửi"}{account.note ? ` · ${account.note}` : ""}</span></span>
                     <span className="shrink-0 text-right"><span className="block font-display text-[17px] font-semibold text-ink">{formatVND(meaning.amount)}₫</span><span className="block font-body text-[13px] text-ink-muted-48">{meaning.label}</span></span>
                   </button>
                   {expanded ? <div className="mt-md border-t border-divider-soft pt-md">
+                    {reduction && props.onCreateCounterpart ? <button type="button" onClick={() => props.onCreateCounterpart?.(account)} className="mb-md min-h-11 rounded-sm border-0 bg-primary px-md font-body text-[15px] font-semibold text-on-primary">{reduction.label}</button> : null}
                     <p className="font-body text-[13px] font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Lịch sử giao dịch</p>
-                    {account.transactions.length === 0 ? <p className="mt-sm font-body text-[15px] text-ink-muted-48">Tài khoản đã tạo nhưng chưa có giao dịch.</p> : account.transactions.map((transaction) => <div key={transaction.id} className="flex justify-between gap-sm border-b border-divider-soft py-sm last:border-0"><span className="min-w-0"><span className="block break-words font-body text-[15px] text-ink">{transaction.note || "Giao dịch"}</span><span className="font-body text-[13px] text-ink-muted-48">{transaction.date}</span></span><span className={`shrink-0 font-body text-[15px] font-semibold ${transaction.type === "expense" ? "text-danger" : "text-success"}`}>{signedAmount(transaction.type, transaction.amount)}</span></div>)}
+                    {account.transactions.length === 0 ? <p className="mt-sm font-body text-[15px] text-ink-muted-48">Tài khoản đã tạo nhưng chưa có giao dịch.</p> : account.transactions.map((transaction) => <div key={transaction.id} className="flex min-h-11 w-full justify-between gap-sm border-b border-divider-soft py-sm last:border-0"><span className="min-w-0"><span className="block break-words font-body text-[15px] text-ink">{transaction.note || "Giao dịch"}</span><span className="font-body text-[13px] text-ink-muted-48">{transaction.date}</span></span><span className={`shrink-0 font-body text-[15px] font-semibold ${transaction.type === "expense" ? "text-danger" : "text-success"}`}>{signedAmount(transaction.type, transaction.amount)}</span></div>)}
                     <div className="mt-md flex gap-xs"><button type="button" onClick={() => { setEditingAccount(account); setAccountName(account.name); setAccountNote(account.note ?? ""); setMutationError(null); }} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-primary">Sửa thông tin</button><button type="button" onClick={() => setDeleteTarget({ kind: "account", id: account.id, name: account.name })} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-danger">Xóa</button></div>
                   </div> : null}
                 </article>;

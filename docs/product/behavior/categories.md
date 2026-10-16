@@ -18,7 +18,9 @@
 
 System categories represent non-budget finance behavior. Their system kind, type, and
 budget behavior are protected from user mutation. They are excluded from consumption
-spending and may be used only by compatible finance movements.
+spending and may be used only by compatible finance movements. Received debt
+repayments use the income category `debt_collection` (Nhận tiền trả nợ); outgoing
+repayments use the expense category `debt_repayment` (Trả nợ).
 
 ## Mutation Rules
 

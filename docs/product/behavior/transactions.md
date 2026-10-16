@@ -35,6 +35,16 @@ defined in [`credit-cards.md`](./credit-cards.md).
 - The user selects or creates the finance account inside the shared transaction form.
 - Account association may only be created or changed by creating or editing the
   transaction. There is no separate link/unlink workflow or endpoint.
+- Selecting an account in Finance exposes a reduction action: received repayment for
+  lending, repayment for borrowing, and withdrawal for savings. The shared form asks
+  only for the amount, defaults to the remaining balance, and records today's date
+  and the appropriate protected category automatically. Saving preserves all previous
+  transactions and associates the new transaction with the same account. Settled or
+  reverse balances do not offer an additional reduction.
+- Editing an account-associated transaction shows other transactions in the original
+  and selected account, including the projected balance after the edit. Changing the
+  amount, direction, category, or account recomputes affected balances while retaining
+  other transactions unchanged. Reverse balances are displayed explicitly.
 - Reverse balances remain visible and are described truthfully rather than hidden
   with an absolute value.
 

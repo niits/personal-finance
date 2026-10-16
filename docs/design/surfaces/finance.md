@@ -23,9 +23,14 @@ that unpaid card spending is already included in consumption expense.
 
 ## Interaction Boundary
 
-Finance manages account/group metadata and statement payment. It does not create
-movements or link transactions. Users open the source transaction form to correct a
-movement or its account association.
+Finance manages account/group metadata and statement payment. Expanding a debt or
+savings account exposes its reduction action and complete movement history. The action
+is received repayment for lending, repayment for borrowing, and withdrawal for savings.
+The shared transaction form asks only for an amount, initially the remaining balance.
+It records today and the appropriate protected category automatically. Saving refreshes
+the balance and ledger. Settled and reverse balances do not offer another reduction.
+Users correct existing movements through transaction editing, which shows related
+transactions and projected balances for the original and selected accounts.
 
 ## States
 

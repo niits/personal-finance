@@ -108,7 +108,7 @@ export interface CategoryTable {
   level: number;
   sort_order: number;
   type: "income" | "expense";
-  system_kind: "lend" | "borrow" | "debt_repayment" | "savings_deposit" | "savings_withdrawal" | null;
+  system_kind: "lend" | "borrow" | "debt_repayment" | "debt_collection" | "savings_deposit" | "savings_withdrawal" | null;
   budget_behavior: "consumption" | "non_budget";
   created_at: Generated<number>;
 }

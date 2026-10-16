@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
+import type { FinanceCounterpart } from "@/lib/finance-counterpart";
 import type { DebtWithRepayments } from "@/lib/debt";
 import { findSelectedChild, getCategoryPath, rootDisplay } from "./categoryDisplay";
 
@@ -29,6 +30,7 @@ export type EditTransaction = {
 
 export type TransactionFormMode =
   | { kind: "create" }
+  | { kind: "finance-counterpart"; movement: FinanceCounterpart }
   | { kind: "create-debt-open" }
   | { kind: "repayment"; debt: DebtWithRepayments }
   | { kind: "edit"; transaction: EditTransaction };
@@ -53,7 +55,14 @@ type Category = {
 
 type CustomBudget = { id: number; name: string; amount: number; is_active: number };
 type OpenDebt = { id: string; type: "lend" | "borrow"; party: string; remaining: number };
-type FinanceAccount = { id: string; type: "debt" | "savings"; name: string; debt_direction: "lend" | "borrow" | null };
+type FinanceAccount = {
+  id: string;
+  type: "debt" | "savings";
+  name: string;
+  debt_direction: "lend" | "borrow" | null;
+  balance: number;
+  transactions: { id: number; amount: number; type: "income" | "expense"; date: string; note: string | null }[];
+};
 type CardGroup = { id: string; name: string };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -374,23 +383,37 @@ function Option({ label, sublabel, selected, onSelect }: { label: string; sublab
 const SPRING = "cubic-bezier(0.32, 0.72, 0, 1)";
 
 export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFormProps) {
+  const counterpart = mode.kind === "finance-counterpart" ? mode.movement : null;
+  const isCounterpart = Boolean(counterpart);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open || !isCounterpart) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [open, isCounterpart]);
   const isEdit = mode.kind === "edit";
   const isRepayment = mode.kind === "repayment";
   const editTx = isEdit ? mode.transaction : null;
 
   const [type, setType] = useState<"expense" | "income">(() =>
     isRepayment ? (mode.debt.type === "lend" ? "income" : "expense")
-    : editTx?.type ?? "expense"
+    : counterpart?.type ?? editTx?.type ?? "expense"
   );
   const [amountStr, setAmountStr] = useState(() =>
-    isRepayment ? fmt(mode.debt.remaining) : editTx ? fmt(editTx.amount) : ""
+    isRepayment ? fmt(mode.debt.remaining) : counterpart ? fmt(counterpart.amount) : editTx ? fmt(editTx.amount) : ""
   );
   const [categoryId, setCategoryId] = useState<number | null>(editTx?.category?.id ?? null);
   const [date, setDate] = useState(() => editTx?.date ?? todayStr());
   const [note, setNote] = useState(editTx?.note ?? "");
   const [emoji, setEmoji] = useState<string | null>(editTx?.emoji ?? null);
   const [selectedCbIds, setSelectedCbIds] = useState<number[]>(() => editTx?.custom_budgets.map((c) => c.id) ?? []);
-  const [financeAccountId, setFinanceAccountId] = useState<string | null>(editTx?.finance_account_id ?? null);
+  const [financeAccountId, setFinanceAccountId] = useState<string | null>(counterpart?.account.id ?? editTx?.finance_account_id ?? null);
   const [creditCardGroupId, setCreditCardGroupId] = useState<string | null>(editTx?.credit_card_group_id ?? null);
   const [newAccountName, setNewAccountName] = useState("");
   const [creatingAccount, setCreatingAccount] = useState(false);
@@ -421,14 +444,14 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   // the call site (see DashboardTemplate), so the useState initializers above
   // re-run for the new transaction — no prop-sync effect needed.
 
-  const { data: catData } = useSWR<{ categories: Category[]; usage_counts: Record<number, number> }>(
+  const { data: catData, error: categoryError, mutate: retryCategories } = useSWR<{ categories: Category[]; usage_counts: Record<number, number> }>(
     open && !isRepayment ? "/api/categories" : null, fetcher,
   );
   const { data: cbData } = useSWR<{ custom_budgets: CustomBudget[] }>(
-    open && !isRepayment ? "/api/custom-budgets?active_only=true" : null, fetcher,
+    open && !isRepayment && !counterpart ? "/api/custom-budgets?active_only=true" : null, fetcher,
   );
-  const { data: accountData, mutate: refreshAccounts } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment ? "/api/finance-accounts" : null, fetcher);
-  const { data: cardData } = useSWR<{ groups: CardGroup[] }>(open && !isRepayment ? "/api/credit-card-groups" : null, fetcher);
+  const { data: accountData, error: accountError, mutate: refreshAccounts } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment && !counterpart ? "/api/finance-accounts" : null, fetcher);
+  const { data: cardData } = useSWR<{ groups: CardGroup[] }>(open && !isRepayment && !counterpart ? "/api/credit-card-groups" : null, fetcher);
 
   const allCats = catData?.categories ?? [];
   const cats = allCats.filter((c) => c.type === type);
@@ -441,7 +464,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const selectedCbIdSet = new Set(selectedCbIds);
 
   // Whether to hide category/budget (debt tx has no category)
-  const isDebtMode = isRepayment
+  const isDebtMode = Boolean(counterpart) || isRepayment
     || (isEdit && editTx?.debt_id && !unlinkMode)
     || debtLink.kind !== "none";
 
@@ -462,7 +485,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     setError("");
   }
 
-  function handleClose() { onClose(); reset(); }
+  function handleClose() {
+    if (counterpart && isSubmittingRef.current) return;
+    if (counterpart && amountStr !== fmt(counterpart.amount)
+      && !window.confirm("Hủy các thay đổi chưa lưu của giao dịch đối ứng?")) return;
+    onClose(); reset();
+  }
 
   async function createAccount() {
     if (isCreatingAccountRef.current || !selectedCategory || !newAccountName.trim()) return;
@@ -505,6 +533,32 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         "Content-Type": "application/json",
         "X-Client-Time-Zone": Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
+      if (counterpart) {
+        const findMovementCategory = (categories: Category[]): Category | undefined => {
+          for (const category of categories) {
+            if (category.system_kind === counterpart.systemKind && category.type === type
+              && category.budget_behavior === "non_budget" && category.children.length === 0) return category;
+            const child = findMovementCategory(category.children);
+            if (child) return child;
+          }
+        };
+        const category = findMovementCategory(allCats);
+        if (!category) {
+          setError("Chưa tải được danh mục phù hợp. Vui lòng tải lại danh mục và thử lại.");
+          return;
+        }
+        const response = await fetch("/api/transactions", {
+          method: "POST", headers: transactionHeaders,
+          body: JSON.stringify({ amount, type, date: todayStr(), note: counterpart.label,
+            category_id: category.id, finance_account_id: counterpart.account.id }),
+        });
+        if (!response.ok) {
+          setError((await response.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
+        onSaved(); onClose(); return;
+      }
+
       // ── Repayment mode ────────────────────────────────────────────────────
       if (isRepayment) {
         const r = await fetch("/api/transactions", {
@@ -598,6 +652,8 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       });
       if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
       onSaved(); handleClose();
+    } catch {
+      setError("Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.");
     } finally {
       isSubmittingRef.current = false;
       setSaving(false);
@@ -606,7 +662,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
   if (!mounted) return null;
 
-  const title = isRepayment ? "Ghi nhận thanh toán"
+  const title = counterpart ? counterpart.label : isRepayment ? "Ghi nhận thanh toán"
     : isEdit ? "Sửa giao dịch"
     : "Giao dịch mới";
 
@@ -629,7 +685,21 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
       {/* Full-screen sheet */}
       <div
-        className="absolute inset-0 bg-canvas flex flex-col overflow-x-hidden"
+        ref={dialogRef} tabIndex={-1}
+        role="dialog" aria-modal="true" aria-label={title}
+        onKeyDown={(event) => {
+          if (!counterpart) return;
+          if (event.key === "Escape") { event.preventDefault(); handleClose(); }
+          if (event.key === "Tab") {
+            const elements = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]');
+            if (!elements?.length) return;
+            const first = elements[0];
+            const last = elements[elements.length - 1];
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+          }
+        }}
+        className="absolute inset-0 bg-canvas flex flex-col overflow-x-hidden sm:inset-y-lg sm:left-1/2 sm:right-auto sm:w-full sm:max-w-[560px] sm:-translate-x-1/2 sm:rounded-xl"
         style={{ animation: `${open ? "sheet-slide-in" : "sheet-slide-out"} 0.4s ${SPRING} forwards` }}
         onAnimationEnd={() => {
           if (open) amountRef.current?.focus();
@@ -651,7 +721,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           </span>
           <button type="button"
             onClick={submit}
-            disabled={saving}
+            disabled={saving || Boolean(counterpart && (!catData || categoryError)) || Boolean(isEdit && (editTx?.finance_account_id || (isSystemCategory && financeAccountId)) && (!accountData || accountError))}
             className={`min-h-11 min-w-11 rounded-sm border-0 bg-transparent px-xs font-body text-[17px] font-semibold hover:bg-canvas-parchment ${
               saving ? "text-ink-muted-48 cursor-not-allowed" : "text-primary cursor-pointer"
             }`}
@@ -662,6 +732,14 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
         {/* Scrollable body */}
         <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", padding: "8px 20px", paddingBottom: "max(40px, env(safe-area-inset-bottom))" } as React.CSSProperties}>
+
+          {counterpart ? <div className="mb-md rounded-md bg-canvas-parchment p-md">
+            <p className="break-words font-body text-[17px] font-semibold text-ink">{counterpart.account.name}</p>
+            <p className="mt-xs font-body text-[15px] text-ink-muted-80">{counterpart.label}. Bạn có thể thay đổi số tiền để ghi nhận một phần.</p>
+            <p className="mt-xs font-body text-[13px] text-ink-muted-48">Ngày ghi nhận: hôm nay. Số dư tài khoản được cập nhật sau khi lưu.</p>
+            {!catData && !categoryError ? <p role="status" className="mt-xs font-body text-[15px] text-ink-muted-48">Đang tải danh mục…</p> : null}
+            {categoryError || error ? <button type="button" onClick={() => void retryCategories()} className="mt-xs min-h-11 text-primary">Tải lại danh mục</button> : null}
+          </div> : null}
 
           {/* Repayment: locked debt chip */}
           {isRepayment && (
@@ -715,7 +793,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {/* Type segmented — hidden when type is locked */}
-          {!isRepayment && !(isEdit && editTx?.debt_id && !unlinkMode) && (
+          {!counterpart && !isRepayment && !(isEdit && editTx?.debt_id && !unlinkMode) && (
             <div style={{ display: "flex", background: "var(--canvas-parchment)", borderRadius: 11, padding: 4, marginBottom: 18 }}>
               {(["expense", "income"] as const).map((t) => (
                 <button key={t} type="button" onClick={() => {
@@ -740,10 +818,11 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {/* Amount */}
+          {counterpart ? <label htmlFor="transaction-amount" className="mb-xs block font-body text-[15px] text-ink">Số tiền</label> : null}
           <div style={{ position: "relative", marginBottom: 18 }}>
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] text-ink-muted-48 font-display font-semibold pointer-events-none">₫</span>
             <input
-              type="text" inputMode="numeric" placeholder="0" aria-label="Số tiền"
+              id="transaction-amount" type="text" inputMode="numeric" placeholder="0" aria-label="Số tiền"
               value={amountStr}
               onChange={(e) => { const raw = e.target.value.replace(/[^\d]/g, ""); setAmountStr(raw ? fmt(parseInt(raw, 10)) : ""); setError(""); }}
               ref={amountRef}
@@ -758,10 +837,10 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           </div>
 
           {/* Date */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
+          {!counterpart && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
             <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)" }}>Ngày</span>
             <DatePicker value={date} onChange={setDate} />
-          </div>
+          </div>}
 
           {/* Category — hidden for debt transactions */}
           {!isDebtMode && (
@@ -825,7 +904,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {/* Note + emoji */}
-          <div className="border-t border-hairline py-sm">
+          {!counterpart && <div className="border-t border-hairline py-sm">
             <label htmlFor="transaction-note" className="mb-xs block font-body text-[13px] text-ink-muted-80">Ghi chú (tùy chọn)</label>
             <div className="flex items-start gap-xs">
               <EmojiPicker value={emoji} onChange={setEmoji} />
@@ -838,7 +917,32 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                 className="min-h-11 min-w-0 flex-1 rounded-md border border-hairline bg-canvas-parchment px-md font-body text-[17px] text-ink outline-none"
               />
             </div>
-          </div>
+          </div>}
+
+          {isEdit && (editTx?.finance_account_id || (isSystemCategory && financeAccountId)) ? (
+            <section aria-label="Giao dịch liên quan" className="border-t border-hairline py-md">
+              <h2 className="font-body text-[17px] font-semibold text-ink">Giao dịch liên quan</h2>
+              {!accountData && !accountError ? <p role="status" className="mt-xs font-body text-[15px] text-ink-muted-48">Đang kiểm tra các giao dịch cùng tài khoản…</p> : null}
+              {accountError ? <p role="alert" className="mt-xs font-body text-[15px] text-danger">Chưa kiểm tra được giao dịch liên quan. <button type="button" onClick={() => void refreshAccounts()} className="min-h-11 text-primary">Thử lại</button></p> : null}
+              {financeAccounts.filter((account) => account.id === editTx?.finance_account_id || (isSystemCategory && account.id === financeAccountId)).map((account) => {
+                const related = account.transactions.filter((transaction) => transaction.id !== editTx?.id);
+                const proposedAmount = Number(amountStr.replace(/[^\d]/g, ""));
+                const previous = account.transactions.find((transaction) => transaction.id === editTx?.id);
+                const balance = account.balance - (previous ? (previous.type === "income" ? previous.amount : -previous.amount) : 0)
+                  + (isSystemCategory && financeAccountId === account.id ? (type === "income" ? proposedAmount : -proposedAmount) : 0);
+                const reverse = account.type === "savings" || account.debt_direction === "lend" ? balance > 0 : balance < 0;
+                const label = account.type === "savings" ? reverse ? "Rút vượt tiền đã gửi" : "Số dư tiền gửi"
+                  : account.debt_direction === "lend" ? reverse ? "Nhận vượt khoản cho vay" : "Còn được nhận"
+                  : reverse ? "Trả vượt khoản vay" : "Còn phải trả";
+                return <div key={account.id} className="mt-sm">
+                  <p className="break-words font-body text-[15px] font-semibold text-ink">{account.name}</p>
+                  <p aria-live="polite" className={`mt-xs font-body text-[15px] ${reverse ? "text-warning" : "text-ink-muted-80"}`}>{label} sau khi lưu: {fmt(Math.abs(balance))}₫</p>
+                  <p className="mt-xs font-body text-[13px] text-ink-muted-48">{related.length} giao dịch khác được giữ nguyên.</p>
+                  {related.length ? <details className="mt-xs"><summary className="min-h-11 cursor-pointer py-sm font-body text-[15px] text-primary">Xem giao dịch liên quan</summary><ul className="divide-y divide-divider-soft">{related.map((transaction) => <li key={transaction.id} className="flex justify-between gap-sm py-sm font-body text-[15px]"><span className="min-w-0 break-words text-ink-muted-80">{transaction.date} · {transaction.note || "Giao dịch"}</span><span className="shrink-0 tabular-nums text-ink">{transaction.type === "income" ? "+" : "−"}{fmt(transaction.amount)}₫</span></li>)}</ul></details> : null}
+                </div>;
+              })}
+            </section>
+          ) : null}
 
           {error && (
             <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginTop: 16, marginBottom: 4 }}>{error}</p>

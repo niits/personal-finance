@@ -108,15 +108,21 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
     const lendCategoryId = Number(db.prepare(
       `INSERT INTO category (user_id, name, level, type, sort_order, system_kind, budget_behavior) VALUES (?, 'Cho vay', 1, 'expense', 0, 'lend', 'non_budget')`,
     ).run(userId).lastInsertRowid);
+    const repaymentCategoryId = Number(db.prepare(
+      `INSERT INTO category (user_id, name, level, type, sort_order, system_kind, budget_behavior) VALUES (?, 'Nhận tiền trả nợ', 1, 'income', 0, 'debt_collection', 'non_budget')`,
+    ).run(userId).lastInsertRowid);
     const savingsCategoryId = Number(db.prepare(
       `INSERT INTO category (user_id, name, level, type, sort_order, system_kind, budget_behavior) VALUES (?, 'Gửi tiết kiệm', 1, 'expense', 0, 'savings_deposit', 'non_budget')`,
     ).run(userId).lastInsertRowid);
+    db.prepare(
+      `INSERT INTO category (user_id, name, level, type, sort_order, system_kind, budget_behavior) VALUES (?, 'Rút tiền gửi', 1, 'income', 0, 'savings_withdrawal', 'non_budget')`,
+    ).run(userId);
     db.prepare(`INSERT INTO finance_account (id, user_id, type, name, debt_direction) VALUES (?, ?, 'debt', 'Minh', 'lend')`).run("e2e-account-debt-1", userId);
     db.prepare(`INSERT INTO finance_account (id, user_id, type, name) VALUES (?, ?, 'savings', 'Quỹ dự phòng')`).run("e2e-account-savings-1", userId);
     db.prepare(`INSERT INTO "transaction" (user_id, amount, type, category_id, finance_account_id, note, date) VALUES (?, 2000000, 'expense', ?, 'e2e-account-debt-1', 'Cho Minh vay', ?)`)
       .run(userId, lendCategoryId, today);
     db.prepare(`INSERT INTO "transaction" (user_id, amount, type, category_id, finance_account_id, note, date) VALUES (?, 500000, 'income', ?, 'e2e-account-debt-1', 'Minh trả một phần', ?)`)
-      .run(userId, catIds["Lương"], today);
+      .run(userId, repaymentCategoryId, today);
     db.prepare(`INSERT INTO "transaction" (user_id, amount, type, category_id, finance_account_id, note, date) VALUES (?, 2000000, 'expense', ?, 'e2e-account-savings-1', 'Gửi quỹ dự phòng', ?)`)
       .run(userId, savingsCategoryId, today);
   })();
