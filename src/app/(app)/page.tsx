@@ -141,7 +141,7 @@ export default function DashboardPage() {
       const response = await fetch(`/api/transactions/${txn.id}`, { method: "DELETE" });
       if (!response.ok) {
         const failure = await response.json().catch(() => null) as { error?: string } | null;
-        setDeleteError(failure?.error ?? "Không thể xóa giao dịch. Vui lòng thử lại.");
+        setDeleteError(`Không thể xóa giao dịch. ${failure?.error ?? "Vui lòng thử lại."}`);
         return;
       }
       setActionTxn(null);
