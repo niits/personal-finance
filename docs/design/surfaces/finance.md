@@ -27,10 +27,13 @@ Finance manages account/group metadata and statement payment. Expanding a debt o
 savings account exposes its reduction action and complete movement history. The action
 is received repayment for lending, repayment for borrowing, and withdrawal for savings.
 The shared transaction form asks only for an amount, initially the remaining balance.
+It displays that account's ceiling, explains excessive amounts, and disables saving
+until the amount is within the ceiling.
 It records today and the appropriate protected category automatically. Saving refreshes
 the balance and ledger. Settled and reverse balances do not offer another reduction.
 Users correct existing movements through transaction editing, which shows related
-transactions and projected balances for the original and selected accounts.
+transactions and projected balances for the original and selected accounts. Edits
+that leave related reductions without sufficient funds are blocked.
 
 ## States
 

@@ -72,7 +72,7 @@ describe("finance accounts", () => {
   });
 
   // Contract: transaction edits recompute both accounts and retain related movements.
-  it("recomputes savings balances after editing and moving a deposit with withdrawals", async () => {
+  it("rejects edits and reassignment that overdraw related withdrawals", async () => {
     const seeded = await SELF.fetch("http://localhost/api/categories/seed", {
       method: "POST", headers: authHeaders(cookie),
     });
@@ -113,20 +113,16 @@ describe("finance accounts", () => {
     const edited = await SELF.fetch(`http://localhost/api/transactions/${transactionIds[0]}`, {
       method: "PATCH", headers: authHeaders(cookie), body: JSON.stringify({ amount: 300000 }),
     });
-    expect(edited.status).toBe(200);
-    expect((await readAccounts()).find((account) => account.id === accountIds[0])?.balance).toBe(200000);
-
+    expect(edited.status).toBe(422);
+    expect(await edited.json()).toMatchObject({ code: "FINANCE_BALANCE_EXCEEDED" });
+    expect((await readAccounts()).find((account) => account.id === accountIds[0])?.balance).toBe(-1500000);
     const moved = await SELF.fetch(`http://localhost/api/transactions/${transactionIds[0]}`, {
       method: "PATCH", headers: authHeaders(cookie), body: JSON.stringify({ finance_account_id: accountIds[1] }),
     });
-    expect(moved.status).toBe(200);
+    expect(moved.status).toBe(422);
     const accounts = await readAccounts();
-    expect(accounts.find((account) => account.id === accountIds[0])).toMatchObject({
-      balance: 500000, transactions: [{ id: transactionIds[1], amount: 500000 }],
-    });
-    expect(accounts.find((account) => account.id === accountIds[1])).toMatchObject({
-      balance: -300000, transactions: [{ id: transactionIds[0], amount: 300000 }],
-    });
+    expect(accounts.find((account) => account.id === accountIds[0])?.balance).toBe(-1500000);
+    expect(accounts.find((account) => account.id === accountIds[1])?.balance).toBe(0);
     expect(await env.DB.prepare('SELECT * FROM "transaction" WHERE id = ?').bind(transactionIds[1]).first()).toEqual(withdrawalBefore);
   });
 
@@ -156,7 +152,7 @@ describe("finance accounts", () => {
 
     await env.DB.prepare(
       "INSERT INTO \"transaction\" (user_id, amount, type, date, finance_account_id) VALUES (?, ?, ?, ?, ?)",
-    ).bind(userId, 100_000, "income", "2026-05-01", account.id).run();
+    ).bind(userId, 100_000, "expense", "2026-05-01", account.id).run();
 
     const deleted = await SELF.fetch(`http://localhost/api/finance-accounts/${account.id}`, {
       method: "DELETE",

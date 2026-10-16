@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
+import { withFinanceLimit } from "@/lib/finance-limit-response";
 import { Errors } from "@/lib/errors";
 import {
   parseAmount,
@@ -105,7 +106,7 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
   };
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Params }) {
+async function updateTransaction(request: NextRequest, { params }: { params: Params }) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
 
@@ -331,7 +332,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   return Response.json({ transaction: updated });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Params }) {
+async function deleteTransaction(request: NextRequest, { params }: { params: Params }) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
 
@@ -358,4 +359,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
 
   await markStatsDirty(userId, existing.date).catch(() => {});
   return Response.json({});
+}
+
+export function PATCH(request: NextRequest, context: { params: Params }) {
+  return withFinanceLimit(() => updateTransaction(request, context));
+}
+
+export function DELETE(request: NextRequest, context: { params: Params }) {
+  return withFinanceLimit(() => deleteTransaction(request, context));
 }

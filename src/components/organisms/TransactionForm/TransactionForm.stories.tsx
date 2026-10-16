@@ -76,9 +76,17 @@ const movementCategories = [
 ].map((category) => ({ ...category, level: 1, parent_id: null, budget_behavior: "non_budget", children: [] }));
 
 export const ReceiveRepayment: Story = {
-  decorators: [(Story) => <SWRConfig value={{ provider: () => new Map(), fallback: {
-    "/api/categories": { categories: movementCategories, usage_counts: {} },
-  }, revalidateOnMount: false, revalidateOnFocus: false }}><Story /></SWRConfig>],
+  decorators: [(Story, context) => {
+    const movement = context.args.mode.kind === "finance-counterpart" ? context.args.mode.movement : null;
+    return <SWRConfig value={{ provider: () => new Map(), fallback: {
+      "/api/categories": { categories: movementCategories, usage_counts: {} },
+      "/api/finance-accounts": { accounts: movement ? [{ ...movement.account,
+        type: movement.systemKind === "savings_withdrawal" ? "savings" : "debt",
+        debt_direction: movement.systemKind === "debt_repayment" ? "borrow" : "lend",
+        balance: movement.type === "expense" ? movement.amount : -movement.amount, transactions: [],
+      }] : [] },
+    }, revalidateOnMount: false, revalidateOnFocus: false }}><Story /></SWRConfig>;
+  }],
   args: { mode: { kind: "finance-counterpart", movement: {
     account: { id: "lend-1", name: "Khoản cho vay mua xe" }, amount: 2500000,
     type: "income", systemKind: "debt_collection", label: "Nhận tiền trả nợ",

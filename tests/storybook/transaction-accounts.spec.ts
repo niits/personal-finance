@@ -7,7 +7,7 @@ for (const scenario of [
   { kind: "borrow", category: "Đi vay", direction: "income", accountType: "debt", debtDirection: "borrow" },
 ]) {
   test(`Inline ${scenario.kind} account creation updates the open transaction form`, async ({ page }) => {
-    const existingAccount = { id: "existing", name: "Tài khoản hiện có", type: scenario.accountType, debt_direction: scenario.debtDirection };
+    const existingAccount = { balance: 0, transactions: [], id: "existing", name: "Tài khoản hiện có", type: scenario.accountType, debt_direction: scenario.debtDirection };
     const accounts = [existingAccount];
     let accountReads = 0;
     await page.route("**/api/categories", (route) => route.fulfill({ json: {

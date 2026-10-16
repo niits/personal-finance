@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
+import { financeAmountLimit, exceedsFinanceBalance } from "@/lib/finance-limits";
 import type { FinanceCounterpart } from "@/lib/finance-counterpart";
 import type { DebtWithRepayments } from "@/lib/debt";
 import { findSelectedChild, getCategoryPath, rootDisplay } from "./categoryDisplay";
@@ -450,7 +451,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const { data: cbData } = useSWR<{ custom_budgets: CustomBudget[] }>(
     open && !isRepayment && !counterpart ? "/api/custom-budgets?active_only=true" : null, fetcher,
   );
-  const { data: accountData, error: accountError, mutate: refreshAccounts } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment && !counterpart ? "/api/finance-accounts" : null, fetcher);
+  const { data: accountData, error: accountError, mutate: refreshAccounts } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment ? "/api/finance-accounts" : null, fetcher);
   const { data: cardData } = useSWR<{ groups: CardGroup[] }>(open && !isRepayment && !counterpart ? "/api/credit-card-groups" : null, fetcher);
 
   const allCats = catData?.categories ?? [];
@@ -462,6 +463,22 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const selectedCategory = categoryId ? findCategoryById(allCats, categoryId) : null;
   const isSystemCategory = selectedCategory?.budget_behavior === "non_budget";
   const selectedCbIdSet = new Set(selectedCbIds);
+  const amount = Number(amountStr.replace(/[^\d]/g, ""));
+  const selectedAccount = financeAccounts.find((account) => account.id === financeAccountId);
+  const previousMovement = isEdit ? selectedAccount?.transactions.find((transaction) => transaction.id === editTx?.id) : undefined;
+  const amountLimit = isRepayment ? Math.max(0, mode.debt.remaining)
+    : selectedAccount && (counterpart || isSystemCategory) ? financeAmountLimit(selectedAccount, type, previousMovement)
+    : counterpart ? counterpart.amount : null;
+  const exceedsAmount = amountLimit !== null && amount > amountLimit;
+  const balanceConflict = isEdit && financeAccounts.some((account) => {
+    if (account.id !== editTx?.finance_account_id && account.id !== financeAccountId) return false;
+    const previous = account.transactions.find((transaction) => transaction.id === editTx?.id);
+    const next = isSystemCategory && account.id === financeAccountId ? { amount, type } : undefined;
+    return exceedsFinanceBalance(account, previous, next);
+  });
+  const limitError = exceedsAmount ? `Số tiền tối đa có thể ghi nhận là ${fmt(amountLimit!)}₫. Vui lòng nhập số tiền không vượt giới hạn này.`
+    : balanceConflict ? "Không thể thay đổi khoản gốc vì các giao dịch liên quan sẽ vượt số tiền được bảo đảm. Vui lòng kiểm tra các giao dịch liên quan." : null;
+
 
   // Whether to hide category/budget (debt tx has no category)
   const isDebtMode = Boolean(counterpart) || isRepayment
@@ -524,6 +541,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   async function submit() {
     const amount = parseInt(amountStr.replace(/[^\d]/g, ""), 10);
     if (!amount || amount <= 0) { setError("Nhập số tiền hợp lệ"); return; }
+    if (limitError) { setError(limitError); return; }
     if (isSubmittingRef.current) return;
 
     isSubmittingRef.current = true;
@@ -553,7 +571,9 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             category_id: category.id, finance_account_id: counterpart.account.id }),
         });
         if (!response.ok) {
-          setError((await response.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          const failure = await response.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
           return;
         }
         onSaved(); onClose(); return;
@@ -566,7 +586,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           headers: transactionHeaders,
           body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: mode.debt.id }),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+        if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
         onSaved(); handleClose(); return;
       }
 
@@ -602,7 +627,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           method: "PATCH", headers: transactionHeaders,
           body: JSON.stringify(body),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+        if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
         onSaved(); handleClose(); return;
       }
 
@@ -621,7 +651,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             linked_amount: linkedAmt,
           }),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+        if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
         onSaved(); handleClose(); return;
       }
 
@@ -632,7 +667,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           method: "POST", headers: transactionHeaders,
           body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: debtLink.debtId, linked_amount: linkedAmt }),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+        if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
         onSaved(); handleClose(); return;
       }
 
@@ -650,7 +690,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         method: "POST", headers: transactionHeaders,
         body: JSON.stringify(body),
       });
-      if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+      if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
       onSaved(); handleClose();
     } catch {
       setError("Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.");
@@ -668,6 +713,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
   const amountColor = type === "expense" ? "var(--danger)" : "var(--success)";
   const selectedCatPath = categoryId ? getCategoryPath(cats, categoryId) : [];
+  const saveDisabled = saving || Boolean(limitError) || Boolean(counterpart && (!catData || categoryError || !accountData || accountError)) || Boolean(isEdit && (editTx?.finance_account_id || (isSystemCategory && financeAccountId)) && (!accountData || accountError));
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 300 }}>
@@ -721,9 +767,9 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           </span>
           <button type="button"
             onClick={submit}
-            disabled={saving || Boolean(counterpart && (!catData || categoryError)) || Boolean(isEdit && (editTx?.finance_account_id || (isSystemCategory && financeAccountId)) && (!accountData || accountError))}
+            disabled={saveDisabled}
             className={`min-h-11 min-w-11 rounded-sm border-0 bg-transparent px-xs font-body text-[17px] font-semibold hover:bg-canvas-parchment ${
-              saving ? "text-ink-muted-48 cursor-not-allowed" : "text-primary cursor-pointer"
+              saveDisabled ? "text-ink-muted-48 cursor-not-allowed" : "text-primary cursor-pointer"
             }`}
           >
             {saving ? "Đang lưu…" : "Lưu"}
@@ -737,8 +783,10 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             <p className="break-words font-body text-[17px] font-semibold text-ink">{counterpart.account.name}</p>
             <p className="mt-xs font-body text-[15px] text-ink-muted-80">{counterpart.label}. Bạn có thể thay đổi số tiền để ghi nhận một phần.</p>
             <p className="mt-xs font-body text-[13px] text-ink-muted-48">Ngày ghi nhận: hôm nay. Số dư tài khoản được cập nhật sau khi lưu.</p>
+            {!accountData && !accountError ? <p role="status" className="mt-xs font-body text-[15px] text-ink-muted-48">Đang kiểm tra số dư còn lại…</p> : null}
+            {accountError ? <p role="alert" className="mt-xs font-body text-[15px] text-danger">Chưa tải được số dư. <button type="button" onClick={() => void refreshAccounts()} className="min-h-11 text-primary">Thử lại</button></p> : null}
             {!catData && !categoryError ? <p role="status" className="mt-xs font-body text-[15px] text-ink-muted-48">Đang tải danh mục…</p> : null}
-            {categoryError || error ? <button type="button" onClick={() => void retryCategories()} className="mt-xs min-h-11 text-primary">Tải lại danh mục</button> : null}
+            {categoryError || error ? <button type="button" onClick={() => { void retryCategories(); void refreshAccounts(); }} className="mt-xs min-h-11 text-primary">Tải lại dữ liệu</button> : null}
           </div> : null}
 
           {/* Repayment: locked debt chip */}
@@ -818,10 +866,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {/* Amount */}
+          {amountLimit !== null ? <p className="mb-xs font-body text-[15px] text-ink-muted-80">Số tiền tối đa có thể ghi nhận: <span className="font-semibold tabular-nums text-ink">{fmt(amountLimit)}₫</span></p> : null}
           {counterpart ? <label htmlFor="transaction-amount" className="mb-xs block font-body text-[15px] text-ink">Số tiền</label> : null}
           <div style={{ position: "relative", marginBottom: 18 }}>
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] text-ink-muted-48 font-display font-semibold pointer-events-none">₫</span>
             <input
+              aria-invalid={Boolean(limitError)} aria-describedby={limitError ? "transaction-limit-error" : undefined}
               id="transaction-amount" type="text" inputMode="numeric" placeholder="0" aria-label="Số tiền"
               value={amountStr}
               onChange={(e) => { const raw = e.target.value.replace(/[^\d]/g, ""); setAmountStr(raw ? fmt(parseInt(raw, 10)) : ""); setError(""); }}
@@ -835,6 +885,8 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               }}
             />
           </div>
+
+          {limitError ? <p id="transaction-limit-error" role="alert" className="mb-md font-body text-[15px] text-danger">{limitError}</p> : null}
 
           {/* Date */}
           {!counterpart && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>

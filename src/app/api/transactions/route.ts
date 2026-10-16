@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
+import { withFinanceLimit } from "@/lib/finance-limit-response";
 import { Errors } from "@/lib/errors";
 import {
   parseAmount,
@@ -221,7 +222,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function POST(request: NextRequest) {
+async function createTransaction(request: NextRequest) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
 
@@ -306,6 +307,7 @@ export async function POST(request: NextRequest) {
 
   const isConsumption = cat.budget_behavior === "consumption";
   const financeAccountId = typeof b.finance_account_id === "string" ? b.finance_account_id : null;
+  if (isConsumption && financeAccountId) return Errors.validation("Chỉ giao dịch nợ hoặc tiền gửi mới được gắn tài khoản tài chính.");
   if (!isConsumption) {
     if (customBudgetIds.length > 0) return Errors.validation("Không thể liên kết giao dịch nợ hoặc tiết kiệm với ngân sách riêng.");
     if (!financeAccountId) return Errors.validation("Giao dịch nợ hoặc tiết kiệm cần chọn tài khoản");
@@ -422,4 +424,8 @@ export async function POST(request: NextRequest) {
 
   await markStatsDirty(userId, date).catch(() => {});
   return Response.json({ transaction: formatTransaction(txn!, cbMap) }, { status: 201 });
+}
+
+export function POST(request: NextRequest) {
+  return withFinanceLimit(() => createTransaction(request));
 }

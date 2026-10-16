@@ -35,6 +35,13 @@ export function wipeUserData(userId: string): void {
   db.transaction(() => {
     db.prepare(`DELETE FROM statistics_report WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM ai_suggestion_run WHERE user_id = ?`).run(userId);
+    // Remove reductions before their funding movements to preserve balance guards.
+    db.prepare(`DELETE FROM "transaction" WHERE user_id = ? AND finance_account_id IN (
+      SELECT id FROM finance_account WHERE user_id = ? AND (
+        (type = 'debt' AND debt_direction = 'borrow' AND "transaction".type = 'expense')
+        OR ((type = 'savings' OR debt_direction = 'lend') AND "transaction".type = 'income')
+      )
+    )`).run(userId, userId);
     db.prepare(`DELETE FROM "transaction" WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM debt WHERE user_id = ?`).run(userId);
     db.prepare(`DELETE FROM finance_account WHERE user_id = ?`).run(userId);

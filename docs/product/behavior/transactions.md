@@ -44,9 +44,17 @@ defined in [`credit-cards.md`](./credit-cards.md).
 - Editing an account-associated transaction shows other transactions in the original
   and selected account, including the projected balance after the edit. Changing the
   amount, direction, category, or account recomputes affected balances while retaining
-  other transactions unchanged. Reverse balances are displayed explicitly.
-- Reverse balances remain visible and are described truthfully rather than hidden
-  with an absolute value.
+  other transactions unchanged. Edits, reassignment, direction/category changes, and
+  deletion must not leave repayments or withdrawals exceeding their account's funding.
+- A repayment, received repayment, or withdrawal cannot exceed the remaining amount
+  across all transactions in its own account or tracked person. Editing a reduction
+  excludes that transaction before calculating its ceiling. Other accounts, even those
+  with the same display name, do not supply funds for it. Exact settlement is allowed.
+- The form displays the ceiling and blocks saving an excessive amount. The database
+  enforces the same rule atomically for concurrent writes; rejected mutations leave
+  all related data unchanged and return `422` with `FINANCE_BALANCE_EXCEEDED`.
+- Existing reverse balances remain visible and may be corrected without becoming
+  more negative. New mutations cannot create a reverse balance.
 
 ## Mutation Effects
 
