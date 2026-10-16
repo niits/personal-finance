@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
+import { financeAccountScope, matchesFinanceAccountScope } from "@/lib/finance-account-scope";
 import { fetcher } from "@/lib/fetcher";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
 import { financeAmountLimit, exceedsFinanceBalance } from "@/lib/finance-limits";
@@ -464,7 +465,10 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const isSystemCategory = selectedCategory?.budget_behavior === "non_budget";
   const selectedCbIdSet = new Set(selectedCbIds);
   const amount = Number(amountStr.replace(/[^\d]/g, ""));
-  const selectedAccount = financeAccounts.find((account) => account.id === financeAccountId);
+  const accountScope = financeAccountScope(selectedCategory?.system_kind);
+  const compatibleAccounts = financeAccounts.filter((account) => matchesFinanceAccountScope(account, accountScope));
+  const selectedAccount = financeAccounts.find((account) => account.id === financeAccountId
+    && (counterpart || matchesFinanceAccountScope(account, accountScope)));
   const previousMovement = isEdit ? selectedAccount?.transactions.find((transaction) => transaction.id === editTx?.id) : undefined;
   const amountLimit = isRepayment ? Math.max(0, mode.debt.remaining)
     : selectedAccount && (counterpart || isSystemCategory) ? financeAmountLimit(selectedAccount, type, previousMovement)
@@ -510,18 +514,17 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   }
 
   async function createAccount() {
-    if (isCreatingAccountRef.current || !selectedCategory || !newAccountName.trim()) return;
+    if (isCreatingAccountRef.current || !accountScope || !newAccountName.trim()) return;
     isCreatingAccountRef.current = true;
     setCreatingAccount(true);
     try {
-      const isSavings = selectedCategory.system_kind === "savings_deposit" || selectedCategory.system_kind === "savings_withdrawal";
       const response = await fetch("/api/finance-accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: isSavings ? "savings" : "debt",
+          type: accountScope.type,
           name: newAccountName.trim(),
-          debt_direction: isSavings ? undefined : selectedCategory.system_kind === "borrow" ? "borrow" : "lend",
+          debt_direction: accountScope.debt_direction,
         }),
       });
       if (!response.ok) {
@@ -542,6 +545,10 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     const amount = parseInt(amountStr.replace(/[^\d]/g, ""), 10);
     if (!amount || amount <= 0) { setError("Nhập số tiền hợp lệ"); return; }
     if (limitError) { setError(limitError); return; }
+    if (!counterpart && !isDebtMode && isSystemCategory && !selectedAccount) {
+      setError(`Vui lòng chọn ${accountScope?.label.toLocaleLowerCase("vi-VN") ?? "tài khoản phù hợp"}.`);
+      return;
+    }
     if (isSubmittingRef.current) return;
 
     isSubmittingRef.current = true;
@@ -845,7 +852,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             <div style={{ display: "flex", background: "var(--canvas-parchment)", borderRadius: 11, padding: 4, marginBottom: 18 }}>
               {(["expense", "income"] as const).map((t) => (
                 <button key={t} type="button" onClick={() => {
+                  if (t === type) return;
                   setType(t);
+                  setCategoryId(null);
+                  setFinanceAccountId(null);
+                  setNewAccountName("");
+                  setCreditCardGroupId(null);
                   setError("");
                   if (t === "income") setSelectedCbIds([]);
                   // create mode: category list is type-specific, so reset selection
@@ -900,7 +912,18 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 10, letterSpacing: 0.5, textTransform: "uppercase" }}>
                 Danh mục {selectedCatPath.length > 0 && <span style={{ color: "var(--primary)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>· {selectedCatPath.join(" › ")}</span>}
               </p>
-              <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => { setCategoryId(id); setError(""); }} usageCounts={usageCounts} />
+              <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => {
+                const nextScope = financeAccountScope(findCategoryById(allCats, id)?.system_kind);
+                const currentAccount = financeAccounts.find((account) => account.id === financeAccountId);
+                if (!currentAccount || !matchesFinanceAccountScope(currentAccount, nextScope)) setFinanceAccountId(null);
+                if (nextScope) {
+                  setSelectedCbIds([]);
+                  setCreditCardGroupId(null);
+                }
+                setNewAccountName("");
+                setCategoryId(id);
+                setError("");
+              }} usageCounts={usageCounts} />
             </div>
           )}
 
@@ -933,14 +956,15 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
           {!isDebtMode && isSystemCategory && (
             <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
-              <label htmlFor="finance-account" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Tài khoản nợ hoặc tiết kiệm</label>
-              <select id="finance-account" value={financeAccountId ?? ""} onChange={(e) => setFinanceAccountId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
+              <label htmlFor="finance-account" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">{accountScope?.label ?? "Tài khoản tài chính"}</label>
+              <select id="finance-account" value={selectedAccount?.id ?? ""} onChange={(e) => setFinanceAccountId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
                 <option value="">Chọn tài khoản</option>
-                {financeAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+                {compatibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
               </select>
+              {accountData && compatibleAccounts.length === 0 ? <p className="mt-xs font-body text-[13px] text-ink-muted-48">Chưa có {accountScope?.label.toLocaleLowerCase("vi-VN")}. Vui lòng tạo tài khoản mới bên dưới.</p> : null}
               <div className="mt-2 flex gap-2">
-                <input aria-label="Tên tài khoản mới" value={newAccountName} onChange={(event) => setNewAccountName(event.target.value)} placeholder="Tạo tài khoản mới" style={inputStyle} />
-                <button type="button" onClick={createAccount} disabled={creatingAccount || !newAccountName.trim()} className="rounded-pill border-none bg-primary px-3 font-body text-sm text-on-primary disabled:opacity-50">{creatingAccount ? "Đang tạo…" : "Tạo"}</button>
+                <input aria-label="Tên tài khoản mới" value={newAccountName} onChange={(event) => setNewAccountName(event.target.value)} placeholder={accountScope ? `Tạo ${accountScope.label.toLocaleLowerCase("vi-VN")}` : "Tạo tài khoản mới"} style={inputStyle} />
+                <button type="button" onClick={createAccount} disabled={creatingAccount || !accountScope || !newAccountName.trim()} className="rounded-pill border-none bg-primary px-3 font-body text-sm text-on-primary disabled:opacity-50">{creatingAccount ? "Đang tạo…" : "Tạo"}</button>
               </div>
             </div>
           )}

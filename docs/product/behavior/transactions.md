@@ -33,6 +33,11 @@ defined in [`credit-cards.md`](./credit-cards.md).
 - Debt and savings balances are derived from associated transactions; they are not
   independently editable balances.
 - The user selects or creates the finance account inside the shared transaction form.
+  Lending and received repayments require a lending account; borrowing and outgoing
+  repayments require a borrowing account; deposits and withdrawals require a savings
+  account. The selector and inline creation use that account family. Changing the
+  category or direction clears incompatible account choices. Create and edit APIs
+  enforce the same compatibility rule.
 - Account association may only be created or changed by creating or editing the
   transaction. There is no separate link/unlink workflow or endpoint.
 - Selecting an account in Finance exposes a reduction action: received repayment for

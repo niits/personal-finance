@@ -130,3 +130,28 @@ export const EditRelatedSavings: Story = {
     note: "Gửi quỹ dự phòng", date: "2026-05-01", custom_budgets: [],
   } } },
 };
+
+const accountFamilyCategories = [
+  { id: 201, name: "Cho vay", type: "expense", system_kind: "lend" },
+  { id: 202, name: "Trả nợ", type: "expense", system_kind: "debt_repayment" },
+  { id: 203, name: "Gửi tiền", type: "expense", system_kind: "savings_deposit" },
+  { id: 204, name: "Đi vay", type: "income", system_kind: "borrow" },
+  { id: 205, name: "Nhận tiền trả nợ", type: "income", system_kind: "debt_collection" },
+  { id: 206, name: "Rút tiền", type: "income", system_kind: "savings_withdrawal" },
+].map((category) => ({ ...category, level: 1, parent_id: null, budget_behavior: "non_budget", children: [] }));
+
+const accountFamilyFixtures = [
+  { id: "lend", name: "Minh", type: "debt", debt_direction: "lend", balance: -1000000, transactions: [] },
+  { id: "borrow", name: "Minh", type: "debt", debt_direction: "borrow", balance: 1000000, transactions: [] },
+  { id: "savings", name: "Minh", type: "savings", debt_direction: null, balance: -1000000, transactions: [] },
+];
+
+export const AccountFamilies: Story = {
+  decorators: [(Story) => <SWRConfig value={{ provider: () => new Map(), fallback: {
+    "/api/categories": { categories: accountFamilyCategories, usage_counts: {} },
+    "/api/finance-accounts": { accounts: accountFamilyFixtures },
+    "/api/custom-budgets?active_only=true": { custom_budgets: [] },
+    "/api/credit-card-groups": { groups: [] },
+  }, revalidateOnMount: false, revalidateOnFocus: false }}><Story /></SWRConfig>],
+  args: { mode: { kind: "create" } },
+};

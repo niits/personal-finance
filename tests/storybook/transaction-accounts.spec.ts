@@ -33,7 +33,7 @@ for (const scenario of [
     await page.goto("/iframe.html?id=organisms-transactionform--create-mode&viewMode=story");
     if (scenario.direction === "income") await page.getByRole("button", { name: "Thu nhập", exact: true }).click();
     await page.getByRole("button", { name: scenario.category, exact: true }).click();
-    const selector = page.getByLabel("Tài khoản nợ hoặc tiết kiệm");
+    const selector = page.locator("#finance-account");
     await expect(selector.locator("option")).toHaveCount(2);
     await selector.selectOption("existing");
     await page.getByLabel("Số tiền", { exact: true }).fill("100000");
@@ -53,3 +53,25 @@ for (const scenario of [
     expect((await saved).postDataJSON()).toMatchObject({ amount: 100000, category_id: 1, finance_account_id: "created", type: scenario.direction });
   });
 }
+
+test("Account families stay separate when changing categories and direction", async ({ page }) => {
+  await page.goto("/iframe.html?id=organisms-transactionform--account-families&viewMode=story");
+  const selector = page.locator("#finance-account");
+  for (const scenario of [
+    { category: "Cho vay", label: "Tài khoản cho vay", account: "lend", direction: "Chi tiêu" },
+    { category: "Trả nợ", label: "Tài khoản đi vay", account: "borrow", direction: "Chi tiêu" },
+    { category: "Gửi tiền", label: "Tài khoản tiền gửi", account: "savings", direction: "Chi tiêu" },
+    { category: "Đi vay", label: "Tài khoản đi vay", account: "borrow", direction: "Thu nhập" },
+    { category: "Nhận tiền trả nợ", label: "Tài khoản cho vay", account: "lend", direction: "Thu nhập" },
+    { category: "Rút tiền", label: "Tài khoản tiền gửi", account: "savings", direction: "Thu nhập" },
+  ]) {
+    await page.getByRole("button", { name: scenario.direction, exact: true }).click();
+    await page.getByRole("button", { name: scenario.category, exact: true }).click();
+    await expect(page.getByLabel(scenario.label, { exact: true })).toBeVisible();
+    await expect(selector.locator("option")).toHaveCount(2);
+    await expect(selector).toHaveValue("");
+    await expect(selector.locator("option").last()).toHaveAttribute("value", scenario.account);
+    await selector.selectOption(scenario.account);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

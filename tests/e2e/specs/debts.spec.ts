@@ -194,6 +194,63 @@ test.describe("Tài chính", () => {
     }
   });
 
+  // Contract: account families match protected categories on both create and edit.
+  test("rejects mismatched lending, borrowing, and savings account associations", async ({ page }) => {
+    await resetTestData("accounts");
+    expect((await page.request.post("/api/categories/seed")).ok()).toBeTruthy();
+    type Category = { id: number; system_kind: string | null; children: Category[] };
+    const { categories } = await (await page.request.get("/api/categories")).json() as { categories: Category[] };
+    const flatten = (entries: Category[]): Category[] => entries.flatMap((category) => [category, ...flatten(category.children)]);
+    const all = flatten(categories);
+    const date = new Date().toISOString().slice(0, 10);
+    const accountIds: string[] = [];
+    for (const family of [
+      { type: "debt", debt_direction: "lend", opening: "lend", direction: "expense" },
+      { type: "debt", debt_direction: "borrow", opening: "borrow", direction: "income" },
+      { type: "savings", debt_direction: null, opening: "savings_deposit", direction: "expense" },
+    ]) {
+      const created = await page.request.post("/api/finance-accounts", { data: {
+        type: family.type, debt_direction: family.debt_direction, name: "Kiểm tra phân loại tài khoản",
+      } });
+      expect(created.status()).toBe(201);
+      const { account } = await created.json() as { account: { id: string } };
+      accountIds.push(account.id);
+      const funded = await page.request.post("/api/transactions", { data: {
+        amount: 1000000, type: family.direction, date,
+        category_id: all.find((category) => category.system_kind === family.opening)!.id,
+        finance_account_id: account.id,
+      } });
+      expect(funded.status()).toBe(201);
+    }
+    for (const scenario of [
+      { kind: "lend", type: "expense", family: 0 },
+      { kind: "debt_collection", type: "income", family: 0 },
+      { kind: "borrow", type: "income", family: 1 },
+      { kind: "debt_repayment", type: "expense", family: 1 },
+      { kind: "savings_deposit", type: "expense", family: 2 },
+      { kind: "savings_withdrawal", type: "income", family: 2 },
+    ]) {
+      const body = { amount: 10000, type: scenario.type, date,
+        category_id: all.find((category) => category.system_kind === scenario.kind)!.id,
+        finance_account_id: accountIds[scenario.family] };
+      const created = await page.request.post("/api/transactions", { data: body });
+      expect(created.status()).toBe(201);
+      const { transaction } = await created.json() as { transaction: { id: number } };
+      for (const [index, accountId] of accountIds.entries()) {
+        if (index === scenario.family) continue;
+        const invalidCreate = await page.request.post("/api/transactions", { data: { ...body, finance_account_id: accountId } });
+        expect(invalidCreate.status()).toBe(400);
+        expect(await invalidCreate.json()).toMatchObject({ code: "VALIDATION_ERROR", error: "Tài khoản không phù hợp với danh mục" });
+        const invalidEdit = await page.request.patch(`/api/transactions/${transaction.id}`, { data: { finance_account_id: accountId } });
+        expect(invalidEdit.status()).toBe(400);
+      }
+      const saved = await page.request.get("/api/finance-accounts");
+      const { accounts } = await saved.json() as { accounts: { id: string; transactions: { id: number; amount: number }[] }[] };
+      expect(accounts.find((account) => account.id === body.finance_account_id)?.transactions)
+        .toContainEqual(expect.objectContaining({ id: transaction.id, amount: body.amount }));
+    }
+  });
+
   test("offers contextual account management without creating from Finance", async ({ page }) => {
     await resetTestData("accounts");
     await page.goto("/cards");
