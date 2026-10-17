@@ -13,7 +13,9 @@ Record or correct a transaction quickly without losing its financial context.
 The shared create/edit form presents direction and amount first, followed by date and
 the fields required by the selected transaction kind. Consumption exposes category,
 cash/card group, custom budgets, note, and emoji. Debt or savings movement exposes the
-finance account and allows inline account creation.
+finance account and allows inline account creation. Its label and options distinguish
+lending, borrowing, and savings accounts according to the selected category. An empty
+compatible list explains which account family must be created.
 
 Account association is edited only here. There is no link/unlink sheet.
 

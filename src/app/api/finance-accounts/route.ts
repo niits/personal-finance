@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
   if (!session) return Errors.unauthorized();
   const db = await getKysely();
   const accounts = await db.selectFrom("finance_account as a")
-    .leftJoin("transaction as t", "t.finance_account_id", "a.id")
+    .leftJoin("transaction as t", (join) => join
+      .onRef("t.finance_account_id", "=", "a.id").onRef("t.user_id", "=", "a.user_id"))
     .select(["a.id", "a.type", "a.name", "a.debt_direction", "a.note", "a.created_at"])
     .select(sql<number>`COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE -t.amount END), 0)`.as("balance"))
     .where("a.user_id", "=", session.user.id)

@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
+import { financeAccountScope, matchesFinanceAccountScope } from "@/lib/finance-account-scope";
 import { fetcher } from "@/lib/fetcher";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
+import { financeAmountLimit, exceedsFinanceBalance } from "@/lib/finance-limits";
+import type { FinanceCounterpart } from "@/lib/finance-counterpart";
 import type { DebtWithRepayments } from "@/lib/debt";
 import { findSelectedChild, getCategoryPath, rootDisplay } from "./categoryDisplay";
 
@@ -29,6 +32,7 @@ export type EditTransaction = {
 
 export type TransactionFormMode =
   | { kind: "create" }
+  | { kind: "finance-counterpart"; movement: FinanceCounterpart }
   | { kind: "create-debt-open" }
   | { kind: "repayment"; debt: DebtWithRepayments }
   | { kind: "edit"; transaction: EditTransaction };
@@ -53,7 +57,14 @@ type Category = {
 
 type CustomBudget = { id: number; name: string; amount: number; is_active: number };
 type OpenDebt = { id: string; type: "lend" | "borrow"; party: string; remaining: number };
-type FinanceAccount = { id: string; type: "debt" | "savings"; name: string; debt_direction: "lend" | "borrow" | null };
+type FinanceAccount = {
+  id: string;
+  type: "debt" | "savings";
+  name: string;
+  debt_direction: "lend" | "borrow" | null;
+  balance: number;
+  transactions: { id: number; amount: number; type: "income" | "expense"; date: string; note: string | null }[];
+};
 type CardGroup = { id: string; name: string };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -374,23 +385,37 @@ function Option({ label, sublabel, selected, onSelect }: { label: string; sublab
 const SPRING = "cubic-bezier(0.32, 0.72, 0, 1)";
 
 export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFormProps) {
+  const counterpart = mode.kind === "finance-counterpart" ? mode.movement : null;
+  const isCounterpart = Boolean(counterpart);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open || !isCounterpart) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [open, isCounterpart]);
   const isEdit = mode.kind === "edit";
   const isRepayment = mode.kind === "repayment";
   const editTx = isEdit ? mode.transaction : null;
 
   const [type, setType] = useState<"expense" | "income">(() =>
     isRepayment ? (mode.debt.type === "lend" ? "income" : "expense")
-    : editTx?.type ?? "expense"
+    : counterpart?.type ?? editTx?.type ?? "expense"
   );
   const [amountStr, setAmountStr] = useState(() =>
-    isRepayment ? fmt(mode.debt.remaining) : editTx ? fmt(editTx.amount) : ""
+    isRepayment ? fmt(mode.debt.remaining) : counterpart ? fmt(counterpart.amount) : editTx ? fmt(editTx.amount) : ""
   );
   const [categoryId, setCategoryId] = useState<number | null>(editTx?.category?.id ?? null);
   const [date, setDate] = useState(() => editTx?.date ?? todayStr());
   const [note, setNote] = useState(editTx?.note ?? "");
   const [emoji, setEmoji] = useState<string | null>(editTx?.emoji ?? null);
   const [selectedCbIds, setSelectedCbIds] = useState<number[]>(() => editTx?.custom_budgets.map((c) => c.id) ?? []);
-  const [financeAccountId, setFinanceAccountId] = useState<string | null>(editTx?.finance_account_id ?? null);
+  const [financeAccountId, setFinanceAccountId] = useState<string | null>(counterpart?.account.id ?? editTx?.finance_account_id ?? null);
   const [creditCardGroupId, setCreditCardGroupId] = useState<string | null>(editTx?.credit_card_group_id ?? null);
   const [newAccountName, setNewAccountName] = useState("");
   const [creatingAccount, setCreatingAccount] = useState(false);
@@ -421,14 +446,14 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   // the call site (see DashboardTemplate), so the useState initializers above
   // re-run for the new transaction — no prop-sync effect needed.
 
-  const { data: catData } = useSWR<{ categories: Category[]; usage_counts: Record<number, number> }>(
+  const { data: catData, error: categoryError, mutate: retryCategories } = useSWR<{ categories: Category[]; usage_counts: Record<number, number> }>(
     open && !isRepayment ? "/api/categories" : null, fetcher,
   );
   const { data: cbData } = useSWR<{ custom_budgets: CustomBudget[] }>(
-    open && !isRepayment ? "/api/custom-budgets?active_only=true" : null, fetcher,
+    open && !isRepayment && !counterpart ? "/api/custom-budgets?active_only=true" : null, fetcher,
   );
-  const { data: accountData, mutate: refreshAccounts } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment ? "/api/finance-accounts" : null, fetcher);
-  const { data: cardData } = useSWR<{ groups: CardGroup[] }>(open && !isRepayment ? "/api/credit-card-groups" : null, fetcher);
+  const { data: accountData, error: accountError, mutate: refreshAccounts } = useSWR<{ accounts: FinanceAccount[] }>(open && !isRepayment ? "/api/finance-accounts" : null, fetcher);
+  const { data: cardData } = useSWR<{ groups: CardGroup[] }>(open && !isRepayment && !counterpart ? "/api/credit-card-groups" : null, fetcher);
 
   const allCats = catData?.categories ?? [];
   const cats = allCats.filter((c) => c.type === type);
@@ -439,9 +464,28 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const selectedCategory = categoryId ? findCategoryById(allCats, categoryId) : null;
   const isSystemCategory = selectedCategory?.budget_behavior === "non_budget";
   const selectedCbIdSet = new Set(selectedCbIds);
+  const amount = Number(amountStr.replace(/[^\d]/g, ""));
+  const accountScope = financeAccountScope(selectedCategory?.system_kind);
+  const compatibleAccounts = financeAccounts.filter((account) => matchesFinanceAccountScope(account, accountScope));
+  const selectedAccount = financeAccounts.find((account) => account.id === financeAccountId
+    && (counterpart || matchesFinanceAccountScope(account, accountScope)));
+  const previousMovement = isEdit ? selectedAccount?.transactions.find((transaction) => transaction.id === editTx?.id) : undefined;
+  const amountLimit = isRepayment ? Math.max(0, mode.debt.remaining)
+    : selectedAccount && (counterpart || isSystemCategory) ? financeAmountLimit(selectedAccount, type, previousMovement)
+    : counterpart ? counterpart.amount : null;
+  const exceedsAmount = amountLimit !== null && amount > amountLimit;
+  const balanceConflict = isEdit && financeAccounts.some((account) => {
+    if (account.id !== editTx?.finance_account_id && account.id !== financeAccountId) return false;
+    const previous = account.transactions.find((transaction) => transaction.id === editTx?.id);
+    const next = isSystemCategory && account.id === financeAccountId ? { amount, type } : undefined;
+    return exceedsFinanceBalance(account, previous, next);
+  });
+  const limitError = exceedsAmount ? `Số tiền tối đa có thể ghi nhận là ${fmt(amountLimit!)}₫. Vui lòng nhập số tiền không vượt giới hạn này.`
+    : balanceConflict ? "Không thể thay đổi khoản gốc vì các giao dịch liên quan sẽ vượt số tiền được bảo đảm. Vui lòng kiểm tra các giao dịch liên quan." : null;
+
 
   // Whether to hide category/budget (debt tx has no category)
-  const isDebtMode = isRepayment
+  const isDebtMode = Boolean(counterpart) || isRepayment
     || (isEdit && editTx?.debt_id && !unlinkMode)
     || debtLink.kind !== "none";
 
@@ -462,21 +506,25 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
     setError("");
   }
 
-  function handleClose() { onClose(); reset(); }
+  function handleClose() {
+    if (counterpart && isSubmittingRef.current) return;
+    if (counterpart && amountStr !== fmt(counterpart.amount)
+      && !window.confirm("Hủy các thay đổi chưa lưu của giao dịch đối ứng?")) return;
+    onClose(); reset();
+  }
 
   async function createAccount() {
-    if (isCreatingAccountRef.current || !selectedCategory || !newAccountName.trim()) return;
+    if (isCreatingAccountRef.current || !accountScope || !newAccountName.trim()) return;
     isCreatingAccountRef.current = true;
     setCreatingAccount(true);
     try {
-      const isSavings = selectedCategory.system_kind === "savings_deposit" || selectedCategory.system_kind === "savings_withdrawal";
       const response = await fetch("/api/finance-accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: isSavings ? "savings" : "debt",
+          type: accountScope.type,
           name: newAccountName.trim(),
-          debt_direction: isSavings ? undefined : selectedCategory.system_kind === "borrow" ? "borrow" : "lend",
+          debt_direction: accountScope.debt_direction,
         }),
       });
       if (!response.ok) {
@@ -496,6 +544,11 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   async function submit() {
     const amount = parseInt(amountStr.replace(/[^\d]/g, ""), 10);
     if (!amount || amount <= 0) { setError("Nhập số tiền hợp lệ"); return; }
+    if (limitError) { setError(limitError); return; }
+    if (!counterpart && !isDebtMode && isSystemCategory && !selectedAccount) {
+      setError(`Vui lòng chọn ${accountScope?.label.toLocaleLowerCase("vi-VN") ?? "tài khoản phù hợp"}.`);
+      return;
+    }
     if (isSubmittingRef.current) return;
 
     isSubmittingRef.current = true;
@@ -505,6 +558,34 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         "Content-Type": "application/json",
         "X-Client-Time-Zone": Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
+      if (counterpart) {
+        const findMovementCategory = (categories: Category[]): Category | undefined => {
+          for (const category of categories) {
+            if (category.system_kind === counterpart.systemKind && category.type === type
+              && category.budget_behavior === "non_budget" && category.children.length === 0) return category;
+            const child = findMovementCategory(category.children);
+            if (child) return child;
+          }
+        };
+        const category = findMovementCategory(allCats);
+        if (!category) {
+          setError("Chưa tải được danh mục phù hợp. Vui lòng tải lại danh mục và thử lại.");
+          return;
+        }
+        const response = await fetch("/api/transactions", {
+          method: "POST", headers: transactionHeaders,
+          body: JSON.stringify({ amount, type, date: todayStr(), note: counterpart.label,
+            category_id: category.id, finance_account_id: counterpart.account.id }),
+        });
+        if (!response.ok) {
+          const failure = await response.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
+        onSaved(); onClose(); return;
+      }
+
       // ── Repayment mode ────────────────────────────────────────────────────
       if (isRepayment) {
         const r = await fetch("/api/transactions", {
@@ -512,7 +593,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           headers: transactionHeaders,
           body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: mode.debt.id }),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+        if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
         onSaved(); handleClose(); return;
       }
 
@@ -548,7 +634,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           method: "PATCH", headers: transactionHeaders,
           body: JSON.stringify(body),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+        if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
         onSaved(); handleClose(); return;
       }
 
@@ -567,7 +658,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             linked_amount: linkedAmt,
           }),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+        if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
         onSaved(); handleClose(); return;
       }
 
@@ -578,7 +674,12 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           method: "POST", headers: transactionHeaders,
           body: JSON.stringify({ amount, type, date, note: note || null, emoji: emoji || null, debt_id: debtLink.debtId, linked_amount: linkedAmt }),
         });
-        if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+        if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
         onSaved(); handleClose(); return;
       }
 
@@ -596,8 +697,15 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
         method: "POST", headers: transactionHeaders,
         body: JSON.stringify(body),
       });
-      if (!r.ok) { setError((await r.json() as { error?: string }).error ?? "Không thể lưu giao dịch. Vui lòng thử lại."); return; }
+      if (!r.ok) {
+          const failure = await r.json() as { error?: string; code?: string };
+          if (failure.code === "FINANCE_BALANCE_EXCEEDED") void refreshAccounts();
+          setError(failure.error ?? "Không thể lưu giao dịch. Vui lòng thử lại.");
+          return;
+        }
       onSaved(); handleClose();
+    } catch {
+      setError("Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.");
     } finally {
       isSubmittingRef.current = false;
       setSaving(false);
@@ -606,12 +714,13 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
   if (!mounted) return null;
 
-  const title = isRepayment ? "Ghi nhận thanh toán"
+  const title = counterpart ? counterpart.label : isRepayment ? "Ghi nhận thanh toán"
     : isEdit ? "Sửa giao dịch"
     : "Giao dịch mới";
 
   const amountColor = type === "expense" ? "var(--danger)" : "var(--success)";
   const selectedCatPath = categoryId ? getCategoryPath(cats, categoryId) : [];
+  const saveDisabled = saving || Boolean(limitError) || Boolean(counterpart && (!catData || categoryError || !accountData || accountError)) || Boolean(isEdit && (editTx?.finance_account_id || (isSystemCategory && financeAccountId)) && (!accountData || accountError));
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 300 }}>
@@ -629,7 +738,21 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
       {/* Full-screen sheet */}
       <div
-        className="absolute inset-0 bg-canvas flex flex-col overflow-x-hidden"
+        ref={dialogRef} tabIndex={-1}
+        role="dialog" aria-modal="true" aria-label={title}
+        onKeyDown={(event) => {
+          if (!counterpart) return;
+          if (event.key === "Escape") { event.preventDefault(); handleClose(); }
+          if (event.key === "Tab") {
+            const elements = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]');
+            if (!elements?.length) return;
+            const first = elements[0];
+            const last = elements[elements.length - 1];
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+          }
+        }}
+        className="absolute inset-0 bg-canvas flex flex-col overflow-x-hidden sm:inset-y-lg sm:left-1/2 sm:right-auto sm:w-full sm:max-w-[560px] sm:-translate-x-1/2 sm:rounded-xl"
         style={{ animation: `${open ? "sheet-slide-in" : "sheet-slide-out"} 0.4s ${SPRING} forwards` }}
         onAnimationEnd={() => {
           if (open) amountRef.current?.focus();
@@ -651,9 +774,9 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           </span>
           <button type="button"
             onClick={submit}
-            disabled={saving}
+            disabled={saveDisabled}
             className={`min-h-11 min-w-11 rounded-sm border-0 bg-transparent px-xs font-body text-[17px] font-semibold hover:bg-canvas-parchment ${
-              saving ? "text-ink-muted-48 cursor-not-allowed" : "text-primary cursor-pointer"
+              saveDisabled ? "text-ink-muted-48 cursor-not-allowed" : "text-primary cursor-pointer"
             }`}
           >
             {saving ? "Đang lưu…" : "Lưu"}
@@ -662,6 +785,16 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
         {/* Scrollable body */}
         <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", padding: "8px 20px", paddingBottom: "max(40px, env(safe-area-inset-bottom))" } as React.CSSProperties}>
+
+          {counterpart ? <div className="mb-md rounded-md bg-canvas-parchment p-md">
+            <p className="break-words font-body text-[17px] font-semibold text-ink">{counterpart.account.name}</p>
+            <p className="mt-xs font-body text-[15px] text-ink-muted-80">{counterpart.label}. Bạn có thể thay đổi số tiền để ghi nhận một phần.</p>
+            <p className="mt-xs font-body text-[13px] text-ink-muted-48">Ngày ghi nhận: hôm nay. Số dư tài khoản được cập nhật sau khi lưu.</p>
+            {!accountData && !accountError ? <p role="status" className="mt-xs font-body text-[15px] text-ink-muted-48">Đang kiểm tra số dư còn lại…</p> : null}
+            {accountError ? <p role="alert" className="mt-xs font-body text-[15px] text-danger">Chưa tải được số dư. <button type="button" onClick={() => void refreshAccounts()} className="min-h-11 text-primary">Thử lại</button></p> : null}
+            {!catData && !categoryError ? <p role="status" className="mt-xs font-body text-[15px] text-ink-muted-48">Đang tải danh mục…</p> : null}
+            {categoryError || error ? <button type="button" onClick={() => { void retryCategories(); void refreshAccounts(); }} className="mt-xs min-h-11 text-primary">Tải lại dữ liệu</button> : null}
+          </div> : null}
 
           {/* Repayment: locked debt chip */}
           {isRepayment && (
@@ -715,11 +848,16 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {/* Type segmented — hidden when type is locked */}
-          {!isRepayment && !(isEdit && editTx?.debt_id && !unlinkMode) && (
+          {!counterpart && !isRepayment && !(isEdit && editTx?.debt_id && !unlinkMode) && (
             <div style={{ display: "flex", background: "var(--canvas-parchment)", borderRadius: 11, padding: 4, marginBottom: 18 }}>
               {(["expense", "income"] as const).map((t) => (
                 <button key={t} type="button" onClick={() => {
+                  if (t === type) return;
                   setType(t);
+                  setCategoryId(null);
+                  setFinanceAccountId(null);
+                  setNewAccountName("");
+                  setCreditCardGroupId(null);
                   setError("");
                   if (t === "income") setSelectedCbIds([]);
                   // create mode: category list is type-specific, so reset selection
@@ -740,10 +878,13 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {/* Amount */}
+          {amountLimit !== null ? <p className="mb-xs font-body text-[15px] text-ink-muted-80">Số tiền tối đa có thể ghi nhận: <span className="font-semibold tabular-nums text-ink">{fmt(amountLimit)}₫</span></p> : null}
+          {counterpart ? <label htmlFor="transaction-amount" className="mb-xs block font-body text-[15px] text-ink">Số tiền</label> : null}
           <div style={{ position: "relative", marginBottom: 18 }}>
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] text-ink-muted-48 font-display font-semibold pointer-events-none">₫</span>
             <input
-              type="text" inputMode="numeric" placeholder="0" aria-label="Số tiền"
+              aria-invalid={Boolean(limitError)} aria-describedby={limitError ? "transaction-limit-error" : undefined}
+              id="transaction-amount" type="text" inputMode="numeric" placeholder="0" aria-label="Số tiền"
               value={amountStr}
               onChange={(e) => { const raw = e.target.value.replace(/[^\d]/g, ""); setAmountStr(raw ? fmt(parseInt(raw, 10)) : ""); setError(""); }}
               ref={amountRef}
@@ -757,11 +898,13 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             />
           </div>
 
+          {limitError ? <p id="transaction-limit-error" role="alert" className="mb-md font-body text-[15px] text-danger">{limitError}</p> : null}
+
           {/* Date */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
+          {!counterpart && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderTop: "1px solid var(--hairline)" }}>
             <span style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)" }}>Ngày</span>
             <DatePicker value={date} onChange={setDate} />
-          </div>
+          </div>}
 
           {/* Category — hidden for debt transactions */}
           {!isDebtMode && (
@@ -769,7 +912,18 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
               <p style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 600, color: "var(--ink-muted-48)", marginBottom: 10, letterSpacing: 0.5, textTransform: "uppercase" }}>
                 Danh mục {selectedCatPath.length > 0 && <span style={{ color: "var(--primary)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>· {selectedCatPath.join(" › ")}</span>}
               </p>
-              <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => { setCategoryId(id); setError(""); }} usageCounts={usageCounts} />
+              <CategoryDrillDown cats={cats} selected={categoryId} onSelect={(id) => {
+                const nextScope = financeAccountScope(findCategoryById(allCats, id)?.system_kind);
+                const currentAccount = financeAccounts.find((account) => account.id === financeAccountId);
+                if (!currentAccount || !matchesFinanceAccountScope(currentAccount, nextScope)) setFinanceAccountId(null);
+                if (nextScope) {
+                  setSelectedCbIds([]);
+                  setCreditCardGroupId(null);
+                }
+                setNewAccountName("");
+                setCategoryId(id);
+                setError("");
+              }} usageCounts={usageCounts} />
             </div>
           )}
 
@@ -802,14 +956,15 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
 
           {!isDebtMode && isSystemCategory && (
             <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
-              <label htmlFor="finance-account" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Tài khoản nợ hoặc tiết kiệm</label>
-              <select id="finance-account" value={financeAccountId ?? ""} onChange={(e) => setFinanceAccountId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
+              <label htmlFor="finance-account" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">{accountScope?.label ?? "Tài khoản tài chính"}</label>
+              <select id="finance-account" value={selectedAccount?.id ?? ""} onChange={(e) => setFinanceAccountId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
                 <option value="">Chọn tài khoản</option>
-                {financeAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+                {compatibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
               </select>
+              {accountData && compatibleAccounts.length === 0 ? <p className="mt-xs font-body text-[13px] text-ink-muted-48">Chưa có {accountScope?.label.toLocaleLowerCase("vi-VN")}. Vui lòng tạo tài khoản mới bên dưới.</p> : null}
               <div className="mt-2 flex gap-2">
-                <input aria-label="Tên tài khoản mới" value={newAccountName} onChange={(event) => setNewAccountName(event.target.value)} placeholder="Tạo tài khoản mới" style={inputStyle} />
-                <button type="button" onClick={createAccount} disabled={creatingAccount || !newAccountName.trim()} className="rounded-pill border-none bg-primary px-3 font-body text-sm text-on-primary disabled:opacity-50">{creatingAccount ? "Đang tạo…" : "Tạo"}</button>
+                <input aria-label="Tên tài khoản mới" value={newAccountName} onChange={(event) => setNewAccountName(event.target.value)} placeholder={accountScope ? `Tạo ${accountScope.label.toLocaleLowerCase("vi-VN")}` : "Tạo tài khoản mới"} style={inputStyle} />
+                <button type="button" onClick={createAccount} disabled={creatingAccount || !accountScope || !newAccountName.trim()} className="rounded-pill border-none bg-primary px-3 font-body text-sm text-on-primary disabled:opacity-50">{creatingAccount ? "Đang tạo…" : "Tạo"}</button>
               </div>
             </div>
           )}
@@ -825,7 +980,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           )}
 
           {/* Note + emoji */}
-          <div className="border-t border-hairline py-sm">
+          {!counterpart && <div className="border-t border-hairline py-sm">
             <label htmlFor="transaction-note" className="mb-xs block font-body text-[13px] text-ink-muted-80">Ghi chú (tùy chọn)</label>
             <div className="flex items-start gap-xs">
               <EmojiPicker value={emoji} onChange={setEmoji} />
@@ -838,7 +993,32 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
                 className="min-h-11 min-w-0 flex-1 rounded-md border border-hairline bg-canvas-parchment px-md font-body text-[17px] text-ink outline-none"
               />
             </div>
-          </div>
+          </div>}
+
+          {isEdit && (editTx?.finance_account_id || (isSystemCategory && financeAccountId)) ? (
+            <section aria-label="Giao dịch liên quan" className="border-t border-hairline py-md">
+              <h2 className="font-body text-[17px] font-semibold text-ink">Giao dịch liên quan</h2>
+              {!accountData && !accountError ? <p role="status" className="mt-xs font-body text-[15px] text-ink-muted-48">Đang kiểm tra các giao dịch cùng tài khoản…</p> : null}
+              {accountError ? <p role="alert" className="mt-xs font-body text-[15px] text-danger">Chưa kiểm tra được giao dịch liên quan. <button type="button" onClick={() => void refreshAccounts()} className="min-h-11 text-primary">Thử lại</button></p> : null}
+              {financeAccounts.filter((account) => account.id === editTx?.finance_account_id || (isSystemCategory && account.id === financeAccountId)).map((account) => {
+                const related = account.transactions.filter((transaction) => transaction.id !== editTx?.id);
+                const proposedAmount = Number(amountStr.replace(/[^\d]/g, ""));
+                const previous = account.transactions.find((transaction) => transaction.id === editTx?.id);
+                const balance = account.balance - (previous ? (previous.type === "income" ? previous.amount : -previous.amount) : 0)
+                  + (isSystemCategory && financeAccountId === account.id ? (type === "income" ? proposedAmount : -proposedAmount) : 0);
+                const reverse = account.type === "savings" || account.debt_direction === "lend" ? balance > 0 : balance < 0;
+                const label = account.type === "savings" ? reverse ? "Rút vượt tiền đã gửi" : "Số dư tiền gửi"
+                  : account.debt_direction === "lend" ? reverse ? "Nhận vượt khoản cho vay" : "Còn được nhận"
+                  : reverse ? "Trả vượt khoản vay" : "Còn phải trả";
+                return <div key={account.id} className="mt-sm">
+                  <p className="break-words font-body text-[15px] font-semibold text-ink">{account.name}</p>
+                  <p aria-live="polite" className={`mt-xs font-body text-[15px] ${reverse ? "text-warning" : "text-ink-muted-80"}`}>{label} sau khi lưu: {fmt(Math.abs(balance))}₫</p>
+                  <p className="mt-xs font-body text-[13px] text-ink-muted-48">{related.length} giao dịch khác được giữ nguyên.</p>
+                  {related.length ? <details className="mt-xs"><summary className="min-h-11 cursor-pointer py-sm font-body text-[15px] text-primary">Xem giao dịch liên quan</summary><ul className="divide-y divide-divider-soft">{related.map((transaction) => <li key={transaction.id} className="flex justify-between gap-sm py-sm font-body text-[15px]"><span className="min-w-0 break-words text-ink-muted-80">{transaction.date} · {transaction.note || "Giao dịch"}</span><span className="shrink-0 tabular-nums text-ink">{transaction.type === "income" ? "+" : "−"}{fmt(transaction.amount)}₫</span></li>)}</ul></details> : null}
+                </div>;
+              })}
+            </section>
+          ) : null}
 
           {error && (
             <p style={{ color: "var(--danger)", fontSize: 14, fontFamily: "var(--font-body)", marginTop: 16, marginBottom: 4 }}>{error}</p>

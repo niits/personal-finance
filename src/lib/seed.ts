@@ -79,9 +79,10 @@ const SEED_CATEGORIES: {
   },
 ];
 
-const SYSTEM_CATEGORIES: { name: string; type: "income" | "expense"; system_kind: "lend" | "borrow" | "debt_repayment" | "savings_deposit" | "savings_withdrawal" }[] = [
+const SYSTEM_CATEGORIES: { name: string; type: "income" | "expense"; system_kind: "lend" | "borrow" | "debt_repayment" | "debt_collection" | "savings_deposit" | "savings_withdrawal" }[] = [
   { name: "Cho vay", type: "expense", system_kind: "lend" },
   { name: "Đi vay", type: "income", system_kind: "borrow" },
+  { name: "Nhận tiền trả nợ", type: "income", system_kind: "debt_collection" },
   { name: "Trả nợ", type: "expense", system_kind: "debt_repayment" },
   { name: "Gửi tiết kiệm", type: "expense", system_kind: "savings_deposit" },
   { name: "Rút tiết kiệm", type: "income", system_kind: "savings_withdrawal" },
