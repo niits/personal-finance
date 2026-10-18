@@ -32,6 +32,11 @@ const defaultArgs = {
   usageCounts: { 3: 8, 4: 3, 5: 1 },
   loading: false,
   seedState: "idle" as const,
+  organizeState: "idle" as const,
+  organizeChanges: [],
+  onOrganize: () => {},
+  onOrganizeApply: () => {},
+  onOrganizeCancel: () => {},
   onRetry: () => {},
   onSeed: noop,
   onAddCategory: noop,
@@ -46,3 +51,16 @@ export const Empty: Story = { args: { ...defaultArgs, categories: [] } };
 export const SeedPending: Story = { args: { ...defaultArgs, categories: [], seedState: "loading" } };
 export const SeedError: Story = { args: { ...defaultArgs, categories: [], seedState: "error", seedError: "Không thể tạo danh mục mẫu lúc này." } };
 export const LongNames: Story = { args: defaultArgs, parameters: { viewport: { defaultViewport: "mobile1" } } };
+
+const treeChanges = [{
+  id: 3, name: "Tiền thuê nhà", before: "Tiền thuê nhà · Vị trí 1",
+  after: "Nhà cửa và các khoản sinh hoạt định kỳ / Tiền thuê nhà · Vị trí 2",
+  reason: "Gom khoản thuê nhà vào nhóm chi phí nhà ở.", parent_id: 1, level: 2, sort_order: 1,
+}];
+export const TreeAnalyzing: Story = { args: { ...defaultArgs, organizeState: "loading" } };
+export const TreeReview: Story = { args: { ...defaultArgs, organizeState: "review", organizeChanges: treeChanges } };
+export const TreeNoChanges: Story = { args: { ...defaultArgs, organizeState: "review" } };
+export const TreeApplying: Story = { args: { ...TreeReview.args, organizeState: "applying" } };
+export const TreeError: Story = { args: { ...defaultArgs, organizeError: "Không thể đề xuất cây danh mục. Vui lòng thử lại." } };
+export const TreeStale: Story = { args: { ...TreeReview.args, organizeBlocked: true, organizeError: "Danh mục đã thay đổi. Vui lòng đóng và tạo đề xuất mới." } };
+export const TreeSuccess: Story = { args: { ...defaultArgs, organizeResult: "Đã sắp xếp lại 3 danh mục." } };

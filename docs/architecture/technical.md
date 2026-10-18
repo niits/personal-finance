@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Active target |
-| Updated | 2026-09-05 |
+| Updated | 2026-10-18 |
 
 ## System Context
 
@@ -86,6 +86,8 @@ contract. Migration changes use expand/contract deployment and preserve user dat
 |---|---|
 | `/api/auth/*` | Better Auth handlers for Google and GitHub. |
 | `/api/categories` | Read, seed, create, update, and guarded delete. |
+| `/api/categories/organize` | Preview AI parent–child and sibling-order changes to existing categories. |
+| `/api/categories/organize/apply` | Validate a whole-tree snapshot and atomically apply hierarchy changes. |
 | `/api/transactions` | Full selected-period read and direct create/edit/delete. No filter/search contract. |
 | `/api/monthly-budgets` | Read/create period, update effective limit/objective, and append adjustment audit. |
 | `/api/custom-budgets` | Read/create/update and guarded delete with adjustment history. |
@@ -105,7 +107,9 @@ Finance-account association is part of transaction create/edit.
 ## AI Organize Apply Contract
 
 `POST /api/ai/organize` has no request body. Analysis covers the user's most recently
-updated transactions that carry a non-empty note, up to a documented cap. The preview
+updated consumption transactions that carry a non-empty note, up to 300. Transactions
+in Khác, Chi phí khác, Chi tiêu khác, and Thu nhập khác are prioritized before recency;
+protected finance movements are excluded. The preview
 response shape is:
 
 ```ts
@@ -192,3 +196,17 @@ short-context AI features keep their separate model configuration.
 
 Optional telemetry must flush with the Worker
 execution context and must not expose secrets or cross-user data.
+
+## Category Tree Organization Contract
+
+`POST /api/categories/organize` has no body. It returns `snapshot` (SHA-256 of the
+ordered user-owned category metadata and usage counts), `nodes` (one `{ id,
+parent_id, sort_order, reason }` per category), and display `changes` containing full
+before/after paths and positions. Analysis supports up to 500 categories. Preview
+never writes. An empty changes array is a valid no-op.
+
+`POST /api/categories/organize/apply` accepts `{ snapshot, nodes }`. It validates all
+ownership, hierarchy, protected-state, usage, and sibling-name constraints again.
+A mismatched snapshot or invalid resulting tree returns `409 STALE_PROPOSAL`.
+A D1 snapshot assertion and all category updates share one batch transaction; success
+returns `{ updated_categories }`. No transaction categories or financial amounts change.

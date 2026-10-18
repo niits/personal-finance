@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Active target |
-| Updated | 2026-09-05 |
+| Updated | 2026-10-18 |
 
 ## Hierarchy
 
@@ -23,6 +23,9 @@ spending and may be used only by compatible finance movements.
 ## Mutation Rules
 
 - A user may create and rename ordinary categories within the depth and type rules.
+- A reviewed AI tree proposal may reparent and reorder existing ordinary categories.
+  Used categories remain leaves, and the complete resulting tree obeys the same depth,
+  type, ownership, and protected-category rules. Applying the tree is atomic.
 - A category with children or referenced transactions cannot be deleted.
 - Deleting a category never cascades into transaction history.
 - Seed operations are user-scoped and idempotent.

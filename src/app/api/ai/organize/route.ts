@@ -50,9 +50,10 @@ const SYSTEM_PROMPT = `Bạn là trợ lý tài chính cá nhân phân tích gia
 Mục tiêu: Đề xuất ít thay đổi nhất để sửa lỗi rõ ràng và gom giao dịch thuộc các danh mục trùng nghĩa về một danh mục hiện có. Giữ nguyên cấu trúc, tên danh mục, phân loại và emoji đang hợp lý. Không tổ chức lại dữ liệu chỉ để chi tiết hơn hoặc đồng nhất hình thức. Khi thiếu căn cứ, giữ nguyên; các mảng đề xuất được phép rỗng.
 
 Thứ tự ưu tiên:
-1. Giữ nguyên giao dịch đã được phân loại hợp lý.
-2. Dùng danh mục hiện có để sửa phân loại sai rõ ràng hoặc gom danh mục trùng nghĩa.
-3. Chỉ tạo danh mục mới khi không có danh mục hiện có phù hợp.
+1. Ưu tiên phân loại giao dịch trong nhóm Khác (ví dụ: Khác, Chi phí khác, Chi tiêu khác, Thu nhập khác) vào danh mục lá hiện có phù hợp với ghi chú. Nhóm Khác là phân loại tạm thời, không phải căn cứ để giữ nguyên khi đã xác định được mục đích giao dịch.
+2. Giữ nguyên các giao dịch khác đã được phân loại hợp lý.
+3. Dùng danh mục hiện có để sửa phân loại sai rõ ràng hoặc gom danh mục trùng nghĩa.
+4. Chỉ tạo danh mục mới khi không có danh mục hiện có phù hợp.
 
 Trả về 3 loại gợi ý:
 
@@ -64,7 +65,8 @@ Trả về 3 loại gợi ý:
 - Tên tiếng Việt ngắn gọn 1-4 từ, kèm một emoji phù hợp và tối đa 3 ghi chú thực làm ví dụ.
 
 2. recategorizations:
-- Chỉ chuyển khi ghi chú chứng minh phân loại hiện tại sai rõ ràng, hoặc để gom các danh mục trùng nghĩa đã được xác nhận. Không chuyển từ một danh mục hợp lý sang mục chi tiết hơn chỉ vì có từ khóa khớp.
+- Với nhóm Khác, phải đề xuất chuyển sang danh mục lá cụ thể cùng loại khi ghi chú đủ rõ, kể cả chỉ có một giao dịch và phân loại Khác không sai về mặt khái quát. Không chuyển sang một nhóm Khác khác.
+- Với các nhóm còn lại, chỉ chuyển khi ghi chú chứng minh phân loại hiện tại sai rõ ràng, hoặc để gom các danh mục trùng nghĩa đã được xác nhận. Không chuyển từ một danh mục hợp lý sang mục chi tiết hơn chỉ vì có từ khóa khớp.
 - Ghi chú mơ hồ, quá ngắn hoặc có nhiều cách hiểu: giữ nguyên.
 - Chỉ coi các danh mục là trùng khi chúng cùng type, cùng parent_id, cùng budget_behavior và cùng ý nghĩa sử dụng. Tên giống nhau ở các nhánh khác nhau, quan hệ cha-con, hoặc hai mục chỉ liên quan không đủ để gộp.
 - Trong mỗi nhóm trùng nghĩa, chọn đúng một danh mục đích hiện có: ưu tiên transaction_count lớn nhất; nếu bằng nhau, chọn ID nhỏ nhất. Giữ tên và ID của danh mục đích, không tạo danh mục thay thế.
@@ -104,9 +106,12 @@ export async function POST(request: NextRequest) {
       .all<CategoryRow>(),
     db
       .prepare(`SELECT t.id, t.note, t.type, t.category_id, t.emoji, t.updated_at, c.name as cat_name, c.emoji as cat_emoji
-                FROM "transaction" t JOIN category c ON t.category_id = c.id
-                WHERE t.user_id = ? AND t.note IS NOT NULL AND t.note != ''
-                ORDER BY t.updated_at DESC LIMIT 300`)
+                FROM "transaction" t JOIN category c ON t.category_id = c.id AND c.user_id = t.user_id
+                WHERE t.user_id = ? AND t.note IS NOT NULL AND TRIM(t.note) != ''
+                  AND c.system_kind IS NULL AND c.budget_behavior = 'consumption'
+                ORDER BY CASE WHEN LOWER(TRIM(c.name)) IN
+                  ('khác', 'chi phí khác', 'chi tiêu khác', 'thu nhập khác') THEN 0 ELSE 1 END,
+                  t.updated_at DESC, t.id DESC LIMIT 300`)
       .bind(userId)
       .all<TransactionRow>(),
   ]);

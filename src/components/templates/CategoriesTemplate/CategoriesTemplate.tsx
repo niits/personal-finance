@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { EmojiPicker } from "@/components/organisms/EmojiPicker";
 import { ConfirmationSheet } from "@/components/organisms/ConfirmationSheet";
+import type { CategoryTreeChange } from "@/lib/category-tree-organize";
 
 export type Category = {
   id: number;
@@ -26,6 +27,14 @@ export type CategoriesTemplateProps = {
   loadError?: string;
   seedState: "idle" | "loading" | "error";
   seedError?: string;
+  organizeState: "idle" | "loading" | "review" | "applying";
+  organizeChanges: CategoryTreeChange[];
+  organizeError?: string;
+  organizeResult?: string;
+  organizeBlocked?: boolean;
+  onOrganize: () => void;
+  onOrganizeApply: () => void;
+  onOrganizeCancel: () => void;
   onRetry: () => void;
   onSeed: () => Promise<MutationResult>;
   onAddCategory: (
@@ -91,6 +100,14 @@ export function CategoriesTemplate({
   onAddCategory,
   onEditCategory,
   onDeleteCategory,
+  organizeState,
+  organizeChanges,
+  organizeError,
+  organizeResult,
+  organizeBlocked,
+  onOrganize,
+  onOrganizeApply,
+  onOrganizeCancel,
 }: CategoriesTemplateProps) {
   const [activeType, setActiveType] = useState<CategoryType>("expense");
   const [showCreate, setShowCreate] = useState(false);
@@ -292,6 +309,46 @@ export function CategoriesTemplate({
           {showCreate ? "Đóng" : "Thêm"}
         </button>
       </header>
+
+      <section className="border-b border-hairline py-md" aria-label="Sắp xếp cây danh mục" aria-busy={organizeState === "loading" || organizeState === "applying"}>
+        <button
+          type="button"
+          onClick={onOrganize}
+          disabled={loading || Boolean(loadError) || categories.length === 0 || organizeState !== "idle" || saving}
+          className="min-h-11 w-full rounded-md border border-hairline bg-canvas px-sm py-xs font-body text-[15px] font-semibold text-primary disabled:opacity-60"
+        >
+          {organizeState === "loading" ? "Đang phân tích cây danh mục…" : "Sắp xếp lại cây danh mục"}
+        </button>
+        <p className="mt-xs font-body text-[13px] leading-[18px] text-ink-muted-48">
+          AI đề xuất nhóm cha–con và thứ tự cho cả thu nhập và chi tiêu. Xem lại trước khi áp dụng.
+        </p>
+        {organizeError ? <p role="alert" className="mt-sm break-words font-body text-[14px] text-danger">{organizeError}</p> : null}
+        {organizeResult ? <p role="status" className="mt-sm font-body text-[14px] text-ink-muted-80">{organizeResult}</p> : null}
+        {organizeState === "review" || organizeState === "applying" ? (
+          <div className="mt-md" aria-labelledby="tree-review-title">
+            <h2 id="tree-review-title" tabIndex={-1} className="font-display text-[21px] font-semibold text-ink">Xem lại cây danh mục</h2>
+            <p role="status" className="mt-xs font-body text-[14px] text-ink-muted-80">
+              {organizeChanges.length > 0 ? `${organizeChanges.length} danh mục có thay đổi. Áp dụng toàn bộ cây sau khi xem lại.` : "Cây danh mục đã phù hợp. Không có thay đổi được đề xuất."}
+            </p>
+            <ul className="mt-sm divide-y divide-divider-soft">
+              {organizeChanges.map((change) => (
+                <li key={change.id} className="min-w-0 py-sm font-body text-[14px] leading-[21px]">
+                  <p className="break-words font-semibold text-ink">{change.name}</p>
+                  <p className="mt-xxs break-words text-ink-muted-80">Hiện tại: {change.before}</p>
+                  <p className="mt-xxs break-words text-ink">Đề xuất: {change.after}</p>
+                  <p className="mt-xxs break-words text-ink-muted-48">{change.reason}</p>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-md flex flex-wrap gap-xs">
+              <button type="button" disabled={organizeState === "applying"} onClick={onOrganizeCancel} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas px-sm py-xs font-body text-[15px] font-semibold text-ink disabled:opacity-60">Đóng</button>
+              {organizeChanges.length > 0 ? <button type="button" disabled={organizeState === "applying" || organizeBlocked} onClick={onOrganizeApply} className="min-h-11 flex-1 rounded-md border-0 bg-primary px-sm py-xs font-body text-[15px] font-semibold text-on-primary disabled:opacity-60">
+                {organizeState === "applying" ? "Đang áp dụng…" : "Áp dụng cây danh mục"}
+              </button> : null}
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       {showCreate ? (
         <section className="border-b border-hairline py-lg" aria-labelledby="create-category-title">
