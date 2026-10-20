@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
+import { expect, userEvent, within } from "storybook/test";
 import { CategoriesTemplate } from "./CategoriesTemplate";
 
 const meta: Meta<typeof CategoriesTemplate> = {
@@ -64,3 +65,20 @@ export const TreeApplying: Story = { args: { ...TreeReview.args, organizeState: 
 export const TreeError: Story = { args: { ...defaultArgs, organizeError: "Không thể đề xuất cây danh mục. Vui lòng thử lại." } };
 export const TreeStale: Story = { args: { ...TreeReview.args, organizeBlocked: true, organizeError: "Danh mục đã thay đổi. Vui lòng đóng và tạo đề xuất mới." } };
 export const TreeSuccess: Story = { args: { ...defaultArgs, organizeResult: "Đã sắp xếp lại 3 danh mục." } };
+export const CreateCategory: Story = {
+  args: defaultArgs,
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Thêm" }));
+    await expect(canvas.getByLabelText("Tên danh mục")).toBeVisible();
+  },
+};
+
+export const RenameCategory: Story = {
+  args: defaultArgs,
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("button", { name: `Thao tác cho ${mockCategories[0].name}` }));
+    await userEvent.click(canvas.getByRole("button", { name: "Đổi tên" }));
+    const dialog = canvas.getByRole("dialog");
+    await expect(within(dialog).getByLabelText("Tên danh mục")).toHaveValue(mockCategories[0].name);
+  },
+};

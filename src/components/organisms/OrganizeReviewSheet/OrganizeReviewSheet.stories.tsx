@@ -1,4 +1,5 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import { expect, fn, userEvent } from "storybook/test";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import { OrganizeReviewSheet } from "./OrganizeReviewSheet";
 import type { OrganizePreview } from "./types";
 
@@ -96,4 +97,41 @@ export const StaleProposal: Story = {
 
 export const Closed: Story = {
   args: { open: false, preview: null, applying: false, onApply: () => {}, onClose: () => {} },
+};
+
+
+const structuralPreview: OrganizePreview = {
+  new_categories: [], emoji_assignments: [], recategorizations: [], emoji_reassignments: [],
+  category_snapshot: [
+    { id: 1, name: "Sinh hoạt", type: "expense", parent_id: null, level: 1, sort_order: 0, emoji: null, system_kind: null, budget_behavior: "consumption", child_count: 0, transaction_count: 0 },
+    { id: 2, name: "Học tập và phát triển chuyên môn", type: "expense", parent_id: null, level: 1, sort_order: 1, emoji: null, system_kind: null, budget_behavior: "consumption", child_count: 0, transaction_count: 0 },
+  ],
+  category_merges: [{
+    source_category_id: 4, source_category_name: "Chi phí khám chữa bệnh và chăm sóc sức khỏe định kỳ",
+    target_category_id: 3, target_category_name: "Y tế và sức khỏe", transaction_count: 125,
+    reason: "Hai danh mục cùng phục vụ chi phí y tế. Giữ danh mục có nhiều giao dịch hơn.",
+  }],
+  category_moves: [{ category_id: 2, category_name: "Học tập và phát triển chuyên môn", parent_category_id: 1, parent_category_name: "Sinh hoạt", sort_order: 0, reason: "Đưa nhóm học tập vào nhánh chi phí sinh hoạt." }],
+};
+
+export const StructuralChanges: Story = {
+  args: { open: true, preview: structuralPreview, applying: false, onApply: fn(), onClose: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Bỏ chọn tất cả" }));
+    await expect(canvas.getByRole("button", { name: "Chưa chọn thay đổi" })).toBeDisabled();
+    await userEvent.click(canvas.getByRole("checkbox", { name: "Áp dụng nhóm thay đổi cấu trúc" }));
+    await userEvent.click(canvas.getByRole("button", { name: /^Áp dụng$/ }));
+    await expect(args.onApply).toHaveBeenCalledWith(expect.objectContaining({ category_merges: [], category_moves: structuralPreview.category_moves }));
+    await userEvent.click(canvas.getByRole("button", { name: /^Chọn tất cả$/ }));
+    await userEvent.click(canvas.getByRole("button", { name: /^Áp dụng$/ }));
+    await expect(args.onApply).toHaveBeenLastCalledWith(expect.objectContaining({ category_merges: structuralPreview.category_merges }));
+  },
+};
+
+export const StructuralChangesPending: Story = {
+  args: { ...StructuralChanges.args, applying: true },
+};
+
+export const ExpandedEmoji: Story = {
+  args: { open: true, preview: { ...structuralPreview, category_merges: [], category_moves: [], emoji_assignments: [{ category_id: 2, category_name: "Khám phá khoa học", current_emoji: null, emoji: "🧑🏽‍🚀" }] }, applying: false, onApply: fn(), onClose: fn() },
 };

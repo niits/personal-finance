@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { mutate } from "swr";
 import { useRouter } from "next/navigation";
 import { DashboardTemplate } from "@/components/templates/DashboardTemplate";
 import type { DashboardData, Transaction } from "@/components/templates/DashboardTemplate";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
 import { currentBudgetMonth } from "@/lib/validators";
+import type { OrganizeRetry } from "@/lib/organize-patch";
 
 export default function DashboardPage() {
   const initialMonth = currentBudgetMonth();
@@ -20,6 +22,7 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [organizeState, setOrganizeState] = useState<"idle" | "loading" | "review" | "applying">("idle");
+  const [organizeNotice, setOrganizeNotice] = useState<{ message: string; error: boolean } | null>(null);
   const [organizePreview, setOrganizePreview] = useState<OrganizePreview | null>(null);
   const [organizeApplyError, setOrganizeApplyError] = useState<string | null>(null);
   const [organizeApplyBlocked, setOrganizeApplyBlocked] = useState(false);
@@ -28,6 +31,7 @@ export default function DashboardPage() {
   const { replace } = useRouter();
   const abortRef = useRef<AbortController | null>(null);
   const organizeApplyingRef = useRef(false);
+  const organizeRetryRef = useRef<OrganizeRetry | null>(null);
 
   // silent=true: reload in background without showing spinner (visibilitychange / post-mutation)
   const load = useCallback(async (month?: string, silent = false) => {
@@ -136,7 +140,8 @@ export default function DashboardPage() {
     try {
       const response = await fetch(`/api/transactions/${txn.id}`, { method: "DELETE" });
       if (!response.ok) {
-        setDeleteError("Không thể xóa giao dịch. Vui lòng thử lại.");
+        const failure = await response.json().catch(() => null) as { error?: string } | null;
+        setDeleteError(`Không thể xóa giao dịch. ${failure?.error ?? "Vui lòng thử lại."}`);
         return;
       }
       setActionTxn(null);
@@ -149,16 +154,31 @@ export default function DashboardPage() {
   }
 
   async function handleOrganize() {
+    setOrganizeNotice(null);
     setOrganizeApplyError(null);
     setOrganizeApplyBlocked(false);
     setOrganizeState("loading");
     try {
-      const r = await fetch("/api/ai/organize", { method: "POST" });
-      if (!r.ok) { setOrganizeState("idle"); return; }
+      const retry = organizeRetryRef.current;
+      const r = await fetch("/api/ai/organize", {
+        method: "POST",
+        ...(retry ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ retry }) } : {}),
+      });
+      if (!r.ok) {
+        if (r.status === 401) { replace("/sign-in"); return; }
+        const failure = await r.json().catch(() => null) as { error?: string; code?: string; retry?: OrganizeRetry } | null;
+        if (failure?.code === "AI_INVALID_PATCH") organizeRetryRef.current = failure.retry ?? null;
+        else if (r.status === 409 || r.status === 413) organizeRetryRef.current = null;
+        setOrganizeNotice({ message: failure?.error ?? "Không thể tạo đề xuất. Vui lòng thử lại.", error: true });
+        setOrganizeState("idle");
+        return;
+      }
       const preview = await r.json() as OrganizePreview;
+      organizeRetryRef.current = null;
       setOrganizePreview(preview);
       setOrganizeState("review");
     } catch {
+      setOrganizeNotice({ message: "Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.", error: true });
       setOrganizeState("idle");
     }
   }
@@ -175,10 +195,14 @@ export default function DashboardPage() {
         body: JSON.stringify(selection),
       });
       if (r.ok) {
+        const counts = await r.json() as { created_categories: number; emoji_updated: number; transactions_moved: number; merged_categories: number; reorganized_categories: number };
+        setOrganizeNotice({ message: `Đã hợp nhất ${counts.merged_categories} danh mục, sắp xếp ${counts.reorganized_categories} danh mục, tạo ${counts.created_categories} danh mục, cập nhật ${counts.emoji_updated} emoji và chuyển ${counts.transactions_moved} giao dịch.`, error: false });
+        void mutate((key) => typeof key === "string" && /^\/api\/(categories|transactions|dashboard|monthly-budgets|custom-budgets|pace-line|statistics)(?:[/?]|$)/.test(key));
         setOrganizeState("idle");
         setOrganizePreview(null);
         load(selectedMonth, true);
       } else {
+        if (r.status === 401) { replace("/sign-in"); return; }
         const blocked = r.status === 409;
         setOrganizeApplyBlocked(blocked);
         setOrganizeApplyError(blocked
@@ -223,6 +247,7 @@ export default function DashboardPage() {
       onCloseForm={() => { setFormOpen(false); setEditTxn(undefined); }}
       onSaved={() => load(selectedMonth, true)}
       onDelete={handleDelete}
+      organizeNotice={organizeNotice}
       organizeState={organizeState}
       organizePreview={organizePreview}
       organizeApplyError={organizeApplyError}

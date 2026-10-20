@@ -1,4 +1,9 @@
+import type { OrganizePatch, OrganizeCategoryState } from "@/lib/organize-patch";
+
 export type OrganizePreview = {
+  category_snapshot?: OrganizeCategoryState[];
+  category_merges?: OrganizePatch["category_merges"];
+  category_moves?: OrganizePatch["category_moves"];
   new_categories: {
     temp_id: string;
     name: string;
@@ -35,6 +40,9 @@ export type OrganizePreview = {
 };
 
 export type OrganizeSelection = {
+  category_snapshot?: OrganizePreview["category_snapshot"];
+  category_merges?: OrganizePreview["category_merges"];
+  category_moves?: OrganizePreview["category_moves"];
   new_categories: OrganizePreview["new_categories"];
   emoji_assignments: OrganizePreview["emoji_assignments"];
   recategorizations: OrganizePreview["recategorizations"];

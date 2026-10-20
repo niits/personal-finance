@@ -1,6 +1,8 @@
+import { financeAccountScope, matchesFinanceAccountScope } from "@/lib/finance-account-scope";
 import type { NextRequest } from "next/server";
 import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
+import { withFinanceLimit } from "@/lib/finance-limit-response";
 import { Errors } from "@/lib/errors";
 import {
   parseAmount,
@@ -105,7 +107,7 @@ async function fetchFullTransaction(db: Kysely<Database>, txnId: number) {
   };
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Params }) {
+async function updateTransaction(request: NextRequest, { params }: { params: Params }) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
 
@@ -196,11 +198,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   const financeAccountId = "finance_account_id" in b ? (typeof b.finance_account_id === "string" ? b.finance_account_id : null) : existing.finance_account_id;
   if (category?.budget_behavior === "non_budget") {
     if (!financeAccountId) return Errors.validation("Giao dịch nợ hoặc tiết kiệm cần chọn tài khoản");
-    const account = await db.selectFrom("finance_account").select(["id", "type"])
+    const account = await db.selectFrom("finance_account").select(["id", "type", "debt_direction"])
       .where("id", "=", financeAccountId).where("user_id", "=", userId).executeTakeFirst();
     if (!account) return Errors.notFound("Tài khoản không tồn tại");
-    const needsSavings = category.system_kind === "savings_deposit" || category.system_kind === "savings_withdrawal";
-    if ((needsSavings && account.type !== "savings") || (!needsSavings && account.type !== "debt")) return Errors.validation("Tài khoản không phù hợp với danh mục");
+    if (!matchesFinanceAccountScope(account, financeAccountScope(category.system_kind))) return Errors.validation("Tài khoản không phù hợp với danh mục");
   }
 
   const creditCardGroupId = "credit_card_group_id" in b ? (typeof b.credit_card_group_id === "string" ? b.credit_card_group_id : null) : existing.credit_card_group_id;
@@ -331,7 +332,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Params }
   return Response.json({ transaction: updated });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Params }) {
+async function deleteTransaction(request: NextRequest, { params }: { params: Params }) {
   const session = await requireSession(request);
   if (!session) return Errors.unauthorized();
 
@@ -358,4 +359,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
 
   await markStatsDirty(userId, existing.date).catch(() => {});
   return Response.json({});
+}
+
+export function PATCH(request: NextRequest, context: { params: Params }) {
+  return withFinanceLimit(() => updateTransaction(request, context));
+}
+
+export function DELETE(request: NextRequest, context: { params: Params }) {
+  return withFinanceLimit(() => deleteTransaction(request, context));
 }

@@ -39,6 +39,7 @@
   --space-section: 80px;
   --radius-pill: 9999px;
   --radius-lg: 18px;
+  --radius-sheet: 24px;
 }
 
 /*
@@ -75,6 +76,7 @@
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
+  --radius-sheet: var(--radius-sheet);
   --radius-pill: var(--radius-pill);
 
   --spacing-xxs: var(--space-xxs);
@@ -103,6 +105,7 @@
 /* Accessible focus: hide outline for mouse, show ring for keyboard navigation */
 :focus:not(:focus-visible) { outline: none; }
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.modal-sheet-title:focus-visible { outline: none; }
 
 html, body {
   overflow-x: hidden;

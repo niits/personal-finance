@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
+import { TransactionForm } from "@/components/organisms/TransactionForm";
+import { financeReduction, type FinanceCounterpart } from "@/lib/finance-counterpart";
 import { CreditCardsTemplate } from "@/components/templates/CreditCardsTemplate";
 import type { CardGroup, FinanceAccount } from "@/components/templates/CreditCardsTemplate";
 import { fetcher } from "@/lib/fetcher";
@@ -18,6 +20,8 @@ async function mutation(url: string, options: RequestInit): Promise<string | nul
 }
 
 export default function CardsPage() {
+  const [movement, setMovement] = useState<FinanceCounterpart | null>(null);
+  const { mutate } = useSWRConfig();
   const [payingStatementId, setPayingStatementId] = useState<string | null>(null);
   const groupsQuery = useSWR<{ groups: CardGroup[] }>("/api/credit-card-groups", fetcher);
   const accountsQuery = useSWR<{ accounts: FinanceAccount[] }>("/api/finance-accounts", fetcher);
@@ -37,7 +41,7 @@ export default function CardsPage() {
     return error;
   }
 
-  return <CreditCardsTemplate
+  return <><CreditCardsTemplate
     groups={groupsQuery.data?.groups ?? []}
     accounts={accountsQuery.data?.accounts ?? []}
     groupsLoading={groupsQuery.isLoading}
@@ -47,11 +51,17 @@ export default function CardsPage() {
     payingStatementId={payingStatementId}
     onRetryGroups={() => void groupsQuery.mutate()}
     onRetryAccounts={() => void accountsQuery.mutate()}
+    onCreateCounterpart={(account) => setMovement(financeReduction(account))}
     onPay={pay}
     onCreateGroup={(input) => mutateAndRefresh("/api/credit-card-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }, groupsQuery.mutate)}
     onUpdateGroup={(id, input) => mutateAndRefresh(`/api/credit-card-groups/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }, groupsQuery.mutate)}
     onDeleteGroup={(id) => mutateAndRefresh(`/api/credit-card-groups/${id}`, { method: "DELETE" }, groupsQuery.mutate)}
     onUpdateFinanceAccount={(id, input) => mutateAndRefresh(`/api/finance-accounts/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }, accountsQuery.mutate)}
     onDeleteFinanceAccount={(id) => mutateAndRefresh(`/api/finance-accounts/${id}`, { method: "DELETE" }, accountsQuery.mutate)}
-  />;
+  />
+    {movement ? <TransactionForm open mode={{ kind: "finance-counterpart", movement }}
+      onClose={() => setMovement(null)}
+      onSaved={() => { void mutate((key) => typeof key === "string" && key.startsWith("/api/")); }}
+    /> : null}
+  </>;
 }

@@ -9,62 +9,16 @@ type RecategorizationRowProps = {
   onChange: (transactionId: number, checked: boolean) => void;
 };
 
-export function RecategorizationRow({
-  transactionId,
-  note,
-  currentCategory,
-  suggestedCategory,
-  isNewCategory,
-  reason,
-  checked,
-  onChange,
-}: RecategorizationRowProps) {
+export function RecategorizationRow({ transactionId, note, currentCategory, suggestedCategory, isNewCategory, reason, checked, onChange }: RecategorizationRowProps) {
   return (
-    <label style={{
-      display: "flex",
-      alignItems: "flex-start",
-      gap: 12,
-      padding: "10px 16px",
-      cursor: "pointer",
-      minHeight: 44,
-    }}>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(transactionId, e.target.checked)}
-        style={{ marginTop: 2, accentColor: "var(--primary)", flexShrink: 0, width: 16, height: 16 }}
-      />
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p className="font-body text-[15px] text-ink tracking-[-0.374px] truncate leading-[1.3]">
-          {note}
+    <label className="flex min-h-11 cursor-pointer items-start gap-3 px-4 py-3 font-body">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(transactionId, event.target.checked)} className="mt-1 shrink-0 accent-primary" />
+      <div className="min-w-0 flex-1 break-words">
+        <p className="text-base text-ink">{note}</p>
+        <p className="mt-1 text-sm text-ink-muted-80">
+          {currentCategory} → <span className={isNewCategory ? "font-semibold text-primary" : "text-ink"}>{isNewCategory ? "Danh mục mới: " : ""}{suggestedCategory}</span>
         </p>
-
-        <p style={{
-          fontFamily: "var(--font-body)",
-          fontSize: 12,
-          color: "var(--ink-muted-48)",
-          lineHeight: 1.4,
-          marginTop: 2,
-        }}>
-          <span style={{ color: "var(--ink)" }}>{currentCategory}</span>
-          {" → "}
-          <span style={{ color: isNewCategory ? "var(--primary)" : "var(--ink)", fontWeight: isNewCategory ? 600 : 400 }}>
-            {isNewCategory ? "✦ " : ""}{suggestedCategory}
-          </span>
-        </p>
-
-        <p style={{
-          fontFamily: "var(--font-body)",
-          fontSize: 12,
-          color: "var(--ink-muted-48)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          marginTop: 1,
-        }}>
-          {reason}
-        </p>
+        <p className="mt-1 text-sm text-ink-muted-48">{reason}</p>
       </div>
     </label>
   );

@@ -33,10 +33,33 @@ defined in [`credit-cards.md`](./credit-cards.md).
 - Debt and savings balances are derived from associated transactions; they are not
   independently editable balances.
 - The user selects or creates the finance account inside the shared transaction form.
+  Lending and received repayments require a lending account; borrowing and outgoing
+  repayments require a borrowing account; deposits and withdrawals require a savings
+  account. The selector and inline creation use that account family. Changing the
+  category or direction clears incompatible account choices. Create and edit APIs
+  enforce the same compatibility rule.
 - Account association may only be created or changed by creating or editing the
   transaction. There is no separate link/unlink workflow or endpoint.
-- Reverse balances remain visible and are described truthfully rather than hidden
-  with an absolute value.
+- Selecting an account in Finance exposes a reduction action: received repayment for
+  lending, repayment for borrowing, and withdrawal for savings. The shared form asks
+  only for the amount, defaults to the remaining balance, and records today's date
+  and the appropriate protected category automatically. Saving preserves all previous
+  transactions and associates the new transaction with the same account. Settled or
+  reverse balances do not offer an additional reduction.
+- Editing an account-associated transaction shows other transactions in the original
+  and selected account, including the projected balance after the edit. Changing the
+  amount, direction, category, or account recomputes affected balances while retaining
+  other transactions unchanged. Edits, reassignment, direction/category changes, and
+  deletion must not leave repayments or withdrawals exceeding their account's funding.
+- A repayment, received repayment, or withdrawal cannot exceed the remaining amount
+  across all transactions in its own account or tracked person. Editing a reduction
+  excludes that transaction before calculating its ceiling. Other accounts, even those
+  with the same display name, do not supply funds for it. Exact settlement is allowed.
+- The form displays the ceiling and blocks saving an excessive amount. The database
+  enforces the same rule atomically for concurrent writes; rejected mutations leave
+  all related data unchanged and return `422` with `FINANCE_BALANCE_EXCEEDED`.
+- Existing reverse balances remain visible and may be corrected without becoming
+  more negative. New mutations cannot create a reverse balance.
 
 ## Mutation Effects
 

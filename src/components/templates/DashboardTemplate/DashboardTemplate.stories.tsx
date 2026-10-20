@@ -213,3 +213,8 @@ export const TransactionActions: Story = {
     actionTxn: mockTransactions[0],
   },
 };
+
+
+export const OrganizeApplied: Story = {
+  args: { ...Default.args, organizeNotice: { message: "Đã hợp nhất 1 danh mục, sắp xếp 2 danh mục, tạo 0 danh mục, cập nhật 3 emoji và chuyển 125 giao dịch.", error: false } },
+};

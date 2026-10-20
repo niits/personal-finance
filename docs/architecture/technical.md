@@ -106,7 +106,11 @@ Finance-account association is part of transaction create/edit.
 
 ## AI Organize Apply Contract
 
-`POST /api/ai/organize` has no request body. Analysis covers the user's most recently
+`POST /api/ai/organize` accepts no body for initial analysis or an optional
+`{ retry: { patch, errors } }` body for user-requested repair. An `AI_INVALID_PATCH`
+response includes that retry context. Requests are limited to 1,000,000 bytes; errors
+are bounded to 20 messages of at most 500 characters. Repair context is untrusted
+reference data for AI and never grants write access. Analysis covers the user's most recently
 updated consumption transactions that carry a non-empty note, up to 300. Transactions
 in Khác, Chi phí khác, Chi tiêu khác, and Thu nhập khác are prioritized before recency;
 protected finance movements are excluded. The preview
@@ -114,6 +118,23 @@ response shape is:
 
 ```ts
 type OrganizePreview = {
+  category_snapshot: OrganizeCategoryState[];
+  category_merges: Array<{
+    source_category_id: number;
+    source_category_name: string;
+    target_category_id: number;
+    target_category_name: string;
+    transaction_count: number;
+    reason: string;
+  }>;
+  category_moves: Array<{
+    category_id: number;
+    category_name: string;
+    parent_category_id: number | null;
+    parent_category_name: string | null;
+    sort_order: number;
+    reason: string;
+  }>;
   new_categories: Array<{
     temp_id: `new:${number}`;
     name: string;
@@ -150,7 +171,9 @@ type OrganizePreview = {
 };
 ```
 
-`POST /api/ai/organize/apply` receives selected subsets of those four arrays. Every
+`POST /api/ai/organize/apply` receives selected proposal arrays and the category
+snapshot when structural changes are selected. Related tree changes are selected
+as a complete group. Every
 temporary category reference must resolve to a selected `new_categories` item. The
 server compares current ownership, transaction category and note, current emoji,
 hierarchy, type, and leaf state with the submitted preview; a stale or incompatible
@@ -161,11 +184,21 @@ A successful apply returns counts rather than a bare success flag:
 
 ```json
 {
+  "merged_categories": 1,
+  "reorganized_categories": 2,
   "created_categories": 2,
   "emoji_updated": 5,
   "transactions_moved": 8
 }
 ```
+
+The category snapshot is defined by `OrganizeCategorySnapshotSchema` in
+`src/lib/organize-patch.ts`. It includes all user category rows, hierarchy, ordering,
+protection, emoji, and child/transaction counts. Structural operations require an
+unchanged complete snapshot and repeat database assertions within the D1 batch.
+Merges move all source transactions before deleting the source; tree changes update
+parent, order, and descendant levels. The existing four proposal arrays remain
+required; structural arrays default to empty for older clients.
 
 The server revalidates ownership, hierarchy depth, category type, leaf eligibility,
 and proposal references inside one atomic operation. Detailed interaction semantics

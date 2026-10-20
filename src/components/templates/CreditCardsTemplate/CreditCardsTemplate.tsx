@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { formatVND } from "@/components/atoms/CurrencyDisplay";
+import { financeReduction } from "@/lib/finance-counterpart";
 import { ConfirmationSheet } from "@/components/organisms/ConfirmationSheet";
+import { ModalSheet } from "@/components/organisms/ModalSheet";
 
 export type CardStatement = {
   id: string;
@@ -45,6 +47,7 @@ export type CreditCardsTemplateProps = {
   payingStatementId: string | null;
   onRetryGroups?: () => void;
   onRetryAccounts?: () => void;
+  onCreateCounterpart?: (account: FinanceAccount) => void;
   onPay: (statementId: string, paidAt: string) => MutationResult;
   onCreateGroup: (input: GroupInput) => MutationResult;
   onUpdateGroup: (id: string, input: GroupInput) => MutationResult;
@@ -109,6 +112,7 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
 
   async function submitGroup(event: React.FormEvent) {
     event.preventDefault();
+    if (pending) return;
     const day = Number(closeDay);
     if (!groupName.trim() || !Number.isInteger(day) || day < 1 || day > 31) {
       setMutationError("Vui lòng nhập tên nhóm thẻ và ngày chốt sao kê từ 1 đến 31.");
@@ -126,6 +130,7 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
 
   async function submitAccount(event: React.FormEvent) {
     event.preventDefault();
+    if (pending) return;
     if (!editingAccount || !accountName.trim()) return;
     setPending(true); setMutationError(null);
     const error = await props.onUpdateFinanceAccount(editingAccount.id, { name: accountName.trim(), note: accountNote.trim() });
@@ -146,7 +151,7 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
   }
 
   async function confirmPayment() {
-    if (!paymentTarget || !paymentDate) return;
+    if (pending || !paymentTarget || !paymentDate) return;
     setPending(true); setMutationError(null);
     const error = await props.onPay(paymentTarget.id, paymentDate);
     setPending(false);
@@ -181,7 +186,7 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
         )}
       </section>
 
-      {mutationError ? <p role="alert" className="mt-md rounded-md bg-canvas-parchment p-md font-body text-[15px] text-danger">{mutationError}</p> : null}
+      {mutationError && !groupForm && !editingAccount && !paymentTarget && !deleteTarget ? <p role="alert" className="mt-md rounded-md bg-canvas-parchment p-md font-body text-[15px] text-danger">{mutationError}</p> : null}
 
       {mode !== "cards" ? (
         <section className="py-lg">
@@ -190,14 +195,16 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
               {visibleAccounts.map((account) => {
                 const meaning = accountMeaning(account);
                 const expanded = expandedId === account.id;
+                const reduction = financeReduction(account);
                 return <article key={account.id} className="py-md first:pt-0">
                   <button type="button" onClick={() => setExpandedId(expanded ? null : account.id)} aria-expanded={expanded} className="flex min-h-11 w-full items-start justify-between gap-md border-0 bg-transparent text-left">
                     <span className="min-w-0"><span className="block break-words font-body text-[17px] font-semibold text-ink">{account.name}</span><span className="mt-xxs block font-body text-[13px] text-ink-muted-48">{account.type === "debt" ? account.debt_direction === "lend" ? "Cho vay" : "Đi vay" : "Tiền gửi"}{account.note ? ` · ${account.note}` : ""}</span></span>
                     <span className="shrink-0 text-right"><span className="block font-display text-[17px] font-semibold text-ink">{formatVND(meaning.amount)}₫</span><span className="block font-body text-[13px] text-ink-muted-48">{meaning.label}</span></span>
                   </button>
                   {expanded ? <div className="mt-md border-t border-divider-soft pt-md">
+                    {reduction && props.onCreateCounterpart ? <button type="button" onClick={() => props.onCreateCounterpart?.(account)} className="mb-md min-h-11 rounded-sm border-0 bg-primary px-md font-body text-[15px] font-semibold text-on-primary">{reduction.label}</button> : null}
                     <p className="font-body text-[13px] font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Lịch sử giao dịch</p>
-                    {account.transactions.length === 0 ? <p className="mt-sm font-body text-[15px] text-ink-muted-48">Tài khoản đã tạo nhưng chưa có giao dịch.</p> : account.transactions.map((transaction) => <div key={transaction.id} className="flex justify-between gap-sm border-b border-divider-soft py-sm last:border-0"><span className="min-w-0"><span className="block break-words font-body text-[15px] text-ink">{transaction.note || "Giao dịch"}</span><span className="font-body text-[13px] text-ink-muted-48">{transaction.date}</span></span><span className={`shrink-0 font-body text-[15px] font-semibold ${transaction.type === "expense" ? "text-danger" : "text-success"}`}>{signedAmount(transaction.type, transaction.amount)}</span></div>)}
+                    {account.transactions.length === 0 ? <p className="mt-sm font-body text-[15px] text-ink-muted-48">Tài khoản đã tạo nhưng chưa có giao dịch.</p> : account.transactions.map((transaction) => <div key={transaction.id} className="flex min-h-11 w-full justify-between gap-sm border-b border-divider-soft py-sm last:border-0"><span className="min-w-0"><span className="block break-words font-body text-[15px] text-ink">{transaction.note || "Giao dịch"}</span><span className="font-body text-[13px] text-ink-muted-48">{transaction.date}</span></span><span className={`shrink-0 font-body text-[15px] font-semibold ${transaction.type === "expense" ? "text-danger" : "text-success"}`}>{signedAmount(transaction.type, transaction.amount)}</span></div>)}
                     <div className="mt-md flex gap-xs"><button type="button" onClick={() => { setEditingAccount(account); setAccountName(account.name); setAccountNote(account.note ?? ""); setMutationError(null); }} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-primary">Sửa thông tin</button><button type="button" onClick={() => setDeleteTarget({ kind: "account", id: account.id, name: account.name })} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-danger">Xóa</button></div>
                   </div> : null}
                 </article>;
@@ -216,11 +223,44 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
         </section>
       )}
 
-      {groupForm ? <form onSubmit={submitGroup} className="fixed inset-x-0 bottom-0 z-[70] rounded-t-2xl border-t border-hairline bg-canvas px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-lg"><h2 className="font-display text-[21px] font-semibold text-ink">{groupForm === "new" ? "Nhóm thẻ mới" : "Sửa nhóm thẻ"}</h2><label className="mt-md block font-body text-[15px] text-ink">Tên nhóm<input value={groupName} onChange={(event) => setGroupName(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label><label className="mt-md block font-body text-[15px] text-ink">Ngày chốt<input value={closeDay} onChange={(event) => setCloseDay(event.target.value)} inputMode="numeric" className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label>{groupForm !== "new" ? <p className="mt-xs font-body text-[13px] text-ink-muted-48">Ngày chốt mới chỉ áp dụng cho các kỳ được tạo sau thay đổi này.</p> : null}<div className="mt-lg flex gap-xs"><button type="button" onClick={() => setGroupForm(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas text-ink">Hủy</button><button type="submit" disabled={pending} className="min-h-11 flex-[2] rounded-md border-0 bg-primary text-on-primary disabled:opacity-60">{pending ? "Đang lưu…" : "Lưu"}</button></div></form> : null}
+      <ModalSheet open={Boolean(groupForm)} title={groupForm === "new" ? "Nhóm thẻ mới" : "Sửa nhóm thẻ"} pending={pending} onDismiss={() => { setGroupForm(null); setMutationError(null); }}>
+        <form onSubmit={submitGroup}>
+          <fieldset disabled={pending} className="min-w-0 border-0">
+            <label className="mt-md block font-body text-[15px] text-ink">Tên nhóm<input value={groupName} onChange={(event) => setGroupName(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label>
+            <label className="mt-md block font-body text-[15px] text-ink">Ngày chốt<input value={closeDay} onChange={(event) => setCloseDay(event.target.value)} inputMode="numeric" className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label>
+            {groupForm !== "new" ? <p className="mt-xs font-body text-[13px] text-ink-muted-48">Ngày chốt mới chỉ áp dụng cho các kỳ được tạo sau thay đổi này.</p> : null}
+            {groupForm && mutationError ? <p role="alert" className="mt-sm font-body text-[15px] text-danger">{mutationError}</p> : null}
+            <div className="mt-lg flex gap-xs">
+              <button type="button" onClick={() => { setGroupForm(null); setMutationError(null); }} className="min-h-11 min-w-0 flex-1 rounded-md border border-hairline bg-canvas text-ink">Hủy</button>
+              <button type="submit" className="min-h-11 min-w-0 flex-[2] rounded-md border-0 bg-primary text-on-primary disabled:opacity-60">{pending ? "Đang lưu…" : "Lưu"}</button>
+            </div>
+          </fieldset>
+        </form>
+      </ModalSheet>
 
-      {editingAccount ? <form onSubmit={submitAccount} className="fixed inset-x-0 bottom-0 z-[70] rounded-t-2xl border-t border-hairline bg-canvas px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-lg"><h2 className="font-display text-[21px] font-semibold text-ink">Sửa thông tin</h2><label className="mt-md block font-body text-[15px] text-ink">Tên<input value={accountName} onChange={(event) => setAccountName(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label><label className="mt-md block font-body text-[15px] text-ink">Ghi chú<input value={accountNote} onChange={(event) => setAccountNote(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label><div className="mt-lg flex gap-xs"><button type="button" onClick={() => setEditingAccount(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas">Hủy</button><button type="submit" disabled={pending} className="min-h-11 flex-[2] rounded-md border-0 bg-primary text-on-primary disabled:opacity-60">{pending ? "Đang lưu…" : "Lưu"}</button></div></form> : null}
+      <ModalSheet open={Boolean(editingAccount)} title="Sửa thông tin" pending={pending} onDismiss={() => { setEditingAccount(null); setMutationError(null); }}>
+        <form onSubmit={submitAccount}>
+          <fieldset disabled={pending} className="min-w-0 border-0">
+            <label className="mt-md block font-body text-[15px] text-ink">Tên<input value={accountName} onChange={(event) => setAccountName(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label>
+            <label className="mt-md block font-body text-[15px] text-ink">Ghi chú<input value={accountNote} onChange={(event) => setAccountNote(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label>
+            {editingAccount && mutationError ? <p role="alert" className="mt-sm font-body text-[15px] text-danger">{mutationError}</p> : null}
+            <div className="mt-lg flex gap-xs">
+              <button type="button" onClick={() => { setEditingAccount(null); setMutationError(null); }} className="min-h-11 min-w-0 flex-1 rounded-md border border-hairline bg-canvas">Hủy</button>
+              <button type="submit" disabled={!accountName.trim()} className="min-h-11 min-w-0 flex-[2] rounded-md border-0 bg-primary text-on-primary disabled:opacity-60">{pending ? "Đang lưu…" : "Lưu"}</button>
+            </div>
+          </fieldset>
+        </form>
+      </ModalSheet>
 
-      {paymentTarget ? <div className="fixed inset-x-0 bottom-0 z-[70] rounded-t-2xl border-t border-hairline bg-canvas px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-lg"><h2 className="font-display text-[21px] font-semibold text-ink">Ghi nhận thanh toán</h2><p className="mt-xs font-body text-[15px] text-ink-muted-80">Thao tác này chỉ cập nhật trạng thái sao kê {formatVND(paymentTarget.amount)}₫. Không tạo thêm chi phí hoặc thay đổi ngân sách cũ.</p><label className="mt-md block font-body text-[15px] text-ink">Ngày thanh toán<input type="date" max={today()} value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label><div className="mt-lg flex gap-xs"><button type="button" onClick={() => setPaymentTarget(null)} className="min-h-11 flex-1 rounded-md border border-hairline bg-canvas">Hủy</button><button type="button" onClick={confirmPayment} disabled={pending || !paymentDate} className="min-h-11 flex-[2] rounded-md border-0 bg-primary text-on-primary disabled:opacity-60">{pending ? "Đang lưu…" : "Xác nhận"}</button></div></div> : null}
+      <ModalSheet open={Boolean(paymentTarget)} title="Ghi nhận thanh toán" pending={pending} onDismiss={() => { setPaymentTarget(null); setMutationError(null); }}>
+        <p className="mt-xs font-body text-[15px] text-ink-muted-80">Thao tác này chỉ cập nhật trạng thái sao kê {formatVND(paymentTarget?.amount ?? 0)}₫. Không tạo thêm chi phí hoặc thay đổi ngân sách cũ.</p>
+        <label className="mt-md block font-body text-[15px] text-ink">Ngày thanh toán<input type="date" disabled={pending} max={today()} value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} className="mt-xs min-h-11 w-full rounded-md border border-hairline bg-surface-pearl px-md text-[17px]" /></label>
+        {paymentTarget && mutationError ? <p role="alert" className="mt-sm font-body text-[15px] text-danger">{mutationError}</p> : null}
+        <div className="mt-lg flex gap-xs">
+          <button type="button" disabled={pending} onClick={() => { setPaymentTarget(null); setMutationError(null); }} className="min-h-11 min-w-0 flex-1 rounded-md border border-hairline bg-canvas">Hủy</button>
+          <button type="button" onClick={confirmPayment} disabled={pending || !paymentDate} className="min-h-11 min-w-0 flex-[2] rounded-md border-0 bg-primary text-on-primary disabled:opacity-60">{pending ? "Đang lưu…" : "Xác nhận"}</button>
+        </div>
+      </ModalSheet>
 
       <ConfirmationSheet open={Boolean(deleteTarget)} title={deleteTarget ? `Xóa “${deleteTarget.name}”?` : "Xóa?"} consequence={deleteTarget?.kind === "group" ? "Chỉ có thể xóa nhóm chưa có giao dịch. Không thể hoàn tác thao tác này." : "Chỉ có thể xóa tài khoản chưa có giao dịch. Không thể hoàn tác thao tác này."} confirmLabel="Xóa" pending={pending} pendingLabel="Đang xóa…" error={deleteTarget ? mutationError : null} onConfirm={confirmDelete} onCancel={() => { setDeleteTarget(null); setMutationError(null); }} />
     </main>

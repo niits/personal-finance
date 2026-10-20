@@ -19,6 +19,7 @@ npm run test:unit
 npm run build:cf && npm run test:integration
 npm run test:e2e
 npm run build-storybook
+npm run test:storybook
 ```
 
 `npm test` currently aliases unit tests. There is no numerical coverage threshold;
@@ -59,6 +60,11 @@ Every reusable component has an isolated CSF3 story with fixed data and no live 
 router, or network requirement. Meaningful loading, empty, partial, error, pending,
 disabled, destructive, selected, long-content, unusual-value, keyboard, 375px, and
 wide-viewport states are included as applicable.
+
+`npm run test:storybook` verifies category and finance modal regressions in Chromium
+at 375px and 1280px, and WebKit at 375px. It covers focus containment and restoration,
+background isolation, form errors, emoji alignment, and a simulated keyboard viewport.
+A simulated viewport does not replace validation with a physical iOS keyboard.
 
 The a11y addon supports inspection. Automated accessibility requires a dedicated test
 runner before it is considered a release gate.
