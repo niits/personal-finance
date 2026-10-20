@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Active target |
-| Updated | 2026-09-05 |
+| Updated | 2026-10-18 |
 
 ## Hierarchy
 
@@ -25,6 +25,9 @@ repayments use the expense category `debt_repayment` (Trả nợ).
 ## Mutation Rules
 
 - A user may create and rename ordinary categories within the depth and type rules.
+- A reviewed AI tree proposal may reparent and reorder existing ordinary categories.
+  Used categories remain leaves, and the complete resulting tree obeys the same depth,
+  type, ownership, and protected-category rules. Applying the tree is atomic.
 - A category with children or referenced transactions cannot be deleted.
 - Deleting a category never cascades into transaction history.
 - A reviewed AI merge transfers all source transactions to an eligible existing leaf

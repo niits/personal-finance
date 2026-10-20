@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Active target |
-| Updated | 2026-10-08 |
+| Updated | 2026-10-18 |
 
 ## Purpose
 
@@ -12,8 +12,11 @@ classification, and transaction emoji without making unreviewed financial change
 
 ## Entry And Scope
 
-- The labeled action appears on the current-month Dashboard.
-- Analysis uses the authenticated user's recently updated noted transactions; the
+- The transaction classification action appears on the current-month Dashboard.
+- Categories settings provides a separate AI action to reorganize existing parent–child
+  groups and sibling order, with an inline whole-tree review before applying.
+- Analysis prioritizes the authenticated user's noted transactions in Khác, Chi phí khác,
+  Chi tiêu khác, and Thu nhập khác, then other recently updated noted transactions; the
   window boundary is defined in
   [`architecture/technical.md`](../architecture/technical.md).
 - Preview never writes data.
@@ -28,6 +31,10 @@ classification, and transaction emoji without making unreviewed financial change
 
 - Preserve reasonable classifications, category structure, names, and emoji. An empty
   proposal is valid when no clear correction is supported by the supplied data.
+- Treat Other categories as provisional. When the note identifies a suitable existing
+  leaf category, propose that category even for a single transaction. Do not preserve
+  Other merely because it is broadly valid, or move between Other categories.
+  Preserve ambiguous notes rather than inventing a purpose.
 - Prefer existing categories, including an appropriate broader category. At least
   three similar noted transactions are necessary but insufficient for a new category;
   there must also be a distinct unmet classification need and at least three proposed
@@ -138,5 +145,15 @@ after successful apply.
 ## Non-Goals
 
 - Automatic writes without review.
-- A separate AI category-management page.
+- A separate AI category-management page outside Categories settings.
 - AI arithmetic or financial recommendations inside this workflow.
+
+## Category Tree Reorganization
+
+The settings action changes only parent references, derived levels, and sibling order
+of existing categories. It preserves IDs, names, types, emoji, transaction assignments,
+and protected finance categories. The full resulting tree must remain acyclic, within
+three levels, and type-consistent; used categories remain leaves. New sibling name
+collisions are rejected. AI generation uses category metadata and transaction counts,
+without transaction notes. Preview and Apply validate the complete tree. Apply rejects
+stale snapshots and commits the tree atomically, including a database snapshot assertion.

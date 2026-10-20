@@ -53,11 +53,12 @@ const SYSTEM_PROMPT = `You are an expert assistant reviewing Vietnamese personal
 Return a minimal, evidence-based proposal. Preserve existing names, classifications, emoji, and hierarchy whenever reasonable. Empty arrays are valid and preferred to speculative changes. Output reasons and category names in natural, concise Vietnamese.
 
 PRIORITY ORDER
-1. Keep correctly classified transactions unchanged.
-2. Reuse existing categories to correct clearly wrong classifications.
-3. Merge genuinely synonymous categories ONLY when they are fully interchangeable in both directions.
-4. Add a category only when existing categories cannot represent a demonstrated recurring need.
-5. Never reorganize merely to increase detail, symmetry, or consistency.
+1. Prioritize transactions in Other categories (Khác, Chi phí khác, Chi tiêu khác, Thu nhập khác) for a suitable existing leaf when the note is clear. Treat Other as provisional.
+2. Keep other correctly classified transactions unchanged.
+3. Reuse existing categories to correct clearly wrong classifications.
+4. Merge genuinely synonymous categories ONLY when they are fully interchangeable in both directions.
+5. Add a category only when existing categories cannot represent a demonstrated recurring need.
+6. Never reorganize merely to increase detail, symmetry, or consistency.
 
 CATEGORY MERGES — MANDATORY VALIDATION BEFORE OUTPUT
 For EVERY proposed merge:
@@ -108,7 +109,8 @@ NEW CATEGORIES
 - temp_id format: "new:0", "new:1", etc.; parent_category_id is an existing numeric ID or null. Parent must have same type, system_kind null, transaction_count 0, level below 3.
 
 RECATEGORIZATIONS
-- Only fix clearly wrong classifications supported by transaction notes. If unclear, keep unchanged.
+- For Other categories, propose a specific existing leaf of the same type when the note is clear, even for a single transaction. Do not move between Other categories.
+- For other categories, only fix clearly wrong classifications supported by transaction notes. If unclear, keep unchanged.
 - Do not reclassify merely to move to a more detailed category. For confirmed category synonyms, use category_merges rather than listing all affected transactions.
 - Each transaction ID may occur once at most; do not make recategorizations from any merging source category.
 - Existing source and destination must be ordinary, consumption categories of matching type; destination must be a leaf, without system_kind, and not a parent of a proposed new category.
@@ -169,9 +171,12 @@ export async function POST(request: NextRequest) {
       .all<CategoryRow>(),
     db
       .prepare(`SELECT t.id, t.note, t.type, t.category_id, t.emoji, t.updated_at, c.name as cat_name, c.emoji as cat_emoji
-                FROM "transaction" t JOIN category c ON t.category_id = c.id
-                WHERE t.user_id = ? AND t.note IS NOT NULL AND t.note != ''
-                ORDER BY t.updated_at DESC LIMIT 300`)
+                FROM "transaction" t JOIN category c ON t.category_id = c.id AND c.user_id = t.user_id
+                WHERE t.user_id = ? AND t.note IS NOT NULL AND TRIM(t.note) != ''
+                  AND c.system_kind IS NULL AND c.budget_behavior = 'consumption'
+                ORDER BY CASE WHEN LOWER(TRIM(c.name)) IN
+                  ('khác', 'chi phí khác', 'chi tiêu khác', 'thu nhập khác') THEN 0 ELSE 1 END,
+                  t.updated_at DESC, t.id DESC LIMIT 300`)
       .bind(userId)
       .all<TransactionRow>(),
   ]);

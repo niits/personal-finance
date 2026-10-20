@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import useSWR from "swr";
 import { CategoriesTemplate } from "@/components/templates/CategoriesTemplate";
 import type { Category } from "@/components/templates/CategoriesTemplate";
 import { fetcher } from "@/lib/fetcher";
+import type { CategoryTreeChange, CategoryTreePlan } from "@/lib/category-tree-organize";
+
+type TreePreview = CategoryTreePlan & { snapshot: string; changes: CategoryTreeChange[] };
 
 const CATEGORIES_KEY = "/api/categories";
 
@@ -27,6 +30,74 @@ export default function CategoriesPage() {
   const { data, error, isLoading, mutate } = useSWR<CategoriesResponse>(CATEGORIES_KEY, fetcher);
   const [seedState, setSeedState] = useState<"idle" | "loading" | "error">("idle");
   const [seedError, setSeedError] = useState("");
+  const [organizeState, setOrganizeState] = useState<"idle" | "loading" | "review" | "applying">("idle");
+  const [treePreview, setTreePreview] = useState<TreePreview | null>(null);
+  const [organizeError, setOrganizeError] = useState("");
+  const [organizeResult, setOrganizeResult] = useState("");
+  const [organizeBlocked, setOrganizeBlocked] = useState(false);
+  const organizePending = useRef(false);
+
+  async function handleOrganize() {
+    if (organizePending.current) return;
+    organizePending.current = true;
+    setOrganizeState("loading");
+    setOrganizeError("");
+    setOrganizeResult("");
+    setOrganizeBlocked(false);
+    try {
+      const response = await fetch("/api/categories/organize", { method: "POST" });
+      if (!response.ok) {
+        setOrganizeError(response.status === 401 ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." : await readError(response, "Không thể đề xuất cây danh mục. Vui lòng thử lại."));
+        setOrganizeState("idle");
+        return;
+      }
+      setTreePreview(await response.json() as TreePreview);
+      setOrganizeState("review");
+    } catch {
+      setOrganizeError("Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.");
+      setOrganizeState("idle");
+    } finally {
+      organizePending.current = false;
+    }
+  }
+
+  async function handleOrganizeApply() {
+    if (!treePreview || organizePending.current || organizeBlocked) return;
+    organizePending.current = true;
+    setOrganizeState("applying");
+    setOrganizeError("");
+    try {
+      const response = await fetch("/api/categories/organize/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snapshot: treePreview.snapshot, nodes: treePreview.nodes }),
+      });
+      if (!response.ok) {
+        setOrganizeBlocked(response.status === 409);
+        setOrganizeError(response.status === 401 ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." : await readError(response, "Không thể áp dụng cây danh mục. Vui lòng thử lại."));
+        setOrganizeState("review");
+        return;
+      }
+      const result = await response.json() as { updated_categories: number };
+      setTreePreview(null);
+      setOrganizeState("idle");
+      setOrganizeResult(`Đã sắp xếp lại ${result.updated_categories} danh mục.`);
+      await mutate().catch(() => undefined);
+    } catch {
+      setOrganizeError("Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.");
+      setOrganizeState("review");
+    } finally {
+      organizePending.current = false;
+    }
+  }
+
+  function handleOrganizeCancel() {
+    if (organizePending.current) return;
+    setTreePreview(null);
+    setOrganizeState("idle");
+    setOrganizeError("");
+    setOrganizeBlocked(false);
+  }
 
   async function handleSeed(): Promise<{ error?: string }> {
     setSeedState("loading");
@@ -93,6 +164,14 @@ export default function CategoriesPage() {
       loadError={error instanceof Error ? error.message : error ? "Không thể kết nối. Vui lòng thử lại." : undefined}
       seedState={seedState}
       seedError={seedError}
+      organizeState={organizeState}
+      organizeChanges={treePreview?.changes ?? []}
+      organizeError={organizeError}
+      organizeResult={organizeResult}
+      organizeBlocked={organizeBlocked}
+      onOrganize={handleOrganize}
+      onOrganizeApply={handleOrganizeApply}
+      onOrganizeCancel={handleOrganizeCancel}
       onRetry={() => mutate()}
       onSeed={handleSeed}
       onAddCategory={handleAddCategory}
