@@ -240,3 +240,15 @@ export const CategoryFilterChoices: Story = {
     ],
   },
 };
+
+export const LongCategoryFilter: Story = {
+  args: {
+    ...Default.args,
+    transactions: Array.from({ length: 40 }, (_, index) => ({
+      ...mockTransactions[0],
+      id: index + 1,
+      category: { id: index + 1, name: `Danh mục ${index + 1}`, emoji: null, path: `Chi tiêu / Danh mục ${String(index + 1).padStart(2, "0")}` },
+      note: `Giao dịch ${index + 1}`,
+    })),
+  },
+};

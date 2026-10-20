@@ -145,23 +145,39 @@ test.describe("Dashboard — continuous ledger", () => {
     await resetTestData("full");
   });
 
-  test("filters transactions by category and clears the selection", async ({ page }) => {
+  test("confirms category selections and clears the applied filter", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText("Bún bò buổi trưa")).toBeVisible();
-    const filter = page.getByRole("button", { name: "Lọc", exact: true });
+    const filter = page.getByRole("button", { name: /^Lọc(?: \(\d+\))?$/ });
     await filter.click();
     const clear = page.getByRole("button", { name: "Xóa bộ lọc", exact: true });
+    const selectAll = page.getByRole("button", { name: "Chọn tất cả", exact: true });
+    const confirm = page.getByRole("button", { name: "OK", exact: true });
     await expect(clear).toBeDisabled();
-    await page.getByRole("checkbox").first().check();
+    await selectAll.click();
+    await expect(selectAll).toBeDisabled();
+    await expect(page.getByRole("status")).not.toBeVisible();
+    await confirm.click();
+    await expect(filter).toHaveAttribute("aria-expanded", "false");
+    await expect(filter).toBeFocused();
     await expect(page.getByRole("status")).toContainText("Đang hiển thị");
-    await expect(clear).toBeEnabled();
+    await filter.click();
     await clear.click();
     await expect(page.getByRole("checkbox").first()).not.toBeChecked();
+    await expect(page.getByRole("status")).toContainText("Đang hiển thị");
+    await confirm.click();
+    await expect(page.getByRole("status")).not.toBeVisible();
     await expect(page.getByText("Bún bò buổi trưa")).toBeVisible();
-    await expect(clear).toBeDisabled();
+    await filter.click();
     await page.getByRole("checkbox").first().check();
+    await page.getByRole("checkbox").first().press("Escape");
+    await filter.click();
+    await expect(page.getByRole("checkbox").first()).not.toBeChecked();
+    await selectAll.click();
+    await confirm.click();
     await page.getByLabel("Chọn tháng").selectOption({ index: 1 });
+    await expect(filter).toHaveText("Lọc");
+    await filter.click();
     await expect(clear).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Lọc", exact: true })).toBeVisible();
   });
 });

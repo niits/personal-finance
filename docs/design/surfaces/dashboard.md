@@ -28,15 +28,23 @@ I do next?
 The pinned header and summary stay visible while the ledger scrolls, on a solid
 surface with a hairline divider (no frosted glass).
 
-A “Lọc” button beside “Giao dịch” expands an inline category panel. Users may select
-multiple categories present in the selected month; matching transactions appear
-immediately. Category paths distinguish duplicate names, and uncategorized movements
-have a separate option. An empty selection shows all transactions. The panel always
-includes “Xóa bộ lọc”, disabled when there is no selection. The trigger shows the
-number of selected categories. Closing the panel preserves the selection; changing
-the month clears it. Date subtotals reflect visible rows, while the monthly summary
-continues to describe the entire period. A filtered empty state allows clearing the
-selection. The panel supports keyboard navigation and remains usable at 375px.
+A “Lọc” button aligned to the right of “Giao dịch” expands an inline category panel.
+Users may select multiple categories present in the selected month. The category list
+has a fixed height, capped relative to the viewport, and scrolls independently. Its
+footer remains outside the scrolling list and contains “Xóa bộ lọc”, “Chọn tất cả”,
+and “OK”. Clear removes the draft selection, select all checks every available option,
+and OK applies the selection, closes the panel, and returns focus to the trigger.
+Closing the panel without OK discards draft changes; reopening starts from the applied
+selection. An empty applied selection shows all transactions. Clear is disabled when
+no draft options are checked; select all is disabled when no options exist or every
+option is checked. OK remains available to complete the interaction in all states.
+
+Category paths distinguish duplicate names, and uncategorized movements have a
+separate option. The trigger shows the number of applied categories. Changing the
+month clears both the applied and draft selections. Date subtotals reflect visible
+rows, while the monthly summary continues to describe the entire period. A filtered
+empty state allows clearing the applied selection directly. The panel supports
+keyboard navigation and remains usable at 375px.
 
 A row opens edit/delete actions; it never offers a separate finance-account link action.
 
