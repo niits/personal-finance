@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { Button } from "@/components/atoms/Button";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
 import { OrganizeReviewSheet } from "@/components/organisms/OrganizeReviewSheet";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
@@ -344,36 +345,67 @@ export function DashboardTemplate({
                 if (!filterOpen) setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: selectedCategoryIds });
                 setFilterOpen((open) => !open);
               }}
-              className={`inline-flex min-h-11 items-center gap-xs rounded-md border border-hairline px-sm font-body text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${selectedCategoryIds.length > 0 ? "bg-canvas text-primary" : "bg-transparent text-ink-muted-80"}`}
+              className={`inline-flex min-h-11 items-center gap-xs rounded-sm border border-hairline px-sm font-body text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${selectedCategoryIds.length > 0 ? "bg-canvas text-primary" : "bg-transparent text-ink-muted-80"}`}
             >
               <svg viewBox="0 0 24 24" fill="none" className="size-4 stroke-current" aria-hidden="true">
                 <path d="M4 7h16M7 12h10M10 17h4" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
               Lọc{selectedCategoryIds.length > 0 ? ` (${selectedCategoryIds.length})` : ""}
             </button>
-            <div ref={filterPanelRef} id={filterPanelId} hidden={!filterOpen} className="absolute inset-x-5 top-full z-[60] rounded-lg border border-hairline bg-canvas p-md">
-            <h3 id={`${filterPanelId}-title`} className="pb-sm font-body text-sm font-semibold text-ink">Lọc theo danh mục</h3>
-            <div role="group" aria-labelledby={`${filterPanelId}-title`} className="h-48 max-h-[30svh] overflow-y-auto overscroll-contain">
-              {categoryOptions.map((category) => (
-                <label key={category.id} className="flex min-h-11 cursor-pointer items-center gap-sm border-t border-divider-soft py-xs font-body text-sm text-ink">
-                  <input type="checkbox" checked={draftCategorySet.has(category.id)} onChange={(event) => {
-                    setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: event.target.checked ? [...draftCategoryIds, category.id] : draftCategoryIds.filter((id) => id !== category.id) });
-                  }} className="size-5 shrink-0 accent-primary" />
-                  <span className="min-w-0 break-words">{category.label}</span>
-                </label>
-              ))}
-              {categoryOptions.length === 0 ? <p className="py-sm font-body text-sm text-ink-muted-48">{loading ? "Đang tải danh mục…" : ledgerError ? "Danh mục sẽ hiển thị khi tải được giao dịch." : "Chưa có danh mục để lọc trong kỳ này."}</p> : null}
+            <div
+              ref={filterPanelRef}
+              id={filterPanelId}
+              hidden={!filterOpen}
+              className="absolute inset-x-5 top-full z-[60] overflow-hidden rounded-md border border-hairline bg-canvas sm:left-auto sm:w-[360px]"
+            >
+              <div className="border-b border-divider-soft px-md py-md">
+                <h3 id={`${filterPanelId}-title`} className="font-body text-[17px] font-semibold leading-[23px] text-ink">Lọc theo danh mục</h3>
+                <p className="mt-xxs font-body text-[13px] leading-[18px] text-ink-muted-48">
+                  {draftCategoryIds.length > 0 ? `Đã chọn ${draftCategoryIds.length} danh mục` : "Tất cả giao dịch trong kỳ"}
+                </p>
+              </div>
+              <div role="group" aria-labelledby={`${filterPanelId}-title`} className="h-48 max-h-[30svh] divide-y divide-divider-soft overflow-y-auto overscroll-contain">
+                {categoryOptions.map((category) => {
+                  const path = category.label.split("/").map((part) => part.trim());
+                  const name = path.at(-1);
+                  const parentPath = path.slice(0, -1).join(" / ");
+                  return (
+                    <label key={category.id} className={`flex min-h-11 cursor-pointer items-center gap-sm px-md py-sm transition-colors hover:bg-surface-pearl ${draftCategorySet.has(category.id) ? "bg-surface-pearl" : "bg-canvas"}`}>
+                      <span className="min-w-0 flex-1">
+                        <span className="block break-words font-body text-[15px] leading-[21px] text-ink">{name}</span>
+                        {parentPath ? <span className="mt-xxs block break-words font-body text-[13px] leading-[18px] text-ink-muted-48">{parentPath}</span> : null}
+                      </span>
+                      <span className="relative flex size-5 shrink-0 items-center justify-center">
+                        <input
+                          type="checkbox"
+                          aria-label={category.label}
+                          checked={draftCategorySet.has(category.id)}
+                          onChange={(event) => {
+                            setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: event.target.checked ? [...draftCategoryIds, category.id] : draftCategoryIds.filter((id) => id !== category.id) });
+                          }}
+                          className="peer size-5 cursor-pointer appearance-none rounded-sm border border-hairline bg-canvas checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        />
+                        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="pointer-events-none absolute size-4 stroke-on-primary opacity-0 peer-checked:opacity-100">
+                          <path d="m5 10 3 3 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                    </label>
+                  );
+                })}
+                {categoryOptions.length === 0 ? <p className="px-md py-lg font-body text-[15px] leading-[21px] text-ink-muted-48">{loading ? "Đang tải danh mục…" : ledgerError ? "Danh mục sẽ hiển thị khi tải được giao dịch." : "Chưa có danh mục để lọc trong kỳ này."}</p> : null}
+              </div>
+              <div className="border-t border-hairline px-md pb-md pt-xs">
+                <div className="mb-xs flex items-center justify-between gap-sm">
+                  <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: [] })} disabled={draftCategoryIds.length === 0} className="min-h-11 rounded-sm border-none bg-transparent font-body text-[15px] text-ink-muted-80 disabled:text-ink-muted-48 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xóa bộ lọc</button>
+                  <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: categoryOptions.map((category) => category.id) })} disabled={categoryOptions.length === 0 || categoryOptions.every((category) => draftCategorySet.has(category.id))} className="min-h-11 rounded-sm border-none bg-transparent font-body text-[15px] text-ink-muted-80 disabled:text-ink-muted-48 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Chọn tất cả</button>
+                </div>
+                <Button label="OK" fullWidth onClick={() => {
+                  setCategoryFilter({ month: selectedMonth, ids: draftCategoryIds, draftIds: draftCategoryIds });
+                  setFilterOpen(false);
+                  filterButtonRef.current?.focus();
+                }} />
+              </div>
             </div>
-            <div className="mt-sm flex items-center justify-between gap-xs border-t border-hairline pt-sm">
-              <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: [] })} disabled={draftCategoryIds.length === 0} className="min-h-11 rounded-md border-none bg-transparent px-xs font-body text-sm font-semibold text-primary disabled:text-ink-muted-48 focus-visible:outline-2 focus-visible:outline-primary">Xóa bộ lọc</button>
-              <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: categoryOptions.map((category) => category.id) })} disabled={categoryOptions.length === 0 || categoryOptions.every((category) => draftCategorySet.has(category.id))} className="min-h-11 rounded-md border-none bg-transparent px-xs font-body text-sm font-semibold text-primary disabled:text-ink-muted-48 focus-visible:outline-2 focus-visible:outline-primary">Chọn tất cả</button>
-              <button type="button" onClick={() => {
-                setCategoryFilter({ month: selectedMonth, ids: draftCategoryIds, draftIds: draftCategoryIds });
-                setFilterOpen(false);
-                filterButtonRef.current?.focus();
-              }} className="min-h-11 min-w-11 rounded-md border-none bg-primary px-sm font-body text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">OK</button>
-            </div>
-          </div>
           </div>
           {selectedCategoryIds.length > 0 ? <p role="status" className="px-5 pb-sm font-body text-sm text-ink-muted-48">Đang hiển thị {visibleTransactions.length} / {transactions.length} giao dịch</p> : null}
           {ledgerError ? <div className="mx-5 mb-md"><RetryMessage message={ledgerError} onRetry={onRetryLedger} /></div> : null}

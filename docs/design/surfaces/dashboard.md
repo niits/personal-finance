@@ -48,6 +48,15 @@ rows, while the monthly summary continues to describe the entire period. A filte
 empty state allows clearing the applied selection directly. The panel supports
 keyboard navigation and remains usable at 375px.
 
+The popover follows Calm Ledger: canvas white, a hairline boundary, standard card
+radius, and no shadow. It spans the phone content width and caps at 360px on wider
+screens, aligned to the trigger. A 17px strong heading and muted 13px selection count
+lead into shared rows. Each row presents the category name at 15px, its parent path
+at 13px, and a trailing checkbox; selected rows use the raised surface token. The
+fixed footer places the two neutral secondary actions above one full-width primary
+OK button. Blue is reserved for the confirmation and checked controls. All controls
+retain visible keyboard focus and minimum 44px touch targets.
+
 A row opens edit/delete actions; it never offers a separate finance-account link action.
 
 ## States
