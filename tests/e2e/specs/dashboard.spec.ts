@@ -145,10 +145,23 @@ test.describe("Dashboard — continuous ledger", () => {
     await resetTestData("full");
   });
 
-  test("does not show transaction filter controls", async ({ page }) => {
+  test("filters transactions by category and clears the selection", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: /Tất cả/ })).not.toBeVisible();
-    await expect(page.getByRole("button", { name: "Ăn uống" })).not.toBeVisible();
     await expect(page.getByText("Bún bò buổi trưa")).toBeVisible();
+    const filter = page.getByRole("button", { name: "Lọc", exact: true });
+    await filter.click();
+    const clear = page.getByRole("button", { name: "Xóa bộ lọc", exact: true });
+    await expect(clear).toBeDisabled();
+    await page.getByRole("checkbox").first().check();
+    await expect(page.getByRole("status")).toContainText("Đang hiển thị");
+    await expect(clear).toBeEnabled();
+    await clear.click();
+    await expect(page.getByRole("checkbox").first()).not.toBeChecked();
+    await expect(page.getByText("Bún bò buổi trưa")).toBeVisible();
+    await expect(clear).toBeDisabled();
+    await page.getByRole("checkbox").first().check();
+    await page.getByLabel("Chọn tháng").selectOption({ index: 1 });
+    await expect(clear).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Lọc", exact: true })).toBeVisible();
   });
 });

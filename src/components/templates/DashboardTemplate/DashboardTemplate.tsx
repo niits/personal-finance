@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
 import { OrganizeReviewSheet } from "@/components/organisms/OrganizeReviewSheet";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
@@ -175,10 +175,26 @@ export function DashboardTemplate({
 }: DashboardTemplateProps) {
   const organizeTriggerRef = useRef<HTMLButtonElement>(null);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<number | null>(null);
+  const filterPanelId = useId();
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<{ month: string; ids: string[] }>({ month: selectedMonth, ids: [] });
+  const selectedCategoryIds = categoryFilter.month === selectedMonth ? categoryFilter.ids : [];
+  if (categoryFilter.month !== selectedMonth) {
+    setCategoryFilter({ month: selectedMonth, ids: [] });
+  }
+  const selectedCategorySet = new Set(selectedCategoryIds);
+  const categoryOptions = Array.from(new Map(transactions.map((transaction) => {
+    const id = transaction.category ? String(transaction.category.id) : "uncategorized";
+    return [id, { id, label: transaction.category?.path || transaction.category?.name || "Không có danh mục" }] as const;
+  })).values()).toSorted((a, b) => a.label.localeCompare(b.label, "vi"));
+  const visibleTransactions = selectedCategoryIds.length === 0 ? transactions : transactions.filter((transaction) =>
+    selectedCategorySet.has(transaction.category ? String(transaction.category.id) : "uncategorized"));
+  const clearCategoryFilter = () => setCategoryFilter({ month: selectedMonth, ids: [] });
   const organizeBusy = organizeState === "loading" || organizeState === "applying";
   const isCurrentMonth = selectedMonth === currentMonth;
   const months = recentMonths(currentMonth);
-  const groups = groupByDate(transactions);
+  const groups = groupByDate(visibleTransactions);
   const dates = Object.keys(groups).toSorted((a, b) => b.localeCompare(a));
   const budget = data?.monthly_budget;
   const isOverBudget = Boolean(data && budget && data.total_expense > budget.amount);
@@ -294,13 +310,52 @@ export function DashboardTemplate({
         </div>
 
         <section aria-labelledby="transaction-ledger" className="pt-lg">
-          <h2 id="transaction-ledger" className="px-5 pb-sm font-display text-[21px] font-semibold text-ink">Giao dịch</h2>
+          <div className="flex items-center gap-sm px-5 pb-sm">
+            <h2 id="transaction-ledger" className="font-display text-[21px] font-semibold text-ink">Giao dịch</h2>
+            <button
+              type="button"
+              ref={filterButtonRef}
+              aria-expanded={filterOpen}
+              aria-controls={filterPanelId}
+              onClick={() => setFilterOpen((open) => !open)}
+              className={`inline-flex min-h-11 items-center gap-xs rounded-md border border-hairline px-sm font-body text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${selectedCategoryIds.length > 0 ? "bg-canvas text-primary" : "bg-transparent text-ink-muted-80"}`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="size-4 stroke-current" aria-hidden="true">
+                <path d="M4 7h16M7 12h10M10 17h4" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              Lọc{selectedCategoryIds.length > 0 ? ` (${selectedCategoryIds.length})` : ""}
+            </button>
+          </div>
+          <div id={filterPanelId} hidden={!filterOpen} className="mx-5 mb-md rounded-lg border border-hairline bg-canvas p-md" onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setFilterOpen(false);
+              filterButtonRef.current?.focus();
+            }
+          }}>
+            <div className="flex flex-wrap items-center justify-between gap-xs">
+              <h3 id={`${filterPanelId}-title`} className="font-body text-sm font-semibold text-ink">Lọc theo danh mục</h3>
+              <button type="button" onClick={clearCategoryFilter} disabled={selectedCategoryIds.length === 0} className="min-h-11 rounded-md border-none bg-transparent px-xs font-body text-sm font-semibold text-primary disabled:text-ink-muted-48 focus-visible:outline-2 focus-visible:outline-primary">Xóa bộ lọc</button>
+            </div>
+            <div role="group" aria-labelledby={`${filterPanelId}-title`} className="max-h-64 overflow-y-auto overscroll-contain">
+              {categoryOptions.map((category) => (
+                <label key={category.id} className="flex min-h-11 cursor-pointer items-center gap-sm border-t border-divider-soft py-xs font-body text-sm text-ink">
+                  <input type="checkbox" checked={selectedCategorySet.has(category.id)} onChange={(event) => {
+                    setCategoryFilter({ month: selectedMonth, ids: event.target.checked ? [...selectedCategoryIds, category.id] : selectedCategoryIds.filter((id) => id !== category.id) });
+                  }} className="size-5 shrink-0 accent-primary" />
+                  <span className="min-w-0 break-words">{category.label}</span>
+                </label>
+              ))}
+              {categoryOptions.length === 0 ? <p className="py-sm font-body text-sm text-ink-muted-48">{loading ? "Đang tải danh mục…" : ledgerError ? "Danh mục sẽ hiển thị khi tải được giao dịch." : "Chưa có danh mục để lọc trong kỳ này."}</p> : null}
+            </div>
+          </div>
+          {selectedCategoryIds.length > 0 ? <p role="status" className="px-5 pb-sm font-body text-sm text-ink-muted-48">Đang hiển thị {visibleTransactions.length} / {transactions.length} giao dịch</p> : null}
           {ledgerError ? <div className="mx-5 mb-md"><RetryMessage message={ledgerError} onRetry={onRetryLedger} /></div> : null}
           {loading && transactions.length === 0 ? (
             <div className="bg-canvas px-5 py-xxl font-body text-sm text-ink-muted-48">Đang tải giao dịch…</div>
-          ) : transactions.length === 0 && !ledgerError ? (
+          ) : visibleTransactions.length === 0 && !ledgerError ? (
             <div className="bg-canvas px-5 py-xl text-center">
-              <p className="font-body text-sm text-ink-muted-48">Chưa có giao dịch trong kỳ này</p>
+              <p className="font-body text-sm text-ink-muted-48">{selectedCategoryIds.length > 0 ? "Không có giao dịch phù hợp với bộ lọc." : "Chưa có giao dịch trong kỳ này"}</p>
+              {selectedCategoryIds.length > 0 ? <button type="button" onClick={clearCategoryFilter} className="mt-sm min-h-11 rounded-md border border-hairline bg-canvas px-md font-body text-sm font-semibold text-primary">Xóa bộ lọc</button> : null}
             </div>
           ) : (
             <div className="bg-canvas">

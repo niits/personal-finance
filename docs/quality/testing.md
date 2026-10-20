@@ -74,7 +74,7 @@ runner before it is considered a release gate.
 Playwright runs against the Cloudflare preview at a 390x844 touch viewport with one
 worker because local tests share D1 state. Required journeys include:
 
-- Dashboard month navigation, pace line, and no transaction-filter affordance;
+- Dashboard month navigation, pace line, category filtering, and clearing filters;
 - create/edit/delete with the full-screen mobile transaction form;
 - wide-viewport bounded transaction form;
 - `/finance` navigation and `/finance/accounts/:id` detail;

@@ -218,3 +218,25 @@ export const TransactionActions: Story = {
 export const OrganizeApplied: Story = {
   args: { ...Default.args, organizeNotice: { message: "Đã hợp nhất 1 danh mục, sắp xếp 2 danh mục, tạo 0 danh mục, cập nhật 3 emoji và chuyển 125 giao dịch.", error: false } },
 };
+
+export const CategoryFilterChoices: Story = {
+  args: {
+    ...Default.args,
+    transactions: [
+      ...mockTransactions,
+      {
+        ...mockTransactions[0],
+        id: 4,
+        category: { id: 5, name: "Ăn uống", emoji: null, path: "Sinh hoạt / Ăn uống" },
+        note: "Danh mục trùng tên",
+      },
+      { ...mockTransactions[0], id: 5, category: null, note: "Giao dịch không có danh mục" },
+      {
+        ...mockTransactions[0],
+        id: 6,
+        category: { id: 6, name: "Danh mục dài", emoji: null, path: "Chi tiêu / Sinh hoạt gia đình / Danh mục có tên rất dài để kiểm tra hiển thị trên màn hình hẹp" },
+        note: "Giao dịch có đường dẫn dài",
+      },
+    ],
+  },
+};

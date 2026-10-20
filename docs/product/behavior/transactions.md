@@ -12,7 +12,10 @@
 - Future dates are rejected relative to the user's device time zone. Current and historical transactions may be created,
   edited, moved between periods, or deleted directly.
 - The feed loads the full selected month, groups entries by date, and orders them
-  newest first. It has no filter or search contract.
+  newest first. An optional category filter shows transactions matching any selected
+  category within that month. Clearing the filter restores the full feed; changing
+  the month resets the selection. Filtering changes visible rows and date subtotals,
+  while monthly financial summaries retain their full-period scope.
 
 ## Consumption
 
@@ -82,5 +85,5 @@ cleared when incompatible with the selected transaction kind.
 
 - Append-only accounting and reversal entries.
 - Standalone account-link management.
-- Transaction filters, search, or pagination within a selected month.
+- Transaction search or pagination within a selected month.
 - Split payments.

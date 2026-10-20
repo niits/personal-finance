@@ -28,8 +28,17 @@ I do next?
 The pinned header and summary stay visible while the ledger scrolls, on a solid
 surface with a hairline divider (no frosted glass).
 
-The ledger has no filter or search control. A row opens edit/delete actions; it never
-offers a separate finance-account link action.
+A “Lọc” button beside “Giao dịch” expands an inline category panel. Users may select
+multiple categories present in the selected month; matching transactions appear
+immediately. Category paths distinguish duplicate names, and uncategorized movements
+have a separate option. An empty selection shows all transactions. The panel always
+includes “Xóa bộ lọc”, disabled when there is no selection. The trigger shows the
+number of selected categories. Closing the panel preserves the selection; changing
+the month clears it. Date subtotals reflect visible rows, while the monthly summary
+continues to describe the entire period. A filtered empty state allows clearing the
+selection. The panel supports keyboard navigation and remains usable at 375px.
+
+A row opens edit/delete actions; it never offers a separate finance-account link action.
 
 ## States
 
