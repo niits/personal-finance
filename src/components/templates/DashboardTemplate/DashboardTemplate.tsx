@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { TransactionForm } from "@/components/organisms/TransactionForm";
 import { OrganizeReviewSheet } from "@/components/organisms/OrganizeReviewSheet";
 import type { OrganizePreview, OrganizeSelection } from "@/components/organisms/OrganizeReviewSheet";
@@ -177,7 +177,28 @@ export function DashboardTemplate({
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<number | null>(null);
   const filterPanelId = useId();
   const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  useEffect(() => {
+    if (!filterOpen) return;
+    function dismissOutside(event: PointerEvent) {
+      if (event.target instanceof Node && !filterPanelRef.current?.contains(event.target) && !filterButtonRef.current?.contains(event.target)) {
+        setFilterOpen(false);
+      }
+    }
+    function dismissOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFilterOpen(false);
+        filterButtonRef.current?.focus();
+      }
+    }
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [filterOpen]);
   const [categoryFilter, setCategoryFilter] = useState<{ month: string; ids: string[]; draftIds: string[] }>({ month: selectedMonth, ids: [], draftIds: [] });
   const selectedCategoryIds = categoryFilter.month === selectedMonth ? categoryFilter.ids : [];
   const draftCategoryIds = categoryFilter.month === selectedMonth ? categoryFilter.draftIds : [];
@@ -312,7 +333,7 @@ export function DashboardTemplate({
         </div>
 
         <section aria-labelledby="transaction-ledger" className="pt-lg">
-          <div className="flex items-center justify-between gap-sm px-5 pb-sm">
+          <div className="relative flex items-center justify-between gap-sm px-5 pb-sm">
             <h2 id="transaction-ledger" className="font-display text-[21px] font-semibold text-ink">Giao dịch</h2>
             <button
               type="button"
@@ -330,13 +351,7 @@ export function DashboardTemplate({
               </svg>
               Lọc{selectedCategoryIds.length > 0 ? ` (${selectedCategoryIds.length})` : ""}
             </button>
-          </div>
-          <div id={filterPanelId} hidden={!filterOpen} className="mx-5 mb-md rounded-lg border border-hairline bg-canvas p-md" onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              setFilterOpen(false);
-              filterButtonRef.current?.focus();
-            }
-          }}>
+            <div ref={filterPanelRef} id={filterPanelId} hidden={!filterOpen} className="absolute inset-x-5 top-full z-[60] rounded-lg border border-hairline bg-canvas p-md">
             <h3 id={`${filterPanelId}-title`} className="pb-sm font-body text-sm font-semibold text-ink">Lọc theo danh mục</h3>
             <div role="group" aria-labelledby={`${filterPanelId}-title`} className="h-48 max-h-[30svh] overflow-y-auto overscroll-contain">
               {categoryOptions.map((category) => (
@@ -358,6 +373,7 @@ export function DashboardTemplate({
                 filterButtonRef.current?.focus();
               }} className="min-h-11 min-w-11 rounded-md border-none bg-primary px-sm font-body text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">OK</button>
             </div>
+          </div>
           </div>
           {selectedCategoryIds.length > 0 ? <p role="status" className="px-5 pb-sm font-body text-sm text-ink-muted-48">Đang hiển thị {visibleTransactions.length} / {transactions.length} giao dịch</p> : null}
           {ledgerError ? <div className="mx-5 mb-md"><RetryMessage message={ledgerError} onRetry={onRetryLedger} /></div> : null}

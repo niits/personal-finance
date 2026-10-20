@@ -149,7 +149,11 @@ test.describe("Dashboard — continuous ledger", () => {
     await page.goto("/");
     await expect(page.getByText("Bún bò buổi trưa")).toBeVisible();
     const filter = page.getByRole("button", { name: /^Lọc(?: \(\d+\))?$/ });
+    const transaction = page.getByText("Bún bò buổi trưa");
+    const beforeOpen = await transaction.boundingBox();
     await filter.click();
+    const afterOpen = await transaction.boundingBox();
+    expect(afterOpen?.y).toBe(beforeOpen?.y);
     const clear = page.getByRole("button", { name: "Xóa bộ lọc", exact: true });
     const selectAll = page.getByRole("button", { name: "Chọn tất cả", exact: true });
     const confirm = page.getByRole("button", { name: "OK", exact: true });

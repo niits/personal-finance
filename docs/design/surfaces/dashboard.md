@@ -28,7 +28,9 @@ I do next?
 The pinned header and summary stay visible while the ledger scrolls, on a solid
 surface with a hairline divider (no frosted glass).
 
-A “Lọc” button aligned to the right of “Giao dịch” expands an inline category panel.
+A “Lọc” button aligned to the right of “Giao dịch” opens a category popover beneath the trigger.
+The panel overlays the ledger without moving any transaction rows. Clicking outside
+or pressing Escape dismisses it without applying draft changes.
 Users may select multiple categories present in the selected month. The category list
 has a fixed height, capped relative to the viewport, and scrolls independently. Its
 footer remains outside the scrolling list and contains “Xóa bộ lọc”, “Chọn tất cả”,
