@@ -358,7 +358,7 @@ export function DashboardTemplate({
               hidden={!filterOpen}
               className="absolute inset-x-5 top-full z-[60] overflow-hidden rounded-md border border-hairline bg-canvas sm:left-auto sm:w-[360px]"
             >
-              <div className="flex items-center justify-between gap-sm border-b border-divider-soft px-sm py-xs">
+              <div className="flex items-center justify-between gap-sm border-b border-divider-soft px-md py-sm">
                 <h3 id={`${filterPanelId}-title`} className="font-body text-[17px] font-semibold text-ink">Lọc danh mục</h3>
                 <span className="font-body text-xs text-ink-muted-48">{draftCategoryIds.length} đã chọn</span>
               </div>
@@ -368,7 +368,7 @@ export function DashboardTemplate({
                   const name = path.at(-1);
                   const parentPath = path.slice(0, -1).join(" / ");
                   return (
-                    <label key={category.id} className={`flex cursor-pointer items-center gap-xs px-sm py-1 transition-colors hover:bg-surface-pearl ${draftCategorySet.has(category.id) ? "bg-surface-pearl" : "bg-canvas"}`}>
+                    <label key={category.id} className={`flex min-h-11 cursor-pointer items-center gap-xs px-md py-xs transition-colors hover:bg-surface-pearl ${draftCategorySet.has(category.id) ? "bg-surface-pearl" : "bg-canvas"}`}>
                       <span className="min-w-0 flex-1 font-body text-[15px] leading-[21px] text-ink">
                         <span className="font-medium">{name}</span>
                         {parentPath ? <span className="ml-xs text-[13px] text-ink-muted-48">{parentPath}</span> : null}
@@ -386,9 +386,9 @@ export function DashboardTemplate({
                     </label>
                   );
                 })}
-                {categoryOptions.length === 0 ? <p className="px-sm py-md font-body text-sm text-ink-muted-48">{loading ? "Đang tải danh mục…" : ledgerError ? "Danh mục sẽ hiển thị khi tải được giao dịch." : "Chưa có danh mục để lọc trong kỳ này."}</p> : null}
+                {categoryOptions.length === 0 ? <p className="px-md py-md font-body text-sm text-ink-muted-48">{loading ? "Đang tải danh mục…" : ledgerError ? "Danh mục sẽ hiển thị khi tải được giao dịch." : "Chưa có danh mục để lọc trong kỳ này."}</p> : null}
               </div>
-              <div className="border-t border-hairline px-sm pb-sm pt-xs">
+              <div className="border-t border-hairline px-md pb-md pt-xs">
                 <div className="flex items-center justify-between gap-xs">
                   <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: [] })} disabled={draftCategoryIds.length === 0} className="min-h-11 font-body text-sm text-ink-muted-80 disabled:opacity-40">Bỏ chọn</button>
                   <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: categoryOptions.map((category) => category.id) })} disabled={categoryOptions.length === 0 || categoryOptions.every((category) => draftCategorySet.has(category.id))} className="min-h-11 font-body text-sm text-primary disabled:opacity-40">Chọn tất cả</button>
