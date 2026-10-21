@@ -358,48 +358,42 @@ export function DashboardTemplate({
               hidden={!filterOpen}
               className="absolute inset-x-5 top-full z-[60] overflow-hidden rounded-md border border-hairline bg-canvas sm:left-auto sm:w-[360px]"
             >
-              <div className="border-b border-divider-soft px-md py-md">
-                <h3 id={`${filterPanelId}-title`} className="font-body text-[17px] font-semibold leading-[23px] text-ink">Lọc theo danh mục</h3>
-                <p className="mt-xxs font-body text-[13px] leading-[18px] text-ink-muted-48">
-                  {draftCategoryIds.length > 0 ? `Đã chọn ${draftCategoryIds.length} danh mục` : "Tất cả giao dịch trong kỳ"}
-                </p>
+              <div className="flex items-center justify-between gap-sm border-b border-divider-soft px-sm py-xs">
+                <h3 id={`${filterPanelId}-title`} className="font-body text-[17px] font-semibold text-ink">Lọc danh mục</h3>
+                <span className="font-body text-xs text-ink-muted-48">{draftCategoryIds.length} đã chọn</span>
               </div>
-              <div role="group" aria-labelledby={`${filterPanelId}-title`} className="h-48 max-h-[30svh] divide-y divide-divider-soft overflow-y-auto overscroll-contain">
+              <div role="group" aria-labelledby={`${filterPanelId}-title`} className="max-h-[30svh] divide-y divide-divider-soft overflow-y-auto overscroll-contain">
                 {categoryOptions.map((category) => {
                   const path = category.label.split("/").map((part) => part.trim());
                   const name = path.at(-1);
                   const parentPath = path.slice(0, -1).join(" / ");
                   return (
-                    <label key={category.id} className={`flex min-h-11 cursor-pointer items-center gap-sm px-md py-sm transition-colors hover:bg-surface-pearl ${draftCategorySet.has(category.id) ? "bg-surface-pearl" : "bg-canvas"}`}>
-                      <span className="min-w-0 flex-1">
-                        <span className="block break-words font-body text-[15px] leading-[21px] text-ink">{name}</span>
-                        {parentPath ? <span className="mt-xxs block break-words font-body text-[13px] leading-[18px] text-ink-muted-48">{parentPath}</span> : null}
+                    <label key={category.id} className={`flex cursor-pointer items-center gap-xs px-sm py-1 transition-colors hover:bg-surface-pearl ${draftCategorySet.has(category.id) ? "bg-surface-pearl" : "bg-canvas"}`}>
+                      <span className="min-w-0 flex-1 font-body text-[15px] leading-[21px] text-ink">
+                        <span className="font-medium">{name}</span>
+                        {parentPath ? <span className="ml-xs text-[13px] text-ink-muted-48">{parentPath}</span> : null}
                       </span>
                       <span className="relative flex size-5 shrink-0 items-center justify-center">
                         <input
                           type="checkbox"
                           aria-label={category.label}
                           checked={draftCategorySet.has(category.id)}
-                          onChange={(event) => {
-                            setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: event.target.checked ? [...draftCategoryIds, category.id] : draftCategoryIds.filter((id) => id !== category.id) });
-                          }}
+                          onChange={(event) => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: event.target.checked ? [...draftCategoryIds, category.id] : draftCategoryIds.filter((id) => id !== category.id) })}
                           className="peer size-5 cursor-pointer appearance-none rounded-sm border border-hairline bg-canvas checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                         />
-                        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="pointer-events-none absolute size-4 stroke-on-primary opacity-0 peer-checked:opacity-100">
-                          <path d="m5 10 3 3 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="pointer-events-none absolute size-4 stroke-on-primary opacity-0 peer-checked:opacity-100"><path d="m5 10 3 3 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                       </span>
                     </label>
                   );
                 })}
-                {categoryOptions.length === 0 ? <p className="px-md py-lg font-body text-[15px] leading-[21px] text-ink-muted-48">{loading ? "Đang tải danh mục…" : ledgerError ? "Danh mục sẽ hiển thị khi tải được giao dịch." : "Chưa có danh mục để lọc trong kỳ này."}</p> : null}
+                {categoryOptions.length === 0 ? <p className="px-sm py-md font-body text-sm text-ink-muted-48">{loading ? "Đang tải danh mục…" : ledgerError ? "Danh mục sẽ hiển thị khi tải được giao dịch." : "Chưa có danh mục để lọc trong kỳ này."}</p> : null}
               </div>
-              <div className="border-t border-hairline px-md pb-md pt-xs">
-                <div className="mb-xs flex items-center justify-between gap-sm">
-                  <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: [] })} disabled={draftCategoryIds.length === 0} className="min-h-11 rounded-sm border-none bg-transparent font-body text-[15px] text-ink-muted-80 disabled:text-ink-muted-48 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xóa bộ lọc</button>
-                  <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: categoryOptions.map((category) => category.id) })} disabled={categoryOptions.length === 0 || categoryOptions.every((category) => draftCategorySet.has(category.id))} className="min-h-11 rounded-sm border-none bg-transparent font-body text-[15px] text-ink-muted-80 disabled:text-ink-muted-48 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Chọn tất cả</button>
+              <div className="border-t border-hairline px-sm pb-sm pt-xs">
+                <div className="flex items-center justify-between gap-xs">
+                  <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: [] })} disabled={draftCategoryIds.length === 0} className="min-h-11 font-body text-sm text-ink-muted-80 disabled:opacity-40">Bỏ chọn</button>
+                  <button type="button" onClick={() => setCategoryFilter({ month: selectedMonth, ids: selectedCategoryIds, draftIds: categoryOptions.map((category) => category.id) })} disabled={categoryOptions.length === 0 || categoryOptions.every((category) => draftCategorySet.has(category.id))} className="min-h-11 font-body text-sm text-primary disabled:opacity-40">Chọn tất cả</button>
                 </div>
-                <Button label="OK" fullWidth onClick={() => {
+                <Button label={`Áp dụng${draftCategoryIds.length ? ` (${draftCategoryIds.length})` : ""}`} fullWidth onClick={() => {
                   setCategoryFilter({ month: selectedMonth, ids: draftCategoryIds, draftIds: draftCategoryIds });
                   setFilterOpen(false);
                   filterButtonRef.current?.focus();
