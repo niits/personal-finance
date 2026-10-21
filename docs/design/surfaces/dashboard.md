@@ -33,13 +33,13 @@ The panel overlays the ledger without moving any transaction rows. Clicking outs
 or pressing Escape dismisses it without applying draft changes.
 Users may select multiple categories present in the selected month. The category list
 has a fixed height, capped relative to the viewport, and scrolls independently. Its
-footer remains outside the scrolling list and contains “Xóa bộ lọc”, “Chọn tất cả”,
-and “OK”. Clear removes the draft selection, select all checks every available option,
-and OK applies the selection, closes the panel, and returns focus to the trigger.
-Closing the panel without OK discards draft changes; reopening starts from the applied
+footer remains outside the scrolling list and contains “Bỏ chọn”, “Chọn tất cả”,
+and “Áp dụng”. Clear removes the draft selection, select all checks every available option,
+and Áp dụng applies the selection, closes the panel, and returns focus to the trigger.
+Closing the panel without Áp dụng discards draft changes; reopening starts from the applied
 selection. An empty applied selection shows all transactions. Clear is disabled when
 no draft options are checked; select all is disabled when no options exist or every
-option is checked. OK remains available to complete the interaction in all states.
+option is checked. Áp dụng remains available to complete the interaction in all states.
 
 Category paths distinguish duplicate names, and uncategorized movements have a
 separate option. The trigger shows the number of applied categories. Changing the
@@ -54,7 +54,7 @@ screens, aligned to the trigger. A 17px strong heading and muted 13px selection 
 lead into shared rows. Each row presents the category name at 15px, its parent path
 at 13px, and a trailing checkbox; selected rows use the raised surface token. The
 fixed footer places the two neutral secondary actions above one full-width primary
-OK button. Blue is reserved for the confirmation and checked controls. All controls
+Áp dụng button. Blue is reserved for the confirmation and checked controls. All controls
 retain visible keyboard focus and minimum 44px touch targets.
 
 A row opens edit/delete actions; it never offers a separate finance-account link action.

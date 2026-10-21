@@ -154,12 +154,16 @@ test.describe("Dashboard — continuous ledger", () => {
     await filter.click();
     const afterOpen = await transaction.boundingBox();
     expect(afterOpen?.y).toBe(beforeOpen?.y);
-    const clear = page.getByRole("button", { name: "Xóa bộ lọc", exact: true });
+    const clear = page.getByRole("button", { name: "Bỏ chọn", exact: true });
     const selectAll = page.getByRole("button", { name: "Chọn tất cả", exact: true });
-    const confirm = page.getByRole("button", { name: "OK", exact: true });
+    const confirm = page.getByRole("button", { name: /^Áp dụng(?: \(\d+\))?$/ });
     await expect(clear).toBeDisabled();
+    await expect(confirm).toHaveText("Áp dụng");
+    const categoryCount = await page.getByRole("checkbox").count();
+    expect(categoryCount).toBeGreaterThan(0);
     await selectAll.click();
     await expect(selectAll).toBeDisabled();
+    await expect(confirm).toHaveText(`Áp dụng (${categoryCount})`);
     await expect(page.getByRole("status")).not.toBeVisible();
     await confirm.click();
     await expect(filter).toHaveAttribute("aria-expanded", "false");
@@ -167,6 +171,7 @@ test.describe("Dashboard — continuous ledger", () => {
     await expect(page.getByRole("status")).toContainText("Đang hiển thị");
     await filter.click();
     await clear.click();
+    await expect(confirm).toHaveText("Áp dụng");
     await expect(page.getByRole("checkbox").first()).not.toBeChecked();
     await expect(page.getByRole("status")).toContainText("Đang hiển thị");
     await confirm.click();

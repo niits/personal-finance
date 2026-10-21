@@ -13,7 +13,7 @@
   edited, moved between periods, or deleted directly.
 - The feed loads the full selected month, groups entries by date, and orders them
   newest first. An optional category filter shows transactions matching any selected
-  category within that month after confirmation with “OK”. Clearing the selection
+  category within that month after confirmation with “Áp dụng”. Clearing the selection
   and confirming restores the full feed; changing
   the month resets the selection. Filtering changes visible rows and date subtotals,
   while monthly financial summaries retain their full-period scope.
