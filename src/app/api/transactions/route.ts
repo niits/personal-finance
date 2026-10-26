@@ -179,15 +179,17 @@ export async function GET(request: NextRequest) {
 
   const results = (await query.execute()) as TxnRow[];
 
-  // Fetch custom budgets for all transactions
+  // Keep the parameter count independent of the number of monthly transactions.
+  // Reuse the feed scope so period, ownership, and filters cannot diverge.
   let cbMap = new Map<number, { id: number; name: string }[]>();
   if (results.length > 0) {
-    const ids = results.map((r) => r.id);
+    const matchingTransactions = query.clearSelect().clearOrderBy().select("t.id");
     const cbRows = (await db
       .selectFrom("transaction_custom_budget as tcb")
       .innerJoin("custom_budget as cb", "cb.id", "tcb.custom_budget_id")
       .select(["tcb.transaction_id", "cb.id", "cb.name"])
-      .where("tcb.transaction_id", "in", ids)
+      .where("tcb.transaction_id", "in", matchingTransactions)
+      .where("cb.user_id", "=", userId)
       .execute()) as CbRow[];
     cbMap = buildCbMap(cbRows);
   }

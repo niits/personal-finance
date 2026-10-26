@@ -104,6 +104,12 @@ contract. Migration changes use expand/contract deployment and preserve user dat
 There are no target `/api/debts`, transaction link/unlink, or account-export APIs.
 Finance-account association is part of transaction create/edit.
 
+Monthly transaction reads return the complete selected period. Related custom budgets
+are selected through a user- and period-scoped transaction subquery, with the same feed
+filters, rather than an application-generated list of transaction IDs. SQL parameter
+counts therefore remain independent of the number of transactions. Related budget
+reads also enforce budget ownership.
+
 ## AI Organize Apply Contract
 
 `POST /api/ai/organize` accepts no body for initial analysis or an optional
