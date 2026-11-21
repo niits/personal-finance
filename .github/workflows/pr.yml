@@ -2,7 +2,7 @@ name: PR Checks
 
 on:
   pull_request:
-    branches: [staging, main]
+    branches: [main]
 
 # Cancel superseded PR runs — a new push to the PR branch makes the
 # in-progress run obsolete, so kill it instead of letting it finish.

@@ -1,6 +1,6 @@
 name: CI
 
-# Reusable workflow — called by pr.yml, deploy.yml and deploy-staging.yml.
+# Reusable workflow — called by pr.yml and deploy.yml.
 on:
   workflow_call:
 
