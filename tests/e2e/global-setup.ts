@@ -4,7 +4,7 @@ import { getUserId, wipeUserData, seedUserData } from "./db-reset";
 
 const BASE_URL = "http://localhost:8787";
 export const TEST_EMAIL = "e2e@test.local";
-const TEST_PASSWORD = "e2e-test-password-123";
+export const TEST_PASSWORD = "e2e-test-password-123";
 
 export const STORAGE_STATE = path.join(__dirname, "storageState.json");
 

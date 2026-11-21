@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, authClient, getAuthClientErrorMessage } from "@/lib/auth-client";
+import { pendingAuthorizationUrl } from "@/lib/mcp-oauth";
 
 const GitHubIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -42,9 +43,16 @@ function SignInContent() {
       : "Không thể đăng nhập với GitHub. Vui lòng thử lại."
     : null);
 
+  // Set when an MCP client (for example Claude) asked for access before sign-in.
+  // Better Auth resumes that authorization after the GitHub callback.
+  const resumeAuthorizationUrl = pendingAuthorizationUrl(new URLSearchParams(searchParams.toString()));
+
   useEffect(() => {
-    if (session?.user) router.replace("/");
-  }, [session, router]);
+    if (!session?.user) return;
+    // Signed in elsewhere (for example another tab): continue the pending authorization.
+    if (resumeAuthorizationUrl) window.location.assign(resumeAuthorizationUrl);
+    else router.replace("/");
+  }, [session, router, resumeAuthorizationUrl]);
 
   async function handleGitHubSignIn() {
     setSignInPending(true);
@@ -101,6 +109,12 @@ function SignInContent() {
             Đăng nhập
           </h1>
         </div>
+
+        {resumeAuthorizationUrl ? (
+          <p className="mb-md rounded-md border border-hairline bg-surface-pearl px-md py-sm font-body text-sm leading-[21px] text-ink-muted-80">
+            Một ứng dụng đang yêu cầu quyền truy cập dữ liệu tài chính của bạn. Hãy đăng nhập để xem và quyết định cấp quyền.
+          </p>
+        ) : null}
 
         {errorMessage ? (
           <div role="alert" className="mb-md rounded-md border border-hairline bg-surface-pearl px-md py-sm font-body text-sm leading-[21px] text-ink-muted-80">

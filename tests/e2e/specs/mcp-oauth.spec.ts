@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { getUserId } from "../db-reset";
-import { TEST_EMAIL } from "../global-setup";
+import { TEST_EMAIL, TEST_PASSWORD } from "../global-setup";
 
 // Full MCP OAuth flow against production code: dynamic client registration,
 // authorization with mandatory consent, PKCE code exchange, and token-to-user
@@ -129,6 +129,43 @@ test.describe("MCP OAuth", () => {
     expect(callbackUrl.searchParams.get("error")).toBe("access_denied");
     expect(callbackUrl.searchParams.get("code")).toBeNull();
   });
+
+  // Email sign-in triggers the same Better Auth resume hook as the GitHub callback,
+  // which E2E cannot drive. An expired cookie must not bounce the user away from
+  // sign-in (middleware) and lose the pending authorization.
+  for (const startingCookie of ["none", "expired"] as const) {
+    test(`without a valid session (${startingCookie} cookie), sign-in resumes the authorization at consent`, async ({ browser, mcpClient }) => {
+      const context = await browser.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } });
+      if (startingCookie === "expired") {
+        await context.addCookies([{ name: "better-auth.session_token", value: "expired.token", url: BASE_URL }]);
+      }
+      const page = await context.newPage();
+      const clientId = await registerClient(mcpClient);
+      const { challenge } = pkcePair();
+      const callback = captureCallback(page);
+
+      await page.goto(authorizeUrl(clientId, challenge));
+
+      await expect(page).toHaveURL(/\/sign-in\?.*client_id=/);
+      await expect(page.getByText("Một ứng dụng đang yêu cầu quyền truy cập dữ liệu tài chính của bạn.")).toBeVisible();
+
+      const signIn = await page.request.post("/api/auth/sign-in/email", {
+        headers: { Origin: BASE_URL },
+        data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+        maxRedirects: 0,
+      });
+      expect(signIn.status()).toBe(302);
+      const resumeUrl = signIn.headers()["location"];
+      expect(resumeUrl).toContain("/oauth/consent?");
+
+      await page.goto(resumeUrl);
+      await expect(page.getByRole("region", { name: "Yêu cầu truy cập" })).toContainText(CLIENT_NAME);
+      await page.getByRole("button", { name: "Cho phép" }).click();
+      expect((await callback).searchParams.get("code")).toBeTruthy();
+
+      await context.close();
+    });
+  }
 
   // Regression guard for forceConsentPrompt: a crafted link must never skip consent.
   test("a client asking for prompt=none still gets the consent page", async ({ page, mcpClient }) => {

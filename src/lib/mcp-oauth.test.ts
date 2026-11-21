@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { forceConsentPrompt, toConsentRequest } from "./mcp-oauth";
+import { forceConsentPrompt, pendingAuthorizationUrl, toConsentRequest } from "./mcp-oauth";
 
 const BASE = "https://finance.example.test";
 
@@ -60,5 +60,18 @@ describe("toConsentRequest", () => {
     expect(toConsentRequest(undefined, "u@example.com")).toBeNull();
     expect(toConsentRequest({ ...client, disabled: 1 }, "u@example.com")).toBeNull();
     expect(toConsentRequest({ ...client, redirectUrls: "not a url" }, "u@example.com")).toBeNull();
+  });
+});
+
+describe("pendingAuthorizationUrl", () => {
+  it("rebuilds the authorization URL from the query the plugin forwarded to sign-in", () => {
+    const params = new URLSearchParams("response_type=code&client_id=abc&state=s1&code_challenge=x");
+
+    expect(pendingAuthorizationUrl(params)).toBe("/api/auth/mcp/authorize?response_type=code&client_id=abc&state=s1&code_challenge=x");
+  });
+
+  it("returns null for a normal sign-in visit", () => {
+    expect(pendingAuthorizationUrl(new URLSearchParams("from=/statistics"))).toBeNull();
+    expect(pendingAuthorizationUrl(new URLSearchParams("client_id=abc"))).toBeNull();
   });
 });
