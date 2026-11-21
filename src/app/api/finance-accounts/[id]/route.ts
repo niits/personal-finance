@@ -49,7 +49,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
   const transaction = await db
     .selectFrom("transaction")
     .select("id")
-    .where("finance_account_id", "=", id)
+    .where((eb) => eb.or([eb("finance_account_id", "=", id), eb("overdraft_account_id", "=", id)]))
     .executeTakeFirst();
   if (transaction) {
     return Errors.validation("Tài khoản có giao dịch không thể bị xóa");

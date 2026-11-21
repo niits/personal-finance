@@ -105,6 +105,19 @@ export async function GET(request: NextRequest) {
     )`)
     .executeTakeFirst();
 
+  // Current amount owed to banks on overdraft accounts (a balance, not a period
+  // amount); same balance formula as /api/finance-accounts and the triggers.
+  const overdraftOwed = await db
+    .selectFrom("finance_account as a")
+    .select(sql<number>`COALESCE(SUM(MAX(0,
+      (SELECT COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE -t.amount END), 0)
+        FROM "transaction" AS t WHERE t.finance_account_id = a.id AND t.user_id = a.user_id)
+      + (SELECT COALESCE(SUM(t.amount), 0)
+        FROM "transaction" AS t WHERE t.overdraft_account_id = a.id AND t.user_id = a.user_id))), 0)`.as("amount"))
+    .where("a.user_id", "=", userId)
+    .where("a.is_overdraft", "=", 1)
+    .executeTakeFirst();
+
   let paceStatus: "under" | "over" | "no_budget" = "no_budget";
   let monthlyBudget: { id: number; amount: number; remaining: number } | null = null;
 
@@ -125,6 +138,7 @@ export async function GET(request: NextRequest) {
     period_end: periodEnd,
     total_expense: totalExpense,
     unpaid_card_spend: unpaidCardSpend?.amount ?? 0,
+    overdraft_owed: overdraftOwed?.amount ?? 0,
     total_income: totalIncome,
     savings: totalIncome - totalExpense,
     monthly_budget: monthlyBudget,

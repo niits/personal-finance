@@ -18,6 +18,7 @@ import { sql } from "kysely";
 import { markStatsDirty } from "@/lib/statistics";
 import { statementPeriodForDate } from "@/lib/credit-cards";
 import { privateJsonResponse } from "@/lib/private-revalidation";
+import { overdraftPaymentError } from "@/lib/overdraft";
 
 type TxnRow = {
   id: number;
@@ -31,6 +32,8 @@ type TxnRow = {
   debt_id: string | null;
   finance_account_id: string | null;
   credit_card_group_id: string | null;
+  overdraft_account_id?: string | null;
+  overdraft_account_name?: string | null;
   debt_party: string | null;
   debt_type: "lend" | "borrow" | null;
   created_at: number;
@@ -83,6 +86,9 @@ function formatTransaction(row: TxnRow, cbMap: Map<number, { id: number; name: s
     debt_id: row.debt_id ?? null,
     finance_account_id: row.finance_account_id ?? null,
     credit_card_group_id: row.credit_card_group_id ?? null,
+    overdraft_account: row.overdraft_account_id
+      ? { id: row.overdraft_account_id, name: row.overdraft_account_name ?? "" }
+      : null,
     debt_party: row.debt_party ?? null,
     debt_type: row.debt_type ?? null,
     note: row.note,
@@ -124,6 +130,7 @@ export async function GET(request: NextRequest) {
     .leftJoin("category as p1", "p1.id", "c.parent_id")
     .leftJoin("category as p2", "p2.id", "p1.parent_id")
     .leftJoin("debt as d", "d.id", "t.debt_id")
+    .leftJoin("finance_account as od", "od.id", "t.overdraft_account_id")
     .select([
       "t.id",
       "t.amount",
@@ -136,6 +143,8 @@ export async function GET(request: NextRequest) {
       "t.debt_id",
       "t.finance_account_id",
       "t.credit_card_group_id",
+      "t.overdraft_account_id",
+      "od.name as overdraft_account_name",
       "d.party as debt_party",
       "d.type as debt_type",
       "t.created_at",
@@ -332,6 +341,15 @@ async function createTransaction(request: NextRequest) {
     cardStatement = group;
   }
 
+  const overdraftAccountId = typeof b.overdraft_account_id === "string" ? b.overdraft_account_id : null;
+  const overdraftError = overdraftPaymentError({ overdraftAccountId, type: b.type as "expense" | "income", isConsumption, creditCardGroupId });
+  if (overdraftError) return Errors.validation(overdraftError);
+  if (overdraftAccountId) {
+    const account = await db.selectFrom("finance_account").select("id")
+      .where("id", "=", overdraftAccountId).where("user_id", "=", userId).where("is_overdraft", "=", 1).executeTakeFirst();
+    if (!account) return Errors.notFound("Tài khoản thấu chi không tồn tại");
+  }
+
   // Only consumption expenses require the established working-day budget.
   let monthlyBudgetId: number | null = null;
   if (b.type === "expense" && isConsumption) {
@@ -363,7 +381,7 @@ async function createTransaction(request: NextRequest) {
 
   const result = await db
     .insertInto("transaction")
-    .values({ user_id: userId, amount, type: b.type as "expense" | "income", category_id: categoryId, note, emoji, date, monthly_budget_id: monthlyBudgetId, finance_account_id: financeAccountId, credit_card_group_id: creditCardGroupId })
+    .values({ user_id: userId, amount, type: b.type as "expense" | "income", category_id: categoryId, note, emoji, date, monthly_budget_id: monthlyBudgetId, finance_account_id: financeAccountId, credit_card_group_id: creditCardGroupId, overdraft_account_id: overdraftAccountId })
     .returning("id")
     .executeTakeFirst();
 
@@ -390,6 +408,7 @@ async function createTransaction(request: NextRequest) {
     .leftJoin("category as c", "c.id", "t.category_id")
     .leftJoin("category as p1", "p1.id", "c.parent_id")
     .leftJoin("category as p2", "p2.id", "p1.parent_id")
+    .leftJoin("finance_account as od", "od.id", "t.overdraft_account_id")
     .select([
       "t.id",
       "t.amount",
@@ -401,6 +420,8 @@ async function createTransaction(request: NextRequest) {
       "t.debt_id",
       "t.finance_account_id",
       "t.credit_card_group_id",
+      "t.overdraft_account_id",
+      "od.name as overdraft_account_name",
       "t.created_at",
       "c.id as cat_id",
       "c.name as cat_name",

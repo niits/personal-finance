@@ -49,3 +49,10 @@ export const BorrowedAndSettled: Story = { args: { ...callbacks, groups: [], pay
   { ...accounts[0], id: "borrow-1", name: "Khoản vay ngân hàng", debt_direction: "borrow", balance: 1000000, transactions: [{ id: 3, date: "2026-08-10", note: "Nhận tiền vay", amount: 1000000, type: "income" }] },
   { ...accounts[0], id: "settled-1", name: "Khoản đã tất toán", balance: 0, transactions: [] },
 ] } };
+
+export const OverdraftAccount: Story = { args: { ...callbacks, groups: [], payingStatementId: null, accounts: [
+  { id: "od-1", type: "debt", name: "Thấu chi VCB", debt_direction: "borrow", note: null, is_overdraft: true, balance: 2_350_000, transactions: [
+    { id: 31, amount: 650_000, type: "expense", date: "2026-11-18", note: "Trả nợ thấu chi" },
+    { id: 30, amount: 3_000_000, type: "expense", date: "2026-11-10", note: "Sửa xe", overdraft_purchase: true },
+  ] },
+] } };
