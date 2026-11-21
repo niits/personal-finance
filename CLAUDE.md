@@ -19,25 +19,25 @@ Conventions for Claude Code in this repo. `AGENTS.md` (imported above) provides 
 
 ## Git workflow (GitLab Flow)
 
-`main` is always stable and deployable. **Never commit directly to `main` or `staging`** — branch for every change. Both branches are protected and require passing status checks.
+`main` is always stable and deployable; every merge into `main` deploys to production. **Never commit directly to `main`** — branch for every change. `main` is protected and requires passing status checks. There is no staging branch or staging environment.
 
 ```bash
-git checkout staging && git pull            # branch from up-to-date staging
-git checkout -b <type>/<name>               # feature | fix | refactor | hotfix | release
+git checkout main && git pull               # branch from up-to-date main
+git checkout -b <type>/<name>               # feature | fix | refactor | hotfix
 git commit -m "<type>(<scope>): <desc>"     # Conventional Commits: feat·fix·refactor·docs·test·chore
 git push -u origin <type>/<name>
-gh pr create --base staging ...
+gh pr create --base main ...
 ```
 
-- **Default PR target is `staging`.** Only `hotfix/*` targets `main` directly (base it on `main`, not staging). Ask "hotfix or epic?" only for a production hotfix or when it's genuinely ambiguous — otherwise assume staging.
+- **All PRs target `main`.**
 - **PR body must close its issues** (`Closes #45`). After merge, comment on each closed issue with root cause / edge cases / gotchas worth keeping.
 - **Every code change ships with tests** — Playwright for E2E-testable behavior, Vitest for pure logic.
 - **Merging.** Protection requires checks, so you can't merge instantly after push. Enable auto-merge if the repo allows it; otherwise merge once checks pass:
-  `gh pr merge <pr> --merge --delete-branch`. Exception: `release/*` PRs are **never** deleted (permanent snapshots).
+  `gh pr merge <pr> --merge --delete-branch`.
 
 ### Releases (one epic = one GitHub Milestone)
 
-Cut `release/<epic-name>` from `staging`, open a PR into `main` (do **not** delete the branch), then tag `release/<epic-name>` on `main` and publish a GitHub Release with notes. Keep `staging` in sync with `main` afterward via a normal merge/PR — avoid force-pushing the protected `staging` branch.
+When an epic's milestone is complete, tag `release/<epic-name>` on `main` and publish a GitHub Release with notes. The tag is the permanent snapshot of what shipped. Existing `release/*` branches from the former staging flow are kept as historical snapshots.
 
 ### Skipping CI
 

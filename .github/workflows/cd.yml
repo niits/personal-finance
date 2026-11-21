@@ -1,13 +1,12 @@
 name: CD
 
 # Reusable deploy workflow — the single definition of how we ship to Cloudflare.
-# Called by deploy.yml (production) and deploy-staging.yml (staging); the only
-# differences between environments are the inputs below.
+# Called by deploy.yml (production).
 on:
   workflow_call:
     inputs:
       environment:
-        description: Wrangler --env target (production | staging).
+        description: Wrangler --env target (production).
         required: true
         type: string
       app-url:

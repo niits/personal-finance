@@ -44,31 +44,6 @@
       "vars": {
         "CLOUDFLARE_ACCOUNT_ID": "3e5a7fd9e4fa325f3885fe9e587d708d"
       }
-    },
-    // Staging environment — separate Worker and D1 database.
-    // One-time setup (run locally):
-    //   wrangler d1 create personal-finance-auth-staging
-    //   wrangler secret put BETTER_AUTH_SECRET --env staging
-    //   wrangler secret put BETTER_AUTH_URL    --env staging
-    //   wrangler secret put GITHUB_CLIENT_ID   --env staging  (use a separate GitHub OAuth App)
-    //   wrangler secret put GITHUB_CLIENT_SECRET --env staging
-    //   gh variable set STAGING_APP_URL --body "https://personal-finance-staging.<your-subdomain>.workers.dev"
-    "staging": {
-      "name": "personal-finance-staging",
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "personal-finance-auth-staging",
-          "database_id": "106d3a38-2901-4577-8958-e66b4ac02bf9",
-          "migrations_dir": "migrations"
-        }
-      ],
-      "ai": {
-        "binding": "AI"
-      },
-      "vars": {
-        "CLOUDFLARE_ACCOUNT_ID": "3e5a7fd9e4fa325f3885fe9e587d708d"
-      }
     }
   },
   "observability": {
