@@ -35,6 +35,13 @@ MCP clients authenticate with per-user OAuth access tokens issued by the Better 
 `mcp` plugin. Every authorization requires explicit approval on `/oauth/consent`
 (clients cannot request silent authorization), and PKCE `S256` is mandatory. A token
 resolves to one Better Auth user and is scoped exactly like that user's session.
+`requireSession` accepts either the session cookie or an MCP bearer token, enforces
+the token's expiry (the plugin does not), and never falls back to the cookie when a
+bearer token is present. `/api/mcp` accepts bearer tokens only.
+
+MCP tools call the existing route handlers in-process with the caller's token, so
+every tool applies the same validation, business rules, and user scoping as the app.
+A new user-facing route needs a matching tool in `src/lib/mcp/tools.ts`.
 
 See [`ADR 007`](../decisions/007-authentication-and-ai-providers.md) and
 [`ADR 008`](../decisions/008-mcp-access-through-better-auth-oauth.md).
@@ -93,6 +100,7 @@ contract. Migration changes use expand/contract deployment and preserve user dat
 |---|---|
 | `/api/auth/*` | Better Auth handlers for Google and GitHub, and the MCP OAuth server (`/api/auth/mcp/*`). |
 | `/.well-known/oauth-*` | OAuth authorization server and protected resource metadata for MCP clients. |
+| `/api/mcp` | Remote MCP server (stateless Streamable HTTP); one tool per user-facing operation. |
 | `/api/categories` | Read, seed, create, update, and guarded delete. |
 | `/api/categories/organize` | Preview AI parent–child and sibling-order changes to existing categories. |
 | `/api/categories/organize/apply` | Validate a whole-tree snapshot and atomically apply hierarchy changes. |

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const getSession = vi.fn();
-const getAuth = vi.fn(async () => ({ api: { getSession } }));
+const getMcpSession = vi.fn();
+const getAuth = vi.fn(async () => ({ api: { getSession, getMcpSession } }));
 
 vi.mock("./auth", () => ({ getAuth }));
 
@@ -12,6 +13,7 @@ vi.mock("./auth", () => ({ getAuth }));
 describe("requireSession", () => {
   beforeEach(() => {
     getSession.mockReset();
+    getMcpSession.mockReset();
     getAuth.mockClear();
   });
 
@@ -64,5 +66,47 @@ describe("requireSession", () => {
       "Failed to get session",
     );
     expect(getSession).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("requireSession with an MCP bearer token", () => {
+  const bearer = (token = "t1") =>
+    new Request("https://example.test", { headers: { authorization: `Bearer ${token}`, cookie: "better-auth.session_token=c" } });
+
+  beforeEach(() => {
+    getSession.mockReset();
+    getMcpSession.mockReset();
+  });
+
+  it("resolves a valid token to its user without reading the cookie session", async () => {
+    const { requireSession } = await import("./session");
+    getMcpSession.mockResolvedValueOnce({ userId: "u1", accessTokenExpiresAt: new Date(Date.now() + 60_000) });
+
+    expect(await requireSession(bearer())).toEqual({ user: { id: "u1" } });
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  // The Better Auth mcp plugin returns expired tokens as-is.
+  it("rejects an expired token", async () => {
+    const { requireSession } = await import("./session");
+    getMcpSession.mockResolvedValueOnce({ userId: "u1", accessTokenExpiresAt: new Date(Date.now() - 1) });
+
+    expect(await requireSession(bearer())).toBeNull();
+  });
+
+  it("accepts expiry stored as an epoch number", async () => {
+    const { requireSession } = await import("./session");
+    getMcpSession.mockResolvedValueOnce({ userId: "u1", accessTokenExpiresAt: Date.now() + 60_000 });
+
+    expect(await requireSession(bearer())).toEqual({ user: { id: "u1" } });
+  });
+
+  it("does not fall back to the cookie session for an unknown token", async () => {
+    const { requireSession } = await import("./session");
+    getMcpSession.mockResolvedValueOnce(null);
+    getSession.mockResolvedValueOnce({ user: { id: "cookie-user" } });
+
+    expect(await requireSession(bearer("unknown"))).toBeNull();
+    expect(getSession).not.toHaveBeenCalled();
   });
 });

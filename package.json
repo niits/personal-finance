@@ -24,6 +24,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.93.0",
     "@better-auth/cli": "^1.4.21",
+    "@cfworker/json-schema": "^4.1.6",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@opentelemetry/sdk-trace-base": "^2.7.1",
     "ai": "^6.0.175",
     "better-auth": "^1.6.9",

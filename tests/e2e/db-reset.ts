@@ -136,3 +136,10 @@ export function seedUserData(userId: string, seed: SeedLevel): void {
 
   db.close();
 }
+
+/** Marks an MCP OAuth access token as expired, as if its lifetime had passed. */
+export function expireMcpAccessToken(accessToken: string): void {
+  const db = getDb();
+  db.prepare("UPDATE oauthAccessToken SET accessTokenExpiresAt = 0 WHERE accessToken = ?").run(accessToken);
+  db.close();
+}

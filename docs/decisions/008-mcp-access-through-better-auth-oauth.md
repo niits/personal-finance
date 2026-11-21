@@ -26,6 +26,10 @@ connect without per-user infrastructure setup.
   redirect host on `/oauth/consent`. Silent authorization is never possible.
 - PKCE with `S256` is mandatory.
 - Login during authorization reuses the existing sign-in page and providers.
+- Each MCP tool calls one existing route handler in-process with the caller's bearer
+  token. Business rules therefore live only in the routes, and the REST API and MCP
+  cannot diverge. Legacy endpoints the UI no longer models (`/api/debts`,
+  transaction debt links) are not exposed.
 
 ## Alternatives Considered
 
@@ -46,5 +50,7 @@ serve only Claude Code.
   connected client working without repeated consent.
 - The plugin's token endpoint does not re-check consent, so the consent code must only
   ever be delivered to the consent page. `consentPage` must stay configured.
+- REST routes accept MCP bearer tokens through `requireSession`; token expiry is
+  enforced there because the plugin's session lookup does not check it.
 - OAuth tables (`oauthApplication`, `oauthAccessToken`, `oauthConsent`) join the
   Better Auth schema.
