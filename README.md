@@ -15,6 +15,16 @@
 - **Hierarchical categories** — up to 3 levels; only leaf nodes are assignable to transactions
 - **AI organization and insights** — reviewable categorization changes and narrative monthly analysis
 - **Google and GitHub OAuth** — target authentication via better-auth with strict per-user data isolation
+- **Claude via MCP** — connect Claude with per-user OAuth; Claude can do everything the user can do in the app
+
+### Connect Claude
+
+The app is a remote MCP server at `https://<app-domain>/api/mcp`.
+
+- **Claude.ai / Claude Desktop / Claude mobile:** Settings → Connectors → Add custom connector → enter the URL.
+- **Claude Code:** `claude mcp add --transport http personal-finance https://<app-domain>/api/mcp`
+
+Claude opens the app to sign in and asks for approval on the consent page every time a client connects.
 
 ---
 

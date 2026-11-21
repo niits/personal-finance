@@ -1,67 +1,11 @@
-import { createHash, randomBytes } from "crypto";
-import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { getUserId } from "../db-reset";
 import { TEST_EMAIL, TEST_PASSWORD } from "../global-setup";
+import { BASE_URL, CLIENT_NAME, REDIRECT_URI, authorizeUrl, captureCallback, pkcePair, registerClient, test } from "../mcp";
 
 // Full MCP OAuth flow against production code: dynamic client registration,
 // authorization with mandatory consent, PKCE code exchange, and token-to-user
-// resolution. The callback host is never reached; Playwright intercepts it.
-// Registration and token calls go through a cookie-less context, as a real MCP
-// client (Claude's servers or the Claude Code CLI) never holds the user's cookie.
-const BASE_URL = "http://localhost:8787";
-
-const test = base.extend<{ mcpClient: APIRequestContext }>({
-  mcpClient: async ({ playwright }, provide) => {
-    const context = await playwright.request.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } });
-    await provide(context);
-    await context.dispose();
-  },
-});
-const REDIRECT_URI = "http://127.0.0.1:9/callback";
-const CLIENT_NAME = "E2E MCP Client";
-
-function pkcePair() {
-  const verifier = randomBytes(32).toString("base64url");
-  const challenge = createHash("sha256").update(verifier).digest("base64url");
-  return { verifier, challenge };
-}
-
-async function registerClient(request: APIRequestContext): Promise<string> {
-  const res = await request.post("/api/auth/mcp/register", {
-    data: {
-      client_name: CLIENT_NAME,
-      redirect_uris: [REDIRECT_URI],
-      token_endpoint_auth_method: "none",
-      grant_types: ["authorization_code", "refresh_token"],
-    },
-  });
-  expect(res.ok(), await res.text()).toBe(true);
-  return (await res.json()).client_id;
-}
-
-function authorizeUrl(clientId: string, challenge: string, extra: Record<string, string> = {}) {
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: clientId,
-    redirect_uri: REDIRECT_URI,
-    state: "e2e-state",
-    scope: "openid profile email offline_access",
-    code_challenge: challenge,
-    code_challenge_method: "S256",
-    ...extra,
-  });
-  return `/api/auth/mcp/authorize?${params}`;
-}
-
-/** Resolves with the callback URL the browser was sent to. */
-function captureCallback(page: Page): Promise<URL> {
-  return new Promise((resolve) => {
-    void page.route("http://127.0.0.1:9/**", async (route) => {
-      resolve(new URL(route.request().url()));
-      await route.fulfill({ status: 200, body: "ok" });
-    });
-  });
-}
+// resolution.
 
 test.describe("MCP OAuth", () => {
   test("discovery metadata advertises the MCP endpoints and the protected resource", async ({ request }) => {

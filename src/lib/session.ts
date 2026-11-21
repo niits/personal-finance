@@ -14,7 +14,35 @@ function isRequestStateRaceError(error: unknown): boolean {
   );
 }
 
+type McpAccessToken = { userId?: string | null; accessTokenExpiresAt: Date | string | number };
+
+/**
+ * Resolves an MCP OAuth access token (Authorization: Bearer) to its user id.
+ * The Better Auth mcp plugin's getMcpSession returns the stored token without
+ * checking accessTokenExpiresAt, so expiry is enforced here.
+ */
+async function getMcpUserId(request: Request): Promise<string | null> {
+  const auth = await getAuth();
+  const token = (await auth.api.getMcpSession({ headers: request.headers })) as McpAccessToken | null;
+  if (!token?.userId) return null;
+  if (new Date(token.accessTokenExpiresAt).getTime() <= Date.now()) return null;
+  return token.userId;
+}
+
+function hasBearerToken(request: Request): boolean {
+  return request.headers.get("authorization")?.startsWith("Bearer ") ?? false;
+}
+
+/**
+ * Returns the authenticated user for a browser session cookie or an MCP bearer
+ * token, or null. Routes rely only on `session.user.id`. A bearer token never
+ * falls back to the cookie: an invalid token is unauthenticated.
+ */
 export async function requireSession(request: Request) {
+  if (hasBearerToken(request)) {
+    const userId = await getMcpUserId(request);
+    return userId ? { user: { id: userId } } : null;
+  }
   const auth = await getAuth();
   let result;
   try {
