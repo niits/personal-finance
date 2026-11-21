@@ -14,6 +14,9 @@ The canonical Finance route is `/finance`. A content selector switches between N
 Tiền gửi, and Chi thẻ; it is not a second global navigation bar. Each mode leads with
 one truthful total, then the relevant account or group list.
 
+Overdraft accounts appear with the debts, labeled `Thấu chi`, showing the amount owed
+to the bank and the repayment action.
+
 Finance-account detail uses `/finance/accounts/:id` and shows the computed outcome,
 status, and complete movement ledger. Reverse balances use explicit language such as
 overpaid, over-received, or over-withdrawn.

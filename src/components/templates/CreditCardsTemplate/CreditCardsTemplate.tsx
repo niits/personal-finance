@@ -29,8 +29,10 @@ export type FinanceAccount = {
   name: string;
   debt_direction: "lend" | "borrow" | null;
   note: string | null;
+  /** Bank overdraft account: purchases paid from it increase the amount owed. */
+  is_overdraft?: boolean;
   balance: number;
-  transactions: { id: number; amount: number; type: "income" | "expense"; date: string; note: string | null }[];
+  transactions: { id: number; amount: number; type: "income" | "expense"; date: string; note: string | null; overdraft_purchase?: boolean }[];
 };
 
 type GroupInput = { name: string; statement_close_day: number };
@@ -73,9 +75,8 @@ function accountMeaning(account: FinanceAccount) {
       ? { label: "Nhận vượt tiền đã cho vay", amount: account.balance }
       : { label: "Còn được nhận", amount: -account.balance };
   }
-  return account.balance < 0
-    ? { label: "Trả vượt tiền đã vay", amount: -account.balance }
-    : { label: "Còn phải trả", amount: account.balance };
+  if (account.balance < 0) return { label: "Trả vượt tiền đã vay", amount: -account.balance };
+  return { label: account.is_overdraft ? "Đang nợ ngân hàng" : "Còn phải trả", amount: account.balance };
 }
 
 export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
@@ -102,7 +103,7 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
   const debtTotals = debts.reduce((totals, account) => {
     const meaning = accountMeaning(account);
     if (meaning.label === "Còn được nhận") totals.receivable += meaning.amount;
-    if (meaning.label === "Còn phải trả") totals.payable += meaning.amount;
+    if (meaning.label === "Còn phải trả" || meaning.label === "Đang nợ ngân hàng") totals.payable += meaning.amount;
     return totals;
   }, { receivable: 0, payable: 0 });
   const savingsTotal = savings.reduce((total, account) => total - account.balance, 0);
@@ -198,13 +199,13 @@ export function CreditCardsTemplate(props: CreditCardsTemplateProps) {
                 const reduction = financeReduction(account);
                 return <article key={account.id} className="py-md first:pt-0">
                   <button type="button" onClick={() => setExpandedId(expanded ? null : account.id)} aria-expanded={expanded} className="flex min-h-11 w-full items-start justify-between gap-md border-0 bg-transparent text-left">
-                    <span className="min-w-0"><span className="block break-words font-body text-[17px] font-semibold text-ink">{account.name}</span><span className="mt-xxs block font-body text-[13px] text-ink-muted-48">{account.type === "debt" ? account.debt_direction === "lend" ? "Cho vay" : "Đi vay" : "Tiền gửi"}{account.note ? ` · ${account.note}` : ""}</span></span>
+                    <span className="min-w-0"><span className="block break-words font-body text-[17px] font-semibold text-ink">{account.name}</span><span className="mt-xxs block font-body text-[13px] text-ink-muted-48">{account.type === "debt" ? account.debt_direction === "lend" ? "Cho vay" : account.is_overdraft ? "Thấu chi" : "Đi vay" : "Tiền gửi"}{account.note ? ` · ${account.note}` : ""}</span></span>
                     <span className="shrink-0 text-right"><span className="block font-display text-[17px] font-semibold text-ink">{formatVND(meaning.amount)}₫</span><span className="block font-body text-[13px] text-ink-muted-48">{meaning.label}</span></span>
                   </button>
                   {expanded ? <div className="mt-md border-t border-divider-soft pt-md">
                     {reduction && props.onCreateCounterpart ? <button type="button" onClick={() => props.onCreateCounterpart?.(account)} className="mb-md min-h-11 rounded-sm border-0 bg-primary px-md font-body text-[15px] font-semibold text-on-primary">{reduction.label}</button> : null}
                     <p className="font-body text-[13px] font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Lịch sử giao dịch</p>
-                    {account.transactions.length === 0 ? <p className="mt-sm font-body text-[15px] text-ink-muted-48">Tài khoản đã tạo nhưng chưa có giao dịch.</p> : account.transactions.map((transaction) => <div key={transaction.id} className="flex min-h-11 w-full justify-between gap-sm border-b border-divider-soft py-sm last:border-0"><span className="min-w-0"><span className="block break-words font-body text-[15px] text-ink">{transaction.note || "Giao dịch"}</span><span className="font-body text-[13px] text-ink-muted-48">{transaction.date}</span></span><span className={`shrink-0 font-body text-[15px] font-semibold ${transaction.type === "expense" ? "text-danger" : "text-success"}`}>{signedAmount(transaction.type, transaction.amount)}</span></div>)}
+                    {account.transactions.length === 0 ? <p className="mt-sm font-body text-[15px] text-ink-muted-48">Tài khoản đã tạo nhưng chưa có giao dịch.</p> : account.transactions.map((transaction) => <div key={transaction.id} className="flex min-h-11 w-full justify-between gap-sm border-b border-divider-soft py-sm last:border-0"><span className="min-w-0"><span className="block break-words font-body text-[15px] text-ink">{transaction.note || "Giao dịch"}</span><span className="font-body text-[13px] text-ink-muted-48">{transaction.date}{transaction.overdraft_purchase ? " · Chi bằng thấu chi" : ""}</span></span><span className={`shrink-0 font-body text-[15px] font-semibold ${transaction.type === "expense" ? "text-danger" : "text-success"}`}>{signedAmount(transaction.type, transaction.amount)}</span></div>)}
                     <div className="mt-md flex gap-xs"><button type="button" onClick={() => { setEditingAccount(account); setAccountName(account.name); setAccountNote(account.note ?? ""); setMutationError(null); }} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-primary">Sửa thông tin</button><button type="button" onClick={() => setDeleteTarget({ kind: "account", id: account.id, name: account.name })} className="min-h-11 rounded-sm border border-hairline bg-canvas px-md font-body text-[15px] text-danger">Xóa</button></div>
                   </div> : null}
                 </article>;

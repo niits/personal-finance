@@ -39,6 +39,7 @@ does not resolve a real semantic conflict.
 | [`product/behavior/transactions.md`](./product/behavior/transactions.md) | Transaction lifecycle, consumption, debt, savings, and account association |
 | [`product/behavior/budgets.md`](./product/behavior/budgets.md) | Working-day periods, effective limits, adjustments, pace, and custom budgets |
 | [`product/behavior/credit-cards.md`](./product/behavior/credit-cards.md) | Card groups, statements, payments, and unpaid-spend semantics |
+| [`product/behavior/overdraft.md`](./product/behavior/overdraft.md) | Overdraft accounts as a payment method, amount owed, and repayments |
 | [`product/behavior/categories.md`](./product/behavior/categories.md) | Hierarchy, assignability, protected categories, and deletion rules |
 
 ### Design

@@ -21,7 +21,8 @@ I do next?
 3. Segmented progress bar of consumption against the budget. The amber segment is the
    unpaid-card subset; a labeled `Dư nợ thẻ tín dụng` line states the amount. When
    consumption exceeds the limit, the bar turns danger red and a textual `Vượt hạn mức`
-   cue accompanies it — color is never the only cue.
+   cue accompanies it — color is never the only cue. When money is owed on overdraft
+   accounts, a `Nợ thấu chi ngân hàng` line states the current total owed.
 4. Primary floating add-transaction action at the bottom-right, above bottom navigation.
 5. Full reverse-chronological transaction ledger grouped by date.
 

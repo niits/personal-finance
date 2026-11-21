@@ -18,7 +18,8 @@
 
 - A consumption transaction uses an assignable leaf category whose budget behavior
   is `consumption`.
-- An expense uses cash or one card group. Split payment is not supported.
+- An expense uses cash, one card group, or one overdraft account. Split payment is not
+  supported. Overdraft payment is defined in [`overdraft.md`](./overdraft.md).
 - An expense may count in multiple active custom budgets; its full amount counts in
   each selected budget.
 - Income does not consume a monthly budget.

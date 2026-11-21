@@ -81,6 +81,8 @@ export interface TransactionTable {
   debt_id: string | null;
   finance_account_id: string | null;
   credit_card_group_id: string | null;
+  /** Overdraft account the expense was paid from (payment method, like a card group). */
+  overdraft_account_id: Generated<string | null>;
   linked_amount: number | null;
   created_at: Generated<number>;
   updated_at: Generated<number>;
@@ -134,6 +136,8 @@ export interface FinanceAccountTable {
   name: string;
   debt_direction: "lend" | "borrow" | null;
   note: string | null;
+  /** 1 for a bank overdraft account (always type debt, direction borrow). */
+  is_overdraft: Generated<number>;
   created_at: Generated<number>;
 }
 

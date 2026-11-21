@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { getKysely } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { withFinanceLimit } from "@/lib/finance-limit-response";
+import { overdraftPaymentError } from "@/lib/overdraft";
 import { Errors } from "@/lib/errors";
 import {
   parseAmount,
@@ -120,7 +121,7 @@ async function updateTransaction(request: NextRequest, { params }: { params: Par
 
   const existing = await db
     .selectFrom("transaction")
-    .select(["id", "type", "date", "category_id", "monthly_budget_id", "debt_id", "finance_account_id", "credit_card_group_id"])
+    .select(["id", "type", "date", "category_id", "monthly_budget_id", "debt_id", "finance_account_id", "credit_card_group_id", "overdraft_account_id"])
     .where("id", "=", txnId)
     .where("user_id", "=", userId)
     .executeTakeFirst();
@@ -215,6 +216,15 @@ async function updateTransaction(request: NextRequest, { params }: { params: Par
     cardStatement = group;
   }
 
+  const overdraftAccountId = "overdraft_account_id" in b ? (typeof b.overdraft_account_id === "string" ? b.overdraft_account_id : null) : existing.overdraft_account_id;
+  const overdraftError = overdraftPaymentError({ overdraftAccountId, type: newType, isConsumption, creditCardGroupId });
+  if (overdraftError) return Errors.validation(overdraftError);
+  if (overdraftAccountId) {
+    const account = await db.selectFrom("finance_account").select("id")
+      .where("id", "=", overdraftAccountId).where("user_id", "=", userId).where("is_overdraft", "=", 1).executeTakeFirst();
+    if (!account) return Errors.notFound("Tài khoản thấu chi không tồn tại");
+  }
+
   // Validate custom budget ownership
   if (newCustomBudgetIds && newCustomBudgetIds.length > 0) {
     const valid = await db
@@ -289,6 +299,7 @@ async function updateTransaction(request: NextRequest, { params }: { params: Par
   if (category) updateValues.monthly_budget_id = newMonthlyBudgetId;
   if ("finance_account_id" in b || category?.budget_behavior === "consumption") updateValues.finance_account_id = category?.budget_behavior === "non_budget" ? financeAccountId : null;
   if ("credit_card_group_id" in b || !isConsumption) updateValues.credit_card_group_id = isConsumption ? creditCardGroupId : null;
+  if ("overdraft_account_id" in b || !isConsumption) updateValues.overdraft_account_id = isConsumption ? overdraftAccountId : null;
   if (debtIdUpdate !== undefined) {
     updateValues.debt_id = debtIdUpdate;
     // Linking clears category and budget; unlinking also clears debt fields

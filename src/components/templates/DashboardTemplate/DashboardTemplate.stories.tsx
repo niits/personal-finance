@@ -218,3 +218,14 @@ export const TransactionActions: Story = {
 export const OrganizeApplied: Story = {
   args: { ...Default.args, organizeNotice: { message: "Đã hợp nhất 1 danh mục, sắp xếp 2 danh mục, tạo 0 danh mục, cập nhật 3 emoji và chuyển 125 giao dịch.", error: false } },
 };
+
+export const OverdraftOwed: Story = {
+  args: {
+    ...Default.args,
+    data: { ...mockData, overdraft_owed: 2_350_000 },
+    transactions: [
+      { ...mockTransactions[0], id: 90, note: "Sửa xe", overdraft_account: { id: "od-1", name: "Thấu chi VCB" } },
+      ...mockTransactions,
+    ],
+  },
+};

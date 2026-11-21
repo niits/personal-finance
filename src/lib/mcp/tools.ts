@@ -63,6 +63,7 @@ const transactionFields = {
   custom_budget_ids: z.array(numericId).optional().describe("Expense only: active custom budgets this expense also counts in."),
   finance_account_id: textId.nullable().optional().describe("Required for debt or savings categories (protected non-budget categories); must match the category's account family. Not allowed for consumption categories."),
   credit_card_group_id: textId.nullable().optional().describe("Consumption expense paid by this card group; omit or null for cash."),
+  overdraft_account_id: textId.nullable().optional().describe("Consumption expense paid from this overdraft account (is_overdraft in list_finance_accounts); increases the amount owed to the bank. Exclusive with credit_card_group_id."),
 };
 
 export const MCP_TOOLS: McpTool[] = [
@@ -111,7 +112,7 @@ export const MCP_TOOLS: McpTool[] = [
   },
   {
     name: "list_finance_accounts", title: "List finance accounts",
-    description: "Debt (lend/borrow) and savings accounts with balances derived from their transactions.",
+    description: "Debt (lend/borrow), savings, and bank overdraft (is_overdraft) accounts with balances derived from their transactions. For an overdraft account, balance is the amount owed to the bank.",
     annotations: READ, input: z.object({}),
     route: { method: "GET", path: "/api/finance-accounts", handler: h(financeAccounts.GET) },
   },
@@ -237,9 +238,15 @@ export const MCP_TOOLS: McpTool[] = [
   // ── Finance accounts and cards ──────────────────────────────────────────
   {
     name: "create_finance_account", title: "Create finance account",
-    description: "Create a debt account (debt_direction lend = someone owes the user, borrow = the user owes) or a savings account. Balances come from transactions.",
+    description: "Create a debt account (debt_direction lend = someone owes the user, borrow = the user owes), a savings account, or a bank overdraft account (is_overdraft: true; type and direction are set automatically). Balances come from transactions.",
     annotations: WRITE,
-    input: z.object({ type: z.enum(["debt", "savings"]), name: z.string().min(1), debt_direction: z.enum(["lend", "borrow"]).optional(), note: nullableText.optional() }),
+    input: z.object({
+      type: z.enum(["debt", "savings"]).optional().describe("Required unless is_overdraft is true."),
+      name: z.string().min(1),
+      debt_direction: z.enum(["lend", "borrow"]).optional(),
+      is_overdraft: z.boolean().optional(),
+      note: nullableText.optional(),
+    }),
     route: { method: "POST", path: "/api/finance-accounts", handler: h(financeAccounts.POST) },
   },
   {

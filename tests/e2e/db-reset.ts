@@ -143,3 +143,14 @@ export function expireMcpAccessToken(accessToken: string): void {
   db.prepare("UPDATE oauthAccessToken SET accessTokenExpiresAt = 0 WHERE accessToken = ?").run(accessToken);
   db.close();
 }
+
+/** Inserts the protected "Trả nợ" (debt_repayment) category that production seeds for new users. */
+export function seedRepaymentCategory(userId: string): void {
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO category (user_id, name, level, type, sort_order, system_kind, budget_behavior)
+     SELECT ?, 'Trả nợ', 1, 'expense', 0, 'debt_repayment', 'non_budget'
+     WHERE NOT EXISTS (SELECT 1 FROM category WHERE user_id = ? AND system_kind = 'debt_repayment')`,
+  ).run(userId, userId);
+  db.close();
+}

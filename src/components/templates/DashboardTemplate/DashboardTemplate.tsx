@@ -11,6 +11,8 @@ export type DashboardData = {
   period_end: string;
   total_expense: number;
   unpaid_card_spend: number;
+  /** Current total owed on overdraft accounts (a balance, not a period amount). */
+  overdraft_owed?: number;
   total_income: number;
   savings: number;
   monthly_budget: { id: number; amount: number; remaining: number } | null;
@@ -32,6 +34,7 @@ export type Transaction = {
   debt_id: string | null;
   finance_account_id: string | null;
   credit_card_group_id: string | null;
+  overdraft_account?: { id: string; name: string } | null;
   debt_party: string | null;
   debt_type: "lend" | "borrow" | null;
   note: string | null;
@@ -288,6 +291,11 @@ export function DashboardTemplate({
                     Dư nợ thẻ tín dụng <span className="font-semibold text-ink">{formatVND(data.unpaid_card_spend)}</span>
                   </p>
                 ) : null}
+                {data && (data.overdraft_owed ?? 0) > 0 ? (
+                  <p className="mt-xxs font-body text-sm text-ink-muted-80">
+                    Nợ thấu chi ngân hàng <span className="font-semibold text-warning">{formatVND(data.overdraft_owed ?? 0)}</span>
+                  </p>
+                ) : null}
               </>
             )}
           </section>
@@ -320,13 +328,16 @@ export function DashboardTemplate({
                         type="button"
                         key={transaction.id}
                         onClick={() => onSetActionTxn(transaction)}
-                        aria-label={`${name}, ${transaction.type === "expense" ? "chi" : "thu"} ${formatVND(transaction.amount)}, ${formatDateHeader(transaction.date)}`}
+                        aria-label={`${name}, ${transaction.type === "expense" ? "chi" : "thu"} ${formatVND(transaction.amount)}${transaction.overdraft_account ? `, trả bằng thấu chi ${transaction.overdraft_account.name}` : ""}, ${formatDateHeader(transaction.date)}`}
                         className={`flex min-h-11 w-full items-center gap-sm border-x-0 border-b-0 bg-canvas px-5 py-sm text-left ${index > 0 ? "border-t border-hairline" : "border-t-0"}`}
                       >
                         <TransactionIcon transaction={transaction} />
                         <span className="min-w-0 flex-1">
                           <span className="block whitespace-normal break-words font-body text-[15px] text-ink">{name}</span>
                           <span className="mt-xxs block whitespace-normal break-words font-body text-xs text-ink-muted-48">{context}</span>
+                          {transaction.overdraft_account ? (
+                            <span className="mt-xxs block whitespace-normal break-words font-body text-xs font-semibold text-warning">Thấu chi · {transaction.overdraft_account.name}</span>
+                          ) : null}
                           {transaction.custom_budgets.length > 0 ? (
                             <span className="mt-xxs block font-body text-xs text-primary">{transaction.custom_budgets.map((budgetItem) => budgetItem.name).join(" · ")}</span>
                           ) : null}
@@ -413,6 +424,7 @@ export function DashboardTemplate({
             debt_id: editTxn.debt_id,
             finance_account_id: editTxn.finance_account_id,
             credit_card_group_id: editTxn.credit_card_group_id,
+            overdraft_account: editTxn.overdraft_account ?? null,
             debt_party: editTxn.debt_party,
             debt_type: editTxn.debt_type,
             is_opening_tx: false,

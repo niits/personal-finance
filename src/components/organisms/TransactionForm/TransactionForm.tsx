@@ -22,6 +22,7 @@ export type EditTransaction = {
   debt_id: string | null;
   finance_account_id: string | null;
   credit_card_group_id: string | null;
+  overdraft_account?: { id: string; name: string } | null;
   debt_party: string | null;
   debt_type: "lend" | "borrow" | null;
   is_opening_tx: boolean;
@@ -62,6 +63,7 @@ type FinanceAccount = {
   type: "debt" | "savings";
   name: string;
   debt_direction: "lend" | "borrow" | null;
+  is_overdraft?: boolean;
   balance: number;
   transactions: { id: number; amount: number; type: "income" | "expense"; date: string; note: string | null }[];
 };
@@ -417,6 +419,9 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const [selectedCbIds, setSelectedCbIds] = useState<number[]>(() => editTx?.custom_budgets.map((c) => c.id) ?? []);
   const [financeAccountId, setFinanceAccountId] = useState<string | null>(counterpart?.account.id ?? editTx?.finance_account_id ?? null);
   const [creditCardGroupId, setCreditCardGroupId] = useState<string | null>(editTx?.credit_card_group_id ?? null);
+  const [overdraftAccountId, setOverdraftAccountId] = useState<string | null>(editTx?.overdraft_account?.id ?? null);
+  const [creatingOverdraft, setCreatingOverdraft] = useState(false);
+  const [newOverdraftName, setNewOverdraftName] = useState("");
   const [newAccountName, setNewAccountName] = useState("");
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [debtLink, setDebtLink] = useState<DebtLinkState>({ kind: "none" });
@@ -461,6 +466,8 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
   const customBudgets = cbData?.custom_budgets ?? [];
   const financeAccounts = accountData?.accounts ?? [];
   const cardGroups = cardData?.groups ?? [];
+  const overdraftAccounts = financeAccounts.filter((account) => account.is_overdraft);
+  const paymentValue = overdraftAccountId ? `overdraft:${overdraftAccountId}` : creditCardGroupId ? `card:${creditCardGroupId}` : creatingOverdraft ? "new-overdraft" : "";
   const selectedCategory = categoryId ? findCategoryById(allCats, categoryId) : null;
   const isSystemCategory = selectedCategory?.budget_behavior === "non_budget";
   const selectedCbIdSet = new Set(selectedCbIds);
@@ -534,6 +541,37 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       const { account } = await response.json() as { account: FinanceAccount };
       setFinanceAccountId(account.id);
       setNewAccountName("");
+      await refreshAccounts();
+    } finally {
+      isCreatingAccountRef.current = false;
+      setCreatingAccount(false);
+    }
+  }
+
+  function selectPayment(value: string) {
+    setCreatingOverdraft(value === "new-overdraft");
+    setCreditCardGroupId(value.startsWith("card:") ? value.slice("card:".length) : null);
+    setOverdraftAccountId(value.startsWith("overdraft:") ? value.slice("overdraft:".length) : null);
+  }
+
+  async function createOverdraftAccount() {
+    if (isCreatingAccountRef.current || !newOverdraftName.trim()) return;
+    isCreatingAccountRef.current = true;
+    setCreatingAccount(true);
+    try {
+      const response = await fetch("/api/finance-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_overdraft: true, name: newOverdraftName.trim() }),
+      });
+      if (!response.ok) {
+        setError((await response.json() as { error?: string }).error ?? "Không thể tạo tài khoản thấu chi");
+        return;
+      }
+      const { account } = await response.json() as { account: FinanceAccount };
+      setNewOverdraftName("");
+      setCreatingOverdraft(false);
+      setOverdraftAccountId(account.id);
       await refreshAccounts();
     } finally {
       isCreatingAccountRef.current = false;
@@ -626,7 +664,10 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
           body.category_id = categoryId;
           if (type === "expense") body.custom_budget_ids = selectedCbIds;
           if (isSystemCategory) body.finance_account_id = financeAccountId;
-          else if (type === "expense") body.credit_card_group_id = creditCardGroupId;
+          else if (type === "expense") {
+            body.credit_card_group_id = creditCardGroupId;
+            body.overdraft_account_id = overdraftAccountId;
+          }
         }
         // debt edit: amount/note/date/linked_amount
 
@@ -692,6 +733,7 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
       else if (type === "expense") {
         body.custom_budget_ids = selectedCbIds;
         if (creditCardGroupId) body.credit_card_group_id = creditCardGroupId;
+        if (overdraftAccountId) body.overdraft_account_id = overdraftAccountId;
       }
       const r = await fetch("/api/transactions", {
         method: "POST", headers: transactionHeaders,
@@ -969,13 +1011,32 @@ export function TransactionForm({ open, mode, onClose, onSaved }: TransactionFor
             </div>
           )}
 
-          {!isDebtMode && !isSystemCategory && type === "expense" && cardGroups.length > 0 && (
+          {!isDebtMode && !isSystemCategory && type === "expense" && (
             <div style={{ padding: "16px 0", borderTop: "1px solid var(--hairline)" }}>
               <label htmlFor="credit-card" className="font-body text-xs font-semibold uppercase tracking-[0.5px] text-ink-muted-48">Thanh toán</label>
-              <select id="credit-card" value={creditCardGroupId ?? ""} onChange={(e) => setCreditCardGroupId(e.target.value || null)} style={{ ...inputStyle, marginTop: 8 }}>
+              <select id="credit-card" value={paymentValue} onChange={(e) => selectPayment(e.target.value)} style={{ ...inputStyle, marginTop: 8 }}>
                 <option value="">Tiền mặt</option>
-                {cardGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+                {cardGroups.length > 0 && (
+                  <optgroup label="Thẻ tín dụng">
+                    {cardGroups.map((group) => <option key={group.id} value={`card:${group.id}`}>{group.name}</option>)}
+                  </optgroup>
+                )}
+                <optgroup label="Tài khoản thấu chi">
+                  {overdraftAccounts.map((account) => <option key={account.id} value={`overdraft:${account.id}`}>{account.name}</option>)}
+                  <option value="new-overdraft">+ Tạo tài khoản thấu chi</option>
+                </optgroup>
               </select>
+              {creatingOverdraft && (
+                <div className="mt-xs flex gap-xs">
+                  <input aria-label="Tên tài khoản thấu chi" value={newOverdraftName} onChange={(event) => setNewOverdraftName(event.target.value)} placeholder="Ví dụ: Thấu chi VCB" style={inputStyle} />
+                  <button type="button" onClick={createOverdraftAccount} disabled={creatingAccount || !newOverdraftName.trim()} className="rounded-pill border-none bg-primary px-3 font-body text-sm text-on-primary disabled:opacity-50">{creatingAccount ? "Đang tạo…" : "Tạo"}</button>
+                </div>
+              )}
+              {overdraftAccountId && (
+                <p role="note" className="mt-xs font-body text-[13px] leading-[18px] text-warning">
+                  Khoản chi này sẽ được ghi là nợ thấu chi với ngân hàng. Bạn có thể trả nợ trong mục Tài chính.
+                </p>
+              )}
             </div>
           )}
 
