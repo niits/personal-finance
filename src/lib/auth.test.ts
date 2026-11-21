@@ -2,13 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // auth.ts dynamically imports these inside getAuth(); mock both so the test runs
 // in plain node without a Workers runtime or a real better-auth instance.
-const { getCloudflareContext, betterAuth } = vi.hoisted(() => ({
+const { getCloudflareContext, betterAuth, mcp } = vi.hoisted(() => ({
   getCloudflareContext: vi.fn(),
   betterAuth: vi.fn((config: unknown) => ({ config })),
+  mcp: vi.fn((options: unknown) => ({ id: "mcp", options })),
 }));
 
 vi.mock("@opennextjs/cloudflare", () => ({ getCloudflareContext }));
 vi.mock("better-auth", () => ({ betterAuth }));
+vi.mock("better-auth/plugins", () => ({ mcp }));
 
 import { getAuth } from "./auth";
 
@@ -53,6 +55,25 @@ describe("getAuth", () => {
 
     expect(betterAuth).toHaveBeenCalledWith(
       expect.objectContaining({ database: fakeEnv.DB, secret: fakeEnv.BETTER_AUTH_SECRET }),
+    );
+  });
+
+  // Dynamic client registration is open, so the consent page is the only thing
+  // standing between a crafted authorize link and a silently issued code.
+  it("registers the MCP OAuth plugin with a consent page and mandatory S256 PKCE", async () => {
+    await getAuth();
+
+    expect(mcp).toHaveBeenCalledWith(expect.objectContaining({
+      loginPage: "/sign-in",
+      resource: "https://example.test/api/mcp",
+      oidcConfig: expect.objectContaining({
+        consentPage: "/oauth/consent",
+        requirePKCE: true,
+        allowPlainCodeChallengeMethod: false,
+      }),
+    }));
+    expect(betterAuth).toHaveBeenCalledWith(
+      expect.objectContaining({ plugins: [expect.objectContaining({ id: "mcp" })] }),
     );
   });
 });

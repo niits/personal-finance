@@ -54,6 +54,7 @@ does not resolve a real semantic conflict.
 | [`design/surfaces/account.md`](./design/surfaces/account.md) | Management links, providers, and sign-out |
 | [`design/surfaces/budgets.md`](./design/surfaces/budgets.md) | Monthly/custom budget management hierarchy |
 | [`design/surfaces/categories.md`](./design/surfaces/categories.md) | Category tree management and protected states |
+| [`design/surfaces/oauth-consent.md`](./design/surfaces/oauth-consent.md) | MCP client access approval and invalid-request states |
 
 ### Architecture And Features
 
@@ -77,6 +78,7 @@ does not resolve a real semantic conflict.
 | [`005-adopt-calm-ledger-redesign.md`](./decisions/005-adopt-calm-ledger-redesign.md) | Accepted | Adopt outcome-driven Calm Ledger composition |
 | [`006-http-revalidation-for-editable-history.md`](./decisions/006-http-revalidation-for-editable-history.md) | Accepted | Use private validator-based revalidation for mutable history |
 | [`007-authentication-and-ai-providers.md`](./decisions/007-authentication-and-ai-providers.md) | Accepted | Support Google and GitHub with OpenAI |
+| [`008-mcp-access-through-better-auth-oauth.md`](./decisions/008-mcp-access-through-better-auth-oauth.md) | Accepted | MCP access through Better Auth OAuth with mandatory consent |
 
 ### Incidents
 
