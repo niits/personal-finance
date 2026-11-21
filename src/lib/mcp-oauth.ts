@@ -32,3 +32,13 @@ export function toConsentRequest(client: OAuthClientRow | undefined, accountEmai
   if (hosts.size === 0) return null;
   return { clientName: client.name, redirectHost: [...hosts].join(", "), accountEmail };
 }
+
+/**
+ * The mcp plugin sends an unauthenticated authorization request to the sign-in page
+ * with the original query string. Returns the URL that resumes that authorization,
+ * or null when the sign-in page was opened normally.
+ */
+export function pendingAuthorizationUrl(searchParams: URLSearchParams): string | null {
+  if (!searchParams.get("client_id") || !searchParams.get("response_type")) return null;
+  return `${AUTHORIZE_PATH}?${searchParams.toString()}`;
+}

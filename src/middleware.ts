@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
+import { pendingAuthorizationUrl } from "@/lib/mcp-oauth";
 
 // Auth pages: redirect to / if already authenticated
 const AUTH_PAGES = ["/sign-in", "/forgot-password", "/reset-password"];
@@ -34,7 +35,9 @@ export function middleware(request: NextRequest) {
   const isAuthenticated = hasSessionCookie(request);
 
   // Rule 1: Auth pages + authenticated → redirect to /
-  if (isAuthPage(pathname) && isAuthenticated) {
+  // Exception: the MCP authorization flow only reaches /sign-in after Better Auth
+  // rejected the session, so a cookie here is stale; keep the sign-in page.
+  if (isAuthPage(pathname) && isAuthenticated && !pendingAuthorizationUrl(request.nextUrl.searchParams)) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
