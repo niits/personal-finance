@@ -199,4 +199,6 @@ export interface Database {
   credit_card_group: CreditCardGroupTable;
   credit_card: CreditCardTable;
   credit_card_statement: CreditCardStatementTable;
+  // Better Auth mcp plugin table; only the columns the app reads directly.
+  oauthApplication: { clientId: string; name: string; redirectUrls: string; disabled: number | null };
 }

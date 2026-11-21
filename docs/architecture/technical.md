@@ -31,7 +31,13 @@ scope every read and mutation to `session.user.id`. Scheduler-only entry points 
 their explicit bearer secret. Cookie-based route guarding is only an optimistic UX
 boundary; API authorization remains authoritative.
 
-See [`ADR 007`](../decisions/007-authentication-and-ai-providers.md).
+MCP clients authenticate with per-user OAuth access tokens issued by the Better Auth
+`mcp` plugin. Every authorization requires explicit approval on `/oauth/consent`
+(clients cannot request silent authorization), and PKCE `S256` is mandatory. A token
+resolves to one Better Auth user and is scoped exactly like that user's session.
+
+See [`ADR 007`](../decisions/007-authentication-and-ai-providers.md) and
+[`ADR 008`](../decisions/008-mcp-access-through-better-auth-oauth.md).
 
 ## Canonical Application Routes
 
@@ -44,6 +50,7 @@ See [`ADR 007`](../decisions/007-authentication-and-ai-providers.md).
 | `/account` | Management, providers, and session actions |
 | `/account/budget` | Monthly and custom budget management |
 | `/account/categories` | Category management |
+| `/oauth/consent` | Approve or deny an MCP client's access request |
 
 Legacy `/cards`, `/debts`, `/budget`, and `/categories` paths redirect permanently to
 their canonical destination. Account export is not part of the route or API contract.
@@ -52,7 +59,7 @@ their canonical destination. Account export is not part of the route or API cont
 
 | Entity | Target responsibility and invariant |
 |---|---|
-| Better Auth tables | Users, sessions, provider accounts, and verification records. |
+| Better Auth tables | Users, sessions, provider accounts, verification records, and MCP OAuth clients, tokens, and consents. |
 | `category` | User-owned three-level income/expense hierarchy with protected system kinds and consumption behavior. |
 | `transaction` | Positive VND movement associated with category, budget, custom budgets, finance account, or card group as required by its kind. |
 | `monthly_budget` | One row per user/month label; stored period boundaries; `amount` is the current effective limit. |
@@ -84,7 +91,8 @@ contract. Migration changes use expand/contract deployment and preserve user dat
 
 | Family | Target operations |
 |---|---|
-| `/api/auth/*` | Better Auth handlers for Google and GitHub. |
+| `/api/auth/*` | Better Auth handlers for Google and GitHub, and the MCP OAuth server (`/api/auth/mcp/*`). |
+| `/.well-known/oauth-*` | OAuth authorization server and protected resource metadata for MCP clients. |
 | `/api/categories` | Read, seed, create, update, and guarded delete. |
 | `/api/categories/organize` | Preview AI parent–child and sibling-order changes to existing categories. |
 | `/api/categories/organize/apply` | Validate a whole-tree snapshot and atomically apply hierarchy changes. |

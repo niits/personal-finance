@@ -2,15 +2,17 @@ import { Kysely } from "kysely";
 import { D1Dialect } from "kysely-d1";
 import type { Database } from "@/lib/schema";
 import { seedNewUser } from "./seed";
+import { MCP_CONSENT_PAGE } from "./mcp-oauth";
 
 // Built per request — never cache in module scope. The auth instance closes over
 // the request-scoped D1 binding from getCloudflareContext(); reusing it across
 // requests in a warm isolate queries through a stale binding whose proxy can no
 // longer resolve the request state ("No request state found"). See AGENTS.md.
 export async function getAuth() {
-  const [{ getCloudflareContext }, { betterAuth }] = await Promise.all([
+  const [{ getCloudflareContext }, { betterAuth }, { mcp }] = await Promise.all([
     import("@opennextjs/cloudflare"),
     import("better-auth"),
+    import("better-auth/plugins"),
   ]);
 
   // false positive: getCloudflareContext is destructured from the dynamic import
@@ -79,6 +81,22 @@ export async function getAuth() {
         clientSecret: cfEnv.GITHUB_CLIENT_SECRET,
       },
     },
+    plugins: [
+      // OAuth 2.1 server for MCP clients (Claude). Dynamic client registration is
+      // open, so the auth route forces prompt=consent on every authorization and
+      // consentPage must stay set: without it the plugin redirects the code
+      // straight to the client's redirect_uri. See src/lib/mcp-oauth.ts.
+      mcp({
+        loginPage: "/sign-in",
+        resource: `${cfEnv.BETTER_AUTH_URL}/api/mcp`,
+        oidcConfig: {
+          loginPage: "/sign-in",
+          consentPage: MCP_CONSENT_PAGE,
+          requirePKCE: true,
+          allowPlainCodeChallengeMethod: false,
+        },
+      }),
+    ],
     databaseHooks: {
       user: {
         create: {
